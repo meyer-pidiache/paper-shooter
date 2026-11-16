@@ -308,6 +308,13 @@ export function createApplication(options: ApplicationOptions) {
       online: runtime.online,
       level: () => runtime.state.level,
       musicWanted: () => runtime.state.musicWanted,
+      stats: {
+        enabled: () => runtime.state.nerdStats,
+        ping: () => {
+          const ping = runtime.net.getNerdPing?.() ?? { value: null, label: 'N/A' };
+          return runtime.online() ? ping : { value: null, label: 'N/A' };
+        },
+      },
       audioReady: () => !!audio.ctx,
       remoteCount: () => runtime.remote.size,
       clearBoss: () => {

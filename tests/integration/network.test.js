@@ -124,6 +124,27 @@ describe('PeerJS lobby transport', () => {
     expect(b.connected).toBe(false);
   });
 
+  it('measures active peer round trips and clears samples when disabled or disconnected', async () => {
+    vi.useFakeTimers();
+    const { client } = setup();
+    const host = client();
+    const guest = client();
+    await host.host({ code: 'PING1' });
+    await guest.join('PING1');
+    host.setNerdStatsEnabled(true);
+    guest.setNerdStatsEnabled(true);
+    await vi.advanceTimersByTimeAsync(1500);
+    await flushMessages();
+    expect(host.getNerdPing().label).toBe('PEERS MEDIAN · 1');
+    expect(host.getNerdPing().value).not.toBeNull();
+    expect(guest.getNerdPing().label).toBe('HOST');
+    expect(guest.getNerdPing().value).not.toBeNull();
+    host.setNerdStatsEnabled(false);
+    expect(host.getNerdPing().value).toBeNull();
+    guest.leave();
+    expect(host.getNerdPing().label).toBe('PEERS MEDIAN · 0');
+  });
+
   it('finds public lobbies without joining and lets quick play seat a player', async () => {
     vi.useFakeTimers();
     const { client } = setup();

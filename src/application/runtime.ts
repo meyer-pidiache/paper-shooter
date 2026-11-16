@@ -64,7 +64,8 @@ export function createRuntime(options: ApplicationOptions, actions: CombatAction
   };
   const progress = new RunProgress(state, preferences);
   const input: ApplicationInput = options.input ?? new Input(canvas);
-  const hud: ApplicationHud = options.hud ?? new HUD(options.hudRoot);
+  const hud: ApplicationHud =
+    options.hud ?? new HUD(options.hudRoot, (action: string) => input.keyLabel?.(action) ?? action);
   const effects = new Effects(R.scene, world, resources);
   let combat: Combat | null = null;
   const game: GameState = {
@@ -211,7 +212,16 @@ export function createRuntime(options: ApplicationOptions, actions: CombatAction
     audio,
     player,
     transport: net,
+    setAppearance: (appearance) => {
+      if (typeof document !== 'undefined') document.documentElement.dataset.theme = appearance;
+      R.setDarkMode?.(appearance === 'dark');
+    },
+    setNerdStatsVisible: (visible) => {
+      hud.setNerdStatsVisible?.(visible);
+      hud.setNerdStats?.(null, null, 'N/A');
+    },
   });
+  userSettings.applyInitial();
   const remote = new Map<string, RemotePlayer>();
   const lobby: LobbyState = {
     players: new Map(),

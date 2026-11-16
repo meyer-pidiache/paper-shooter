@@ -1,5 +1,7 @@
 import { knownMap } from '../domain/maps';
 import type { MapKey } from '../domain/maps';
+import { cloneKeyBindings, normalizeKeyBindings } from '../shared/key-bindings.js';
+import type { KeyBindings } from '../shared/key-bindings.js';
 
 export interface SavedPreferences {
   mapKey: MapKey;
@@ -7,6 +9,9 @@ export interface SavedPreferences {
   checkpoint: number;
   musicWanted: boolean;
   myName: string;
+  appearance: 'light' | 'dark';
+  nerdStats: boolean;
+  keyBindings: KeyBindings;
   settings: { sens: number; invert: boolean };
 }
 export interface PreferencePort {
@@ -50,12 +55,22 @@ export class Preferences implements PreferencePort {
   }
 
   load(random: () => number = Math.random): SavedPreferences {
+    let keyBindings: KeyBindings = cloneKeyBindings();
+    try {
+      const saved = this.read('keyBindings');
+      if (saved) keyBindings = normalizeKeyBindings(JSON.parse(saved));
+    } catch {
+      keyBindings = normalizeKeyBindings(null);
+    }
     return {
       mapKey: knownMap(this.read('map')),
       best: boundedNumber(this.read('best'), 0, 0, Number.MAX_SAFE_INTEGER),
       checkpoint: Math.floor(boundedNumber(this.read('checkpoint'), 0, 0, 10000) / 5) * 5,
       musicWanted: this.read('music') !== '0',
       myName: this.read('name')?.slice(0, 14) || `paper${Math.floor(random() * 90 + 10)}`,
+      appearance: this.read('appearance') === 'dark' ? 'dark' : 'light',
+      nerdStats: this.read('nerdStats') === '1',
+      keyBindings,
       settings: {
         sens: boundedNumber(this.read('sens'), 100, 25, 250),
         invert: this.read('invert') === '1',

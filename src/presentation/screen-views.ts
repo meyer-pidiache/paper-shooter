@@ -1,6 +1,5 @@
 import { LEVELS } from '../domain/maps.js';
 import type { MapKey } from '../domain/maps.js';
-import { CONTROLS_HTML } from './input-guide.js';
 import { FFA_TARGET } from '../domain/match.js';
 import { escapeHtml as esc } from './html.js';
 import type {
@@ -28,7 +27,7 @@ export function mapHTML(sel: MapKey, canPick: boolean) {
 export function mainHTML(view: MainScreenView, settings: string) {
   return `<h1>PAPER SHOOTER</h1><h2>a scribbled survival shooter</h2>
     <div class="mainbtns"><button type="button" class="start" id="soloBtn">START<i>solo · survive the waves</i></button><button type="button" id="onlineBtn">PLAY ONLINE<i>free for all · up to 10 players</i></button></div>
-    ${mapHTML(view.mapKey, true)}${CONTROLS_HTML}${settings}${checkpointHTML(view.checkpoint)}${view.best ? `<div class="beststat">best score: ${view.best}</div>` : ''}`;
+    ${mapHTML(view.mapKey, true)}${settings}${checkpointHTML(view.checkpoint)}${view.best ? `<div class="beststat">best score: ${view.best}</div>` : ''}`;
 }
 
 export function onlineHTML(view: OnlineScreenView, list: string) {
@@ -36,10 +35,9 @@ export function onlineHTML(view: OnlineScreenView, list: string) {
     <div class="online" id="online">
       <div class="row"><span>your name</span><input type="text" class="namebox" id="setName" maxlength="14" value="${esc(view.myName)}"></div>
       <div class="row"><button type="button" class="big" id="quickBtn">QUICK PLAY</button><span class="hint">jumps into an open public lobby, or opens one for you</span></div>
-      <div class="row split"><span>or</span></div>
-      <div class="row"><button type="button" id="createBtn">CREATE LOBBY</button><div class="radio"><label><input type="radio" name="vis" value="public" ${view.isPublic ? 'checked' : ''}> public</label><label><input type="radio" name="vis" value="private" ${view.isPublic ? '' : 'checked'}> private · friends only</label></div></div>
-      <div class="row"><span>have a code?</span><input type="text" id="codeBox" placeholder="CODE" maxlength="5" autocomplete="off"><button type="button" id="joinBtn">JOIN</button></div>
-      <div class="lobbylist" id="lobbylist"><div class="row"><span>public lobbies</span><button type="button" class="alt" id="refreshBtn">REFRESH</button></div><div class="rows" id="lobbyRows">${list}</div></div>
+      <details class="online-flow" id="createFlow"><summary>CREATE A GAME</summary><p class="hint">Choose who can discover and join your lobby.</p><div class="row"><div class="radio"><label><input type="radio" name="vis" value="public" ${view.isPublic ? 'checked' : ''}> public · listed for everyone</label><label><input type="radio" name="vis" value="private" ${view.isPublic ? '' : 'checked'}> private · friends with the code</label></div><button type="button" id="createBtn">CREATE LOBBY</button></div></details>
+      <details class="online-flow" id="joinFlow"><summary>JOIN WITH CODE</summary><p class="hint">Enter the five-letter code shared by your friend.</p><div class="row"><input type="text" id="codeBox" placeholder="CODE" maxlength="5" autocomplete="off" aria-label="Lobby code"><button type="button" id="joinBtn">JOIN</button></div></details>
+      <details class="online-flow" id="browseFlow"><summary>BROWSE PUBLIC GAMES</summary><div class="lobbylist" id="lobbylist"><div class="row"><span>open public lobbies</span><button type="button" class="alt" id="refreshBtn">REFRESH</button></div><div class="rows" id="lobbyRows">${list}</div></div></details>
       <div class="status" id="status">${esc(view.status || '')}</div>
       ${view.rejoinCode ? `<div class="row"><button type="button" class="big" id="rejoinBtn">REJOIN ${esc(view.rejoinCode)}</button></div>` : ''}
       <div class="row"><button type="button" class="alt" id="backBtn">BACK</button></div>
@@ -89,7 +87,7 @@ export function pauseOnlineHTML(view: PauseScreenView, settings: string, confirm
     )
     .join(
       '',
-    )}</div>${CONTROLS_HTML}${settings}<div class="online" id="online"><div class="row"><button type="button" class="alt" id="leaveBtn">LEAVE MATCH</button></div></div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO KEEP PLAYING</div>`;
+    )}</div>${settings}<div class="online" id="online"><div class="row"><button type="button" class="alt" id="leaveBtn">LEAVE MATCH</button></div></div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO KEEP PLAYING</div>`;
 }
 
 export function pauseSoloHTML(
@@ -97,7 +95,7 @@ export function pauseSoloHTML(
   settings: string,
   confirm: string,
 ) {
-  return `<h1>PAUSED</h1><h2>wave ${view.wave} · score ${view.score}</h2>${CONTROLS_HTML}${settings}${menuBtnHTML()}<div class="go">CLICK ANYWHERE (or press ${confirm}) TO RESUME</div>`;
+  return `<h1>PAUSED</h1><h2>wave ${view.wave} · score ${view.score}</h2>${settings}${menuBtnHTML()}<div class="go">CLICK ANYWHERE (or press ${confirm}) TO RESUME</div>`;
 }
 
 export function deathHTML(view: DeathScreenView, newBest: boolean, confirm: string) {

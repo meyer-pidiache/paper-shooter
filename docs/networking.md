@@ -97,6 +97,17 @@ forwarding or handshake adoption. Snapshots have 11 or 14 finite values; vectors
 Roster sizes follow `MAX_PLAYERS`; tracer batches, strings, spawn/breakable indices, clock values
 and damage are bounded. These are input-safety contracts, not authentication or anti-cheat rules.
 
+## Optional multiplayer ping
+
+Nerd Stats reports application echo round-trip time over the active PeerJS WebRTC data connection.
+The guest measures its connection to the current host. A host sees the median of its active player
+connections, labeled with the number of fresh samples. This includes browser scheduling and remote
+message handling; it is not ICE candidate-pair RTT, lobby discovery, PeerServer signaling, or an API
+request. The opt-in sampler sends at most one small request per connection every 1.5 seconds and
+discards samples older than five seconds. Disabling the setting stops polling and clears samples.
+Peers answer these small requests even when their own overlay is disabled so another player can
+measure the established connection.
+
 ## Private runtime configuration
 
 | Variable                              | Meaning                                                                                |

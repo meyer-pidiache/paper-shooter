@@ -9,6 +9,7 @@ export function applicationFixture(map = 'district', options = {}) {
     scene: new Scene(),
     camera: new PerspectiveCamera(82, 1, 0.1, 300),
     render: vi.fn(),
+    setDarkMode: vi.fn(),
     dispose: vi.fn(),
   };
   const values = new Map([

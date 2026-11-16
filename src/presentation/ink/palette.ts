@@ -11,3 +11,15 @@ export function createInkColors(): Vector3[] {
     new Vector3(0.9, 0.4, 0.66),
   ];
 }
+
+/** Pastel inks selected for contrast against the night-paper palette. */
+export function createDarkInkColors(): Vector3[] {
+  return [
+    new Vector3(0.56, 0.68, 1),
+    new Vector3(1, 0.43, 0.5),
+    new Vector3(0.78, 0.83, 0.94),
+    new Vector3(1, 0.72, 0.36),
+    new Vector3(0.42, 0.87, 0.64),
+    new Vector3(0.98, 0.62, 0.84),
+  ];
+}

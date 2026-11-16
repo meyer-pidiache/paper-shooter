@@ -22,6 +22,7 @@ export const makeCode = () =>
   Array.from({ length: 5 }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join('');
 const JOIN_TIMEOUT = 14000,
   SIGNAL_TIMEOUT = 12000;
+const STATS_PING_TYPE = 'paper:nerd-stats';
 const defaults = networkConfig(
   import.meta.env,
   typeof location === 'undefined' ? 'localhost' : location.hostname,
@@ -58,6 +59,11 @@ export class Net {
     this.inMatch = false;
     this.hostName = '';
     this.stats = { sent: 0, recv: 0 };
+    this.nerdStatsEnabled = false;
+    this.pingSequence = 0;
+    this.pendingPings = new Map();
+    this.pingSamples = new Map();
+    this.pingTimer = null;
     this.isPublic = false;
     this.sessionAbort = new AbortController();
     this.discovery = new LobbyDiscovery(() => this._newPeer(null), this.prefix);
@@ -120,6 +126,10 @@ export class Net {
     conn.on('data', (msg) => {
       if (generation !== this.generation || this.conns.get(conn.peer) !== conn) return;
       this.stats.recv++;
+      if (msg && msg.t === STATS_PING_TYPE) {
+        this._handleStatsPing(conn, msg);
+        return;
+      }
       if (!isWireMessage(msg)) return;
       this._route(msg, conn.peer);
     });
@@ -129,13 +139,90 @@ export class Net {
   _drop(pid, connection) {
     if (this.leaving || !this.conns.has(pid) || this.conns.get(pid) !== connection) return;
     this.conns.delete(pid);
+    this.pingSamples.delete(pid);
+    for (const [key, pending] of this.pendingPings)
+      if (pending.peerId === pid) this.pendingPings.delete(key);
     if (this.isHost) {
       if (this.onPeerLeave) this.onPeerLeave(pid);
       this.broadcast('leave', { id: pid });
+      if (!this.conns.size) this._stopPingPolling();
     } else if (pid === this.hostId) {
       this.connected = false;
+      this._stopPingPolling();
       if (this.onDisconnect) this.onDisconnect();
     }
+  }
+  _now() {
+    return globalThis.performance?.now?.() ?? Date.now();
+  }
+  _handleStatsPing(conn, message) {
+    if (message.kind === 'ping' && Number.isSafeInteger(message.id)) {
+      if (conn.open) conn.send({ t: STATS_PING_TYPE, kind: 'pong', id: message.id });
+      return;
+    }
+    if (message.kind !== 'pong' || !Number.isSafeInteger(message.id)) return;
+    const key = `${conn.peer}:${message.id}`;
+    const pending = this.pendingPings.get(key);
+    if (!pending) return;
+    this.pendingPings.delete(key);
+    this.pingSamples.set(conn.peer, {
+      value: Math.max(0, this._now() - pending.started),
+      at: this._now(),
+    });
+  }
+  _startPingPolling() {
+    if (!this.nerdStatsEnabled || this.pingTimer != null || !this.active || !this.conns.size)
+      return;
+    this.pingTimer = setInterval(() => {
+      if (!this.active) return;
+      const now = this._now();
+      for (const [key, pending] of this.pendingPings)
+        if (now - pending.started > 5000) this.pendingPings.delete(key);
+      for (const [peerId, connection] of this.conns) {
+        if (!connection.open) continue;
+        if ([...this.pendingPings.values()].some((pending) => pending.peerId === peerId)) continue;
+        const id = ++this.pingSequence;
+        const key = `${peerId}:${id}`;
+        this.pendingPings.set(key, { peerId, started: now });
+        connection.send({ t: STATS_PING_TYPE, kind: 'ping', id });
+      }
+    }, 1500);
+  }
+  _stopPingPolling() {
+    clearInterval(this.pingTimer);
+    this.pingTimer = null;
+    this.pendingPings.clear();
+    this.pingSamples.clear();
+  }
+  setNerdStatsEnabled(enabled) {
+    this.nerdStatsEnabled = !!enabled;
+    if (this.nerdStatsEnabled) {
+      this._startPingPolling();
+      return;
+    }
+    this._stopPingPolling();
+  }
+  getNerdPing() {
+    if (!this.active) return { value: null, label: this.isHost ? 'PEERS MEDIAN' : 'HOST' };
+    const now = this._now();
+    if (!this.isHost) {
+      const sample = this.pingSamples.get(this.hostId);
+      return {
+        value: sample && now - sample.at <= 5000 ? sample.value : null,
+        label: 'HOST',
+      };
+    }
+    const values = [...this.pingSamples.values()]
+      .filter((sample) => now - sample.at <= 5000)
+      .map((sample) => sample.value)
+      .sort((a, b) => a - b);
+    const middle = Math.floor(values.length / 2);
+    const median = values.length
+      ? values.length % 2
+        ? values[middle]
+        : (values[middle - 1] + values[middle]) / 2
+      : null;
+    return { value: median, label: `PEERS MEDIAN · ${values.length}` };
   }
   _validMessage(msg) {
     return isWireMessage(msg) && this.validatePayload(msg.t, msg.d);
@@ -220,6 +307,7 @@ export class Net {
     this.accepting = true;
     this.peer.on('connection', (conn) => this._incoming(conn));
     this._keepAlive(this.peer);
+    this._startPingPolling();
     return this.code;
   }
   // someone knocking: a quick-play probe is told how full we are and only seated once it says it is staying
@@ -251,6 +339,7 @@ export class Net {
         if (this.conns.has(conn.peer)) return;
         this.conns.set(conn.peer, conn);
         this._wire(conn);
+        this._startPingPolling();
         if (this.onPeerJoin) this.onPeerJoin(conn.peer, conn.metadata || {});
       };
       const welcome = {
@@ -325,6 +414,7 @@ export class Net {
         adopt: (offer) => {
           this.code = lobbyCode(offer.details.code, offer.hostId.slice(this.prefix.length));
           this._adopt(offer.hostId, offer.connection, offer.details);
+          this._startPingPolling();
         },
       }).run();
     } catch (error) {
@@ -369,6 +459,8 @@ export class Net {
     return this.discovery.browse(meta, onStatus);
   }
   _adopt(hostId, conn, welcome) {
+    this.pingSamples.clear();
+    this.pendingPings.clear();
     this.hostId = hostId;
     // The physical connection may target a reclaimed alias after migration. The host broadcasts
     // with its canonical generation id, which is also used by the lobby and score tables.
@@ -377,12 +469,14 @@ export class Net {
     this.connected = true;
     this.isPublic = !!(welcome && welcome.isPublic);
     this._wire(conn);
+    this._startPingPolling();
   }
   leave() {
     this.generation++;
     this.sessionAbort.abort();
     this.sessionAbort = new AbortController();
     this.discovery.cancel();
+    this._stopPingPolling();
     // closing our own connections must not look like other people leaving
     this.leaving = true;
     clearTimeout(this._aliasTimer);

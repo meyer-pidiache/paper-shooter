@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { browserPreferences, Preferences } from '../../src/platform/preferences';
+import { DEFAULT_KEY_BINDINGS } from '../../src/shared/key-bindings';
 
 describe('browser preferences', () => {
   it('preserves old Doodle saves and gives Paper values precedence', () => {
@@ -53,5 +54,33 @@ describe('browser preferences', () => {
     expect(() => unavailable.write('map', 'mexico')).not.toThrow();
     expect(new Preferences(null).load(() => 0).mapKey).toBe('district');
     expect(browserPreferences().load().settings.sens).toBe(100);
+  });
+  it('loads theme, stats, and validated keyboard bindings with safe defaults', () => {
+    const values = new Map<string, string>([
+      ['paper_appearance', 'dark'],
+      ['paper_nerdStats', '1'],
+      [
+        'paper_keyBindings',
+        JSON.stringify({ ...DEFAULT_KEY_BINDINGS, jump: { keys: ['KeyJ'], mouse: [] } }),
+      ],
+    ]);
+    const prefs = new Preferences({
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value),
+    });
+    expect(prefs.load()).toMatchObject({
+      appearance: 'dark',
+      nerdStats: true,
+      keyBindings: { jump: { keys: ['KeyJ'], mouse: [] } },
+    });
+    values.set('paper_appearance', 'sepia');
+    values.set(
+      'paper_keyBindings',
+      JSON.stringify({ ...DEFAULT_KEY_BINDINGS, jump: { keys: ['KeyS'], mouse: [] } }),
+    );
+    const safe = prefs.load();
+    expect(safe.appearance).toBe('light');
+    expect(safe.keyBindings.jump).toEqual(DEFAULT_KEY_BINDINGS.jump);
+    expect(new Preferences(null).load().nerdStats).toBe(false);
   });
 });

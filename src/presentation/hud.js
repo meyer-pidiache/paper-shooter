@@ -2,8 +2,10 @@ import { KB_KEYS, PAD_KEYS } from './input-guide.js';
 export { KB_KEYS, PAD_KEYS, CONTROLS_HTML } from './input-guide.js';
 // DOM heads-up display drawn in "pen" style (multiplied over the paper canvas).
 export class HUD {
-  constructor(root) {
+  /** @param {((action: string) => string) | null} [keyLabel] */
+  constructor(root, keyLabel = null) {
     this.root = root;
+    this.keyLabel = keyLabel;
     root.innerHTML = `
       <div class="scope" id="scope"><div class="mask"></div><div class="ring"></div><div class="cx"></div><div class="cy"></div><div class="dot"></div></div>
       <div class="focus-meter" id="focusmeter"><div class="fm-label">KATANA</div><div class="fm-tube"><div class="fm-fill" id="fmfill"></div><i class="fm-f1"></i><i class="fm-f2"></i><i class="fm-f3"></i></div><div class="fm-ready" id="fmready">SLASH READY</div></div>
@@ -23,6 +25,7 @@ export class HUD {
       <div class="hud-br"><div class="slots" id="slots"></div><div class="weapon" id="weapon">RIFLE</div><div class="hint" id="hint"></div></div>
       <div class="tip" id="tip"></div>
       <div class="message"><div class="msg-main" id="msg"></div><div class="msg-sub" id="msgsub"></div></div>
+      <div class="nerd-stats" id="nerdStats" hidden aria-live="off">FPS -- · PING HOST -- ms</div>
       <div class="killfeed" id="killfeed"></div>
       <div class="screen" id="screen"><div class="panel" id="panel"></div></div>`;
     const q = (id) => root.querySelector('#' + id);
@@ -64,6 +67,7 @@ export class HUD {
       board: q('board'),
       gstam: q('gstam'),
       gstamfill: q('gstamfill'),
+      nerdStats: q('nerdStats'),
     };
     this._msgT = 0;
     this._scope = false;
@@ -79,6 +83,7 @@ export class HUD {
     this._mode = '';
     this.onScreenClick = null;
     this._tipT = 0;
+    this._nerdStatsText = '';
     this.el.screen.addEventListener('click', () => {
       if (this.onScreenClick) this.onScreenClick();
     });
@@ -120,7 +125,9 @@ export class HUD {
     if (this.onDevice) this.onDevice(pad);
   }
   key(action) {
-    return (this._pad ? PAD_KEYS : KB_KEYS)[action] || action;
+    if (this._pad) return PAD_KEYS[action] || action;
+    const dynamic = this.keyLabel?.(action);
+    return (dynamic && dynamic !== action ? dynamic : KB_KEYS[action]) || action;
   }
   setScope(on) {
     if (on === this._scope) return;
@@ -287,6 +294,17 @@ export class HUD {
   }
   setGameplayVisible(v) {
     this.root.classList.toggle('nogame', !v);
+  }
+  setNerdStatsVisible(visible) {
+    this.el.nerdStats.hidden = !visible;
+  }
+  setNerdStats(fps, ping, label) {
+    const fpsText = fps == null ? '--' : Math.round(fps).toString();
+    const pingText = ping == null ? '--' : ping.toFixed(1);
+    const text = `FPS ${fpsText} · PING ${label} ${pingText} ms`;
+    if (text === this._nerdStatsText) return;
+    this._nerdStatsText = text;
+    this.el.nerdStats.textContent = text;
   }
   update(dt) {
     if (this._msgT > 0) {

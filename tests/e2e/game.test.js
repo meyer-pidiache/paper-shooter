@@ -34,10 +34,10 @@ test('solo can pause and resume with the keyboard', async ({ page }) => {
 
 test('Paper settings survive a reload and inherit existing Doodle saves', async ({ page }) => {
   await page.addInitScript(() => {
-    if (!localStorage.getItem('doodle_map')) {
-      localStorage.setItem('doodle_map', 'mexico');
-      localStorage.setItem('doodle_best', '4321');
-    }
+    localStorage.removeItem('paper_map');
+    localStorage.removeItem('paper_best');
+    localStorage.setItem('doodle_map', 'mexico');
+    localStorage.setItem('doodle_best', '4321');
   });
   await page.goto('/');
   await expect(page.locator('.beststat')).toContainText('4321');

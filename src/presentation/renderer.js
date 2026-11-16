@@ -6,7 +6,7 @@ import {
   unregisterInkFrame,
   updateInkFrame,
 } from './ink/materials.js';
-import { createInkColors } from './ink/palette.js';
+import { createDarkInkColors, createInkColors } from './ink/palette.js';
 import { postVert, postFrag } from './ink/post-shaders.js';
 
 export class InkRenderer {
@@ -50,9 +50,12 @@ export class InkRenderer {
         uFlash: { value: 0 },
         uSlow: { value: 0 },
         uLowHp: { value: 0 },
+        uDarkMode: { value: 0 },
         uLineSpacing: { value: 60 },
         uPaper: { value: new THREE.Vector3(0.965, 0.955, 0.905) },
+        uDarkPaper: { value: new THREE.Vector3(0.035, 0.045, 0.085) },
         uInks: { value: createInkColors() },
+        uDarkInks: { value: createDarkInkColors() },
         uInvProj: { value: new THREE.Matrix4() },
         uInvView: { value: new THREE.Matrix4() },
       },
@@ -83,6 +86,9 @@ export class InkRenderer {
     u.uRes.value.set(rw, rh);
     u.uAspect.value = w / h;
     u.uLineSpacing.value = rh / 13.5;
+  }
+  setDarkMode(enabled) {
+    this.post.uniforms.uDarkMode.value = enabled ? 1 : 0;
   }
   render(time, fx = {}) {
     if (this.disposed) return;

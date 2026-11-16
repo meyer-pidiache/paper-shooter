@@ -21,6 +21,7 @@ export interface ScreenEvents {
 interface SettingsBinding {
   wire(panel: ParentNode): void;
   wireName(panel: ParentNode): void;
+  cancelCapture?(): void;
 }
 /** Browser event adapter; routing, map authority, progress and network policy belong to commands. */
 class ScreenBindings {
@@ -156,6 +157,7 @@ export class BrowserScreens {
     return this.hud.key('confirm');
   }
   show(html: string) {
+    this.settings.cancelCapture?.();
     this.hud.showScreen(html);
   }
   gameplay(visible: boolean) {

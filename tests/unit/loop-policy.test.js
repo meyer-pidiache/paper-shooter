@@ -78,6 +78,7 @@ function fixture() {
     onScreenClick: event('screenClick'),
     tip: event('tip'),
     setScore: event('score'),
+    setNerdStats: vi.fn(),
     setBoss: event('boss'),
     setAmmo: vi.fn(),
     setKatana: vi.fn(),
@@ -103,6 +104,8 @@ function fixture() {
     hud,
     state,
     userSettings: { toggleMusic: vi.fn(() => true) },
+    statsEnabled: false,
+    statsPing: { value: 42, label: 'HOST' },
     net: { active: false, isHost: false, send: event('send') },
     online: () => game.mode === 'ffa',
     enemies: { alive: 0, update: event('enemies') },
@@ -153,6 +156,10 @@ function fixture() {
       toggleMusic: () => runtime.userSettings.toggleMusic(),
       boardVisible: () => !hud.el.board.hidden,
       screenClick: () => hud.onScreenClick(),
+      stats: {
+        enabled: () => runtime.statsEnabled,
+        ping: () => runtime.statsPing,
+      },
     },
     actions,
   );
@@ -180,6 +187,19 @@ it('caps time at 50 ms and preserves simulation, network and presentation phase 
     'render',
   ]);
   expect(f.actions.updateDeath).toHaveBeenCalledWith('play', 0.05);
+});
+it('measures rendered animation frames and resets after a background-tab pause', () => {
+  const f = fixture();
+  f.runtime.statsEnabled = true;
+  f.loop.start();
+  for (let frame = 1; frame <= 61; frame++) f.loop.tick(f.start + (frame * 1000) / 60);
+  expect(f.hud.setNerdStats).toHaveBeenCalled();
+  expect(f.hud.setNerdStats.mock.lastCall[0]).toBeCloseTo(60);
+  expect(f.hud.setNerdStats.mock.lastCall.slice(1)).toEqual([42, 'HOST']);
+  f.loop.tick(f.start + 5000);
+  expect(f.hud.setNerdStats).toHaveBeenLastCalledWith(null, 42, 'HOST');
+  f.runtime.statsEnabled = false;
+  f.loop.stop();
 });
 it('uses the captured phase for a pause transition and scales simulation independently of real time', () => {
   const f = fixture();

@@ -14,6 +14,7 @@ export interface RenderingPort {
     time: number,
     effects?: { hurt?: number; flash?: number; slow?: number; lowHp?: number },
   ): void;
+  setDarkMode?(enabled: boolean): void;
   dispose(): void;
 }
 

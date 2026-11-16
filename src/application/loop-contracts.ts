@@ -27,7 +27,10 @@ export interface LoopPorts {
   input: { readonly anyInput: boolean; update(dt: number): void };
   enemies: { update(dt: number): void };
   effects: { update(dt: number): void };
-  hud: { setScore(points: number, combo: number): void };
+  hud: {
+    setScore(points: number, combo: number): void;
+    setNerdStats?(fps: number | null, ping: number | null, label: string): void;
+  };
   net: {
     readonly active: boolean;
     readonly isHost: boolean;
@@ -41,6 +44,10 @@ export interface LoopPorts {
   interaction: { update(phase: GamePhase, playing: boolean, dt: number): void };
   presentation: { present(playing: boolean, dt: number, scale: number): void };
   scheduling: FrameScheduling;
+  stats?: {
+    enabled(): boolean;
+    ping(): { value: number | null; label: string };
+  };
   actions: {
     updateFocus(dt: number): void;
     endFocus(): void;

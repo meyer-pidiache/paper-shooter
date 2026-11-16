@@ -1,21 +1,48 @@
 import type { SavedPreferences, PreferencePort } from '../platform/preferences.js';
 import type { MapKey } from '../domain/maps.js';
+import type { BindingDevice, KeyBindingAction, KeyBindings } from '../shared/key-bindings.js';
 
 export type UserSettingsState = Pick<
   SavedPreferences,
-  'settings' | 'musicWanted' | 'myName' | 'mapKey'
+  'settings' | 'musicWanted' | 'myName' | 'mapKey' | 'appearance' | 'nerdStats' | 'keyBindings'
 >;
 export interface UserSettingsPorts {
   state: UserSettingsState;
   preferences: Pick<PreferencePort, 'write'>;
-  input: { mouseSens: number; padSensX: number; padSensY: number; invertY: boolean };
+  input: {
+    mouseSens: number;
+    padSensX: number;
+    padSensY: number;
+    invertY: boolean;
+    setKeyBindings?(bindings: KeyBindings): void;
+    getKeyBindings?(): KeyBindings;
+    updateBinding?(
+      action: KeyBindingAction,
+      device: BindingDevice,
+      value: string | number,
+    ): string | null;
+    clearBinding?(action: KeyBindingAction, device: BindingDevice): void;
+    resetKeyBindings?(): void;
+    keyLabel?(action: string): string;
+    exitLock?(): void;
+  };
   audio: { musicOn(playing: boolean): void };
   player: { name: string };
-  transport: { hostName: string };
+  transport: { hostName: string; setNerdStatsEnabled?(enabled: boolean): void };
+  setAppearance?(appearance: 'light' | 'dark'): void;
+  setNerdStatsVisible?(visible: boolean): void;
 }
 /** Owns persisted user edits and adapter synchronization; no screen or DOM access. */
 export class UserSettings {
   constructor(private readonly ports: UserSettingsPorts) {}
+  applyInitial() {
+    const { state, input, transport, setAppearance } = this.ports;
+    input.setKeyBindings?.(state.keyBindings);
+    setAppearance?.(state.appearance);
+    transport.setNerdStatsEnabled?.(state.nerdStats);
+    this.ports.setNerdStatsVisible?.(state.nerdStats);
+    this.applyLook();
+  }
   applyLook() {
     const { state, input, preferences } = this.ports;
     const settings = state.settings;
@@ -39,6 +66,53 @@ export class UserSettings {
     state.musicWanted = value;
     preferences.write('music', state.musicWanted ? '1' : '0');
     audio.musicOn(state.musicWanted);
+  }
+  setAppearance(value: 'light' | 'dark') {
+    const { state, preferences, setAppearance } = this.ports;
+    state.appearance = value === 'dark' ? 'dark' : 'light';
+    preferences.write('appearance', state.appearance);
+    setAppearance?.(state.appearance);
+  }
+  setNerdStats(value: boolean) {
+    const { state, preferences, transport, setNerdStatsVisible } = this.ports;
+    state.nerdStats = !!value;
+    preferences.write('nerdStats', state.nerdStats ? '1' : '0');
+    transport.setNerdStatsEnabled?.(state.nerdStats);
+    setNerdStatsVisible?.(state.nerdStats);
+  }
+  getKeyBindings() {
+    return this.ports.input.getKeyBindings?.() ?? this.ports.state.keyBindings;
+  }
+  keyLabel(action: string) {
+    return this.ports.input.keyLabel?.(action) ?? action;
+  }
+  setBinding(action: KeyBindingAction, device: BindingDevice, value: string | number) {
+    const { input, state, preferences } = this.ports;
+    const conflict = input.updateBinding?.(action, device, value) ?? null;
+    if (!conflict && input.getKeyBindings) {
+      state.keyBindings = input.getKeyBindings();
+      preferences.write('keyBindings', JSON.stringify(state.keyBindings));
+    }
+    return conflict;
+  }
+  clearBinding(action: KeyBindingAction, device: BindingDevice) {
+    const { input, state, preferences } = this.ports;
+    input.clearBinding?.(action, device);
+    if (input.getKeyBindings) {
+      state.keyBindings = input.getKeyBindings();
+      preferences.write('keyBindings', JSON.stringify(state.keyBindings));
+    }
+  }
+  resetKeyBindings() {
+    const { input, state, preferences } = this.ports;
+    input.resetKeyBindings?.();
+    if (input.getKeyBindings) {
+      state.keyBindings = input.getKeyBindings();
+      preferences.write('keyBindings', JSON.stringify(state.keyBindings));
+    }
+  }
+  releasePointerLock() {
+    this.ports.input.exitLock?.();
   }
   toggleMusic() {
     this.setMusic(!this.ports.state.musicWanted);

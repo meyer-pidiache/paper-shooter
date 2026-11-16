@@ -33,6 +33,19 @@ export type ApplicationInput = PlayerServices['input'] &
   MultiplayerPorts['input'] &
   FocusPorts<FocusTarget>['input'] & {
     dispose?(): void;
+    setKeyBindings?(bindings: import('../shared/key-bindings.js').KeyBindings): void;
+    getKeyBindings?(): import('../shared/key-bindings.js').KeyBindings;
+    updateBinding?(
+      action: import('../shared/key-bindings.js').KeyBindingAction,
+      device: import('../shared/key-bindings.js').BindingDevice,
+      value: string | number,
+    ): string | null;
+    clearBinding?(
+      action: import('../shared/key-bindings.js').KeyBindingAction,
+      device: import('../shared/key-bindings.js').BindingDevice,
+    ): void;
+    resetKeyBindings?(): void;
+    keyLabel?(action: string): string;
   };
 export type ApplicationHud = PlayerPresentation['hud'] &
   EnemySystemServices['hud'] &
@@ -48,6 +61,7 @@ export type ApplicationHud = PlayerPresentation['hud'] &
   MultiplayerPorts['hud'] &
   PickupFeedback['hud'] & {
     el: { board: { readonly hidden: boolean } };
+    setNerdStatsVisible?(visible: boolean): void;
   };
 export type ApplicationAudio = PlayerPresentation['audio'] &
   CombatPorts['audio'] &
@@ -69,4 +83,7 @@ export type ApplicationAudio = PlayerPresentation['audio'] &
   };
 export type ApplicationTransport = MultiplayerTransport &
   ScreenPorts['transport'] &
-  SessionPorts['transport'];
+  SessionPorts['transport'] & {
+    setNerdStatsEnabled?(enabled: boolean): void;
+    getNerdPing?(): { value: number | null; label: string };
+  };

@@ -29,6 +29,7 @@ interface FrameServices {
   boardVisible(): boolean;
   screenClick(): void;
   scheduling?: FrameScheduling;
+  stats?: LoopPorts['stats'];
 }
 type FrameActions = LoopPorts['actions'] & Pick<InteractionPorts, 'resume' | 'pause' | 'boardHTML'>;
 /** Checked composition of independent frame owners; accepts consumed capabilities, never runtime. */
@@ -74,6 +75,7 @@ export function createLoop(ports: FrameServices, actions: FrameActions) {
     interaction,
     presentation,
     scheduling: ports.scheduling ?? browserFrames,
+    stats: ports.stats,
     actions,
   });
 }

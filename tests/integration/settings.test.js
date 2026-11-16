@@ -76,3 +76,40 @@ it('normalizes name edits, retains the previous name on blank input and synchron
   expect(player.name).toBe(state.myName);
   expect(net.hostName).toBe(state.myName);
 });
+it('persists and applies appearance and nerd stats without rebuilding the renderer', () => {
+  fixture = applicationFixture();
+  const { app, renderer, state, values } = fixture;
+  const appearance = document.querySelector('#setAppearance');
+  appearance.value = 'dark';
+  appearance.dispatchEvent(new Event('change'));
+  expect(state.appearance).toBe('dark');
+  expect(values.get('paper_appearance')).toBe('dark');
+  expect(document.documentElement.dataset.theme).toBe('dark');
+  expect(renderer.setDarkMode).toHaveBeenCalledWith(true);
+  const nerdStats = document.querySelector('#setNerdStats');
+  nerdStats.checked = true;
+  nerdStats.dispatchEvent(new Event('change'));
+  expect(state.nerdStats).toBe(true);
+  expect(values.get('paper_nerdStats')).toBe('1');
+  expect(app.runtime.net.nerdStatsEnabled).toBe(true);
+  expect(document.querySelector('#nerdStats').hidden).toBe(false);
+});
+it('captures and persists a key binding outside pointer lock and refreshes the guide', () => {
+  fixture = applicationFixture();
+  const { input, state, values } = fixture;
+  const settings = document.querySelector('#settingsShell');
+  settings.open = true;
+  document.querySelector('.controls-editor').open = true;
+  document.querySelector('[data-action="jump"][data-capture="key"]').click();
+  expect(input.pointerLocked).toBe(false);
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ', key: 'j', bubbles: true }));
+  expect(input.keyLabel('jump')).toBe('J');
+  expect(state.keyBindings.jump.keys[0]).toBe('KeyJ');
+  expect(JSON.parse(values.get('paper_keyBindings')).jump.keys[0]).toBe('KeyJ');
+  expect(document.querySelector('.dynamic-controls').textContent).toContain('J');
+  document.querySelector('[data-action="sprint"][data-capture="key"]').click();
+  window.dispatchEvent(
+    new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape', bubbles: true }),
+  );
+  expect(document.querySelector('#bindingStatus').textContent).toContain('cancelled');
+});

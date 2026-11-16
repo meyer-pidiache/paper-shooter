@@ -1,5 +1,18 @@
 # Paper Shooter
 
+> **Project provenance:** Paper Shooter is an independent continuation based on source recovered
+> from [iifor/doodleshooter](https://github.com/iifor/doodleshooter). The preserved Git history
+> credits the original Doodle Shooter game to **Evan Milenko** (for example, [commit
+> `faf3e90`](https://github.com/meyer-pidiache/paper-shooter/commit/faf3e906f87e384639f2d9ab8b1568280d57c889)).
+> The maintainer believes iifor's repository preserves an earlier copy of Evan's project, though
+> GitHub currently lists it without a parent repository link. Evan's original GitHub repository or
+> account could not be located; the reason is unknown. The recovered history also credits iifor for
+> Chinese localization, local library packaging and Docker deployment support ([commit
+> `8d8fad9`](https://github.com/iifor/doodleshooter/commit/8d8fad9ebeff2564881f427f4365336db98941b7)).
+> See [Evan's original showcase](https://x.com/EvanMilenko/status/2097514352869884163). For a
+> separate fanwork exploring the visual style, see [Doodle Games](https://doodle.ckgrafico.com/);
+> it is not the source of this game's inherited code.
+
 A first-person survival shooter drawn in blue ballpoint on lined notebook paper. Grapple across
 rooftops and canyons, slice bullets back at the doodles that fired them, lob grenades, and see how
 many waves you can survive. Play alone, survive with friends, or fight them.
@@ -48,6 +61,9 @@ the frontend at another HTTPS provider adapter. See [networking](docs/networking
 [.env.example](.env.example) for the public/private variables and deployment defaults.
 
 ## Controls
+
+These are the default keyboard and controller bindings. Keyboard and mouse bindings can be changed
+in-game under **Settings & Controls**; the in-game guide follows the active configuration.
 
 | Action                          | Mouse + keyboard        | PS5 controller       |
 | ------------------------------- | ----------------------- | -------------------- |

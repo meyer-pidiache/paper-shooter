@@ -37,6 +37,30 @@ describe('browser input adapter', () => {
     expect(input.idleSeconds).toBeGreaterThanOrEqual(0);
   });
 
+  it('supports safe, persistent action remapping and reports conflicts', () => {
+    input = new Input(document.createElement('canvas'));
+    expect(input.updateBinding('jump', 'key', 'KeyJ')).toBe(null);
+    expect(input.keyLabel('jump')).toBe('J');
+    expect(input.keyLabel('grapple')).toContain('Q / E');
+    expect(input.keyLabel('crouch')).toBe('Ctrl / C');
+    expect(input.keyLabel('focus')).toContain('X / Alt');
+    expect(input.updateBinding('dash', 'key', 'KeyZ')).toBe(null);
+    expect(input.keyLabel('focus')).toContain('Z');
+    expect(input.updateBinding('jump', 'key', 'KeyW')).toBe('forward');
+    expect(input.keyLabel('jump')).toBe('J');
+    key('keydown', 'KeyJ');
+    input.update(1 / 60);
+    expect(input.down('jump')).toBe(true);
+    input.setKeyBindings(input.getKeyBindings());
+    expect(input.down('jump')).toBe(false);
+    key('keyup', 'KeyJ');
+    input.update(1 / 60);
+    input.clearBinding('jump', 'key');
+    expect(input.keyLabel('jump')).toBe('unassigned');
+    input.resetKeyBindings();
+    expect(input.keyLabel('jump')).toBe('Space');
+  });
+
   it('handles pointer lock, mouse movement, clicks and wheel input', async () => {
     vi.useFakeTimers();
     const canvas = document.createElement('canvas');

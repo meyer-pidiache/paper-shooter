@@ -34,20 +34,23 @@ export const PAD_KEYS: Readonly<Record<string, string>> = {
   confirm: '✕',
   score: 'Create',
 };
-export const CONTROLS_HTML = `
+export function controlsHTML(
+  key: (action: string) => string = (action) => KB_KEYS[action] || action,
+) {
+  return `
 <div class="cols">
   <div><div class="colhead">MOUSE + KEYBOARD</div>
-    <div><b>WASD</b> move &nbsp; <b>Mouse</b> look &nbsp; <b>Shift</b> sprint</div>
-    <div><b>LMB</b> fire / slash &nbsp; <b>RMB</b> aim down sights / block</div>
-    <div><b>Space</b> jump (again on a wall = wall jump)</div>
-    <div><b>Space</b> again in the air = double jump</div>
-    <div><b>C / Ctrl</b> slide on the ground · air dash in the air</div>
-    <div><b>Q / E</b> grapple: tap to swing, hold to reel, jump to launch</div>
-    <div><b>F</b> quick katana slash &nbsp; <b>R</b> reload &nbsp; <b>M</b> music</div>
-    <div><b>G</b> grenade · hold it to throw further</div>
-    <div><b>Tab</b> scoreboard (online) &nbsp; <b>Esc</b> pause</div>
-    <div><b>Both mouse buttons</b> dash-slash once the gauge is lit</div>
-    <div><b>1-4 / wheel</b> rifle · shotgun · sniper · katana</div>
+    <div><b>${key('forward')} / ${key('back')} / ${key('left')} / ${key('right')}</b> move &nbsp; <b>Mouse</b> look &nbsp; <b>${key('sprint')}</b> sprint</div>
+    <div><b>${key('fire')}</b> fire / slash &nbsp; <b>${key('aim')}</b> aim down sights / block</div>
+    <div><b>${key('jump')}</b> jump (again on a wall = wall jump)</div>
+    <div><b>${key('jump')}</b> again in the air = double jump</div>
+    <div><b>${key('crouch')}</b> crouch / slide on the ground · also air dash while airborne</div>
+    <div><b>${key('grapple')}</b> grapple: tap to swing, hold to reel, jump to launch</div>
+    <div><b>${key('melee')}</b> quick katana slash &nbsp; <b>${key('reload')}</b> reload &nbsp; <b>${key('music')}</b> music</div>
+    <div><b>${key('grenade')}</b> grenade · hold it to throw further</div>
+    <div><b>${key('score')}</b> scoreboard (online) &nbsp; <b>${key('pause')}</b> pause</div>
+    <div><b>${key('dash')}</b> air dash · ${key('aim')} + ${key('fire')} dash-slash when the gauge is lit</div>
+    <div><b>${key('slot1')}–${key('slot4')} / wheel</b> rifle · shotgun · sniper · katana</div>
   </div>
   <div><div class="colhead">PS5 CONTROLLER</div>
     <div><b>L stick</b> move &nbsp; <b>R stick</b> look &nbsp; <b>L3</b> sprint</div>
@@ -61,3 +64,6 @@ export const CONTROLS_HTML = `
     <div><b>Create</b> scoreboard (online) &nbsp; <b>Options</b> pause</div>
   </div>
 </div>`;
+}
+
+export const CONTROLS_HTML = controlsHTML();

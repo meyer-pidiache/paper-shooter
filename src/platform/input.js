@@ -1,41 +1,11 @@
 // Unified keyboard/mouse + gamepad (PS5 DualSense / standard mapping) input.
 import { clamp } from '../engine/math.js';
-
-const KEYMAP = {
-  KeyW: 'forward',
-  KeyS: 'back',
-  KeyA: 'left',
-  KeyD: 'right',
-  ArrowUp: 'forward',
-  ArrowDown: 'back',
-  ArrowLeft: 'left',
-  ArrowRight: 'right',
-  Space: 'jump',
-  ShiftLeft: 'sprint',
-  ShiftRight: 'sprint',
-  ControlLeft: 'crouch',
-  KeyC: 'crouch',
-  KeyR: 'reload',
-  KeyQ: 'grapple',
-  KeyE: 'grapple',
-  KeyF: 'melee',
-  KeyV: 'melee',
-  Digit1: 'slot1',
-  Digit2: 'slot2',
-  Digit3: 'slot3',
-  Digit4: 'slot4',
-  Digit5: 'slot5',
-  Escape: 'pause',
-  KeyP: 'pause',
-  Enter: 'confirm',
-  KeyG: 'grenade',
-  KeyX: 'dash',
-  AltLeft: 'dash',
-  KeyM: 'music',
-  KeyT: 'talk',
-  Tab: 'score',
-};
-const MOUSEMAP = { 0: 'fire', 2: 'aim', 1: 'grapple', 3: 'grapple', 4: 'melee' };
+import {
+  bindingLabel,
+  cloneKeyBindings,
+  DEFAULT_KEY_BINDINGS,
+  normalizeKeyBindings,
+} from '../shared/key-bindings.js';
 // Standard gamepad mapping (DualSense): 0 cross,1 circle,2 square,3 triangle,4 L1,5 R1,6 L2,7 R2,8 create,9 options,10 L3,11 R3,12-15 dpad
 const PADMAP = {
   0: 'jump',
@@ -66,6 +36,12 @@ export class Input {
     this.frameState = {};
     this.keys = {};
     this.mouseBtns = {};
+    this.bindings = cloneKeyBindings();
+    this.keyMap = {};
+    this.mouseMap = {};
+    this.pressedCodes = new Set();
+    this.pressedMouseButtons = new Set();
+    this._mapBindings();
     this.move = { x: 0, y: 0 };
     this.look = { x: 0, y: 0 };
     this.mx = 0;
@@ -89,28 +65,31 @@ export class Input {
     this._listen(window, 'keydown', (e) => {
       if (e.repeat) return;
       this.lastActive = performance.now();
-      const a = KEYMAP[e.code];
+      const a = this.keyMap[e.code];
+      this.pressedCodes.add(e.code);
+      this._syncKeys();
       if (a) {
-        this.keys[a] = true;
         if (this.usingGamepad && this.onDeviceChange) this.onDeviceChange(false);
         this.usingGamepad = false;
       }
-      if (!e.shiftKey) this.keys.sprint = false;
       if (['Space', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
       this.anyInput = true;
     });
     this._listen(window, 'keyup', (e) => {
-      const a = KEYMAP[e.code];
-      if (a) this.keys[a] = false;
-      if (!e.shiftKey) this.keys.sprint = false;
+      this.pressedCodes.delete(e.code);
+      this._syncKeys();
     });
     this._listen(document, 'visibilitychange', () => {
       if (document.hidden) {
+        this.pressedCodes.clear();
+        this.pressedMouseButtons.clear();
         this.keys = {};
         this.mouseBtns = {};
       }
     });
     this._listen(window, 'blur', () => {
+      this.pressedCodes.clear();
+      this.pressedMouseButtons.clear();
       this.keys = {};
       this.mouseBtns = {};
     });
@@ -129,8 +108,8 @@ export class Input {
       this.lastActive = performance.now();
     });
     this._listen(document, 'mousedown', (e) => {
-      const a = MOUSEMAP[e.button];
-      if (a) this.mouseBtns[a] = true;
+      this.pressedMouseButtons.add(e.button);
+      this._syncMouseButtons();
       if (this.usingGamepad && this.onDeviceChange) this.onDeviceChange(false);
       this.usingGamepad = false;
       this.anyInput = true;
@@ -138,8 +117,8 @@ export class Input {
       if (e.button === 1 || e.button === 3 || e.button === 4) e.preventDefault();
     });
     this._listen(document, 'mouseup', (e) => {
-      const a = MOUSEMAP[e.button];
-      if (a) this.mouseBtns[a] = false;
+      this.pressedMouseButtons.delete(e.button);
+      this._syncMouseButtons();
     });
     this._listen(document, 'contextmenu', (e) => e.preventDefault());
     this._listen(
@@ -162,6 +141,73 @@ export class Input {
   _listen(target, event, handler, options) {
     target.addEventListener(event, handler, options);
     this.listeners.push(() => target.removeEventListener(event, handler, options));
+  }
+  _mapBindings() {
+    this.keyMap = {};
+    this.mouseMap = {};
+    for (const [action, binding] of Object.entries(this.bindings)) {
+      for (const code of binding.keys) this.keyMap[code] = action;
+      for (const button of binding.mouse) this.mouseMap[button] = action;
+    }
+  }
+  _syncKeys() {
+    this.keys = {};
+    for (const code of this.pressedCodes) {
+      const action = this.keyMap[code];
+      if (action) this.keys[action] = true;
+    }
+  }
+  _syncMouseButtons() {
+    this.mouseBtns = {};
+    for (const button of this.pressedMouseButtons) {
+      const action = this.mouseMap[button];
+      if (action) this.mouseBtns[action] = true;
+    }
+  }
+  getKeyBindings() {
+    return cloneKeyBindings(this.bindings);
+  }
+  keyLabel(action) {
+    if (action === 'block') return this.keyLabel('aim');
+    if (action === 'slide') return this.keyLabel('crouch');
+    if (action === 'focus')
+      return `${this.keyLabel('aim')} + ${this.keyLabel('fire')} or ${this.keyLabel('dash')}`;
+    return this.bindings[action] ? bindingLabel(action, this.bindings) : action;
+  }
+  setKeyBindings(bindings) {
+    this.bindings = normalizeKeyBindings(bindings);
+    this._mapBindings();
+    this.pressedCodes.clear();
+    this.pressedMouseButtons.clear();
+    this.keys = {};
+    this.mouseBtns = {};
+    this.state = {};
+    this.prev = {};
+    return this.getKeyBindings();
+  }
+  updateBinding(action, device, value) {
+    const current = this.bindings[action];
+    if (!current) return null;
+    for (const [otherAction, binding] of Object.entries(this.bindings)) {
+      if (otherAction === action) continue;
+      const conflict =
+        device === 'key' ? binding.keys.includes(value) : binding.mouse.includes(value);
+      if (conflict) return otherAction;
+    }
+    const next = this.getKeyBindings();
+    const values = device === 'key' ? next[action].keys : next[action].mouse;
+    values.splice(0, values.length, value);
+    this.setKeyBindings(next);
+    return null;
+  }
+  clearBinding(action, device) {
+    if (!this.bindings[action]) return;
+    const next = this.getKeyBindings();
+    next[action][device === 'key' ? 'keys' : 'mouse'] = [];
+    this.setKeyBindings(next);
+  }
+  resetKeyBindings() {
+    this.setKeyBindings(DEFAULT_KEY_BINDINGS);
   }
   dispose() {
     this.exitLock();
