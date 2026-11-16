@@ -22,4 +22,19 @@ describe('HUD trust boundaries', () => {
   it('escapes names before using trusted scoreboard templates', () => {
     expect(escapeHtml(`<img title="x">&'`)).toBe('&lt;img title=&quot;x&quot;&gt;&amp;&#39;');
   });
+  it('formats optional Nerd Stats and avoids writing the same display twice', () => {
+    const root = document.createElement('div');
+    const hud = new HUD(root);
+    const stats = root.querySelector<HTMLElement>('#nerdStats')!;
+    hud.setNerdStatsVisible(true);
+    expect(stats.hidden).toBe(false);
+    hud.setNerdStats(61.6, 13.37, 'HOST');
+    expect(stats.textContent).toBe('FPS 62 · PING HOST 13.4 ms');
+    hud.setNerdStats(61.6, 13.37, 'HOST');
+    expect(stats.textContent).toBe('FPS 62 · PING HOST 13.4 ms');
+    hud.setNerdStats(null, null, 'PEERS MEDIAN');
+    expect(stats.textContent).toBe('FPS -- · PING PEERS MEDIAN -- ms');
+    hud.setNerdStatsVisible(false);
+    expect(stats.hidden).toBe(true);
+  });
 });

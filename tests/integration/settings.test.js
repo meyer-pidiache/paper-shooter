@@ -93,6 +93,56 @@ it('persists and applies appearance and nerd stats without rebuilding the render
   expect(values.get('paper_nerdStats')).toBe('1');
   expect(app.runtime.net.nerdStatsEnabled).toBe(true);
   expect(document.querySelector('#nerdStats').hidden).toBe(false);
+  appearance.value = 'light';
+  appearance.dispatchEvent(new Event('change'));
+  nerdStats.checked = false;
+  nerdStats.dispatchEvent(new Event('change'));
+  expect(renderer.setDarkMode).toHaveBeenLastCalledWith(false);
+  expect(app.runtime.net.nerdStatsEnabled).toBe(false);
+  expect(document.querySelector('#nerdStats').hidden).toBe(true);
+});
+it('clears and restores configurable bindings through the persisted settings model', () => {
+  fixture = applicationFixture();
+  const { state, values } = fixture;
+  document.querySelector('#settingsShell').open = true;
+  document.querySelector('.controls-editor').open = true;
+  document.querySelector('[data-action="jump"][data-device="key"][data-clear]').click();
+  expect(state.keyBindings.jump.keys).toEqual([]);
+  expect(JSON.parse(values.get('paper_keyBindings')).jump.keys).toEqual([]);
+  expect(document.querySelector('.dynamic-controls').textContent).toContain('unassigned');
+  document.querySelector('#resetBindings').click();
+  expect(state.keyBindings.jump.keys).toEqual(['Space']);
+  expect(JSON.parse(values.get('paper_keyBindings')).jump.keys).toEqual(['Space']);
+});
+it('keeps an existing binding when the requested key is already assigned', () => {
+  fixture = applicationFixture();
+  const { input, state, values } = fixture;
+  document.querySelector('#settingsShell').open = true;
+  document.querySelector('.controls-editor').open = true;
+  document.querySelector('[data-action="jump"][data-capture="key"]').click();
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', key: 'w', bubbles: true }));
+  expect(state.keyBindings.jump.keys).toEqual(['Space']);
+  expect(input.keyLabel('jump')).toBe('Space');
+  expect(values.has('paper_keyBindings')).toBe(false);
+  expect(document.querySelector('#bindingStatus').textContent).toContain('already assigned');
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape' }));
+});
+it('shows multiplayer ping values but keeps offline stats clearly unavailable', () => {
+  fixture = applicationFixture();
+  const { app, game, net } = fixture;
+  net.getNerdPing = null;
+  app.runtime.userSettings.setNerdStats(true);
+  game.state = 'play';
+  app.loop.start();
+  const start = performance.now();
+  app.loop.tick(start + 16);
+  expect(document.querySelector('#nerdStats').textContent).toContain('PING N/A -- ms');
+
+  game.mode = 'ffa';
+  net.getNerdPing = vi.fn(() => ({ value: 17.4, label: 'HOST' }));
+  app.loop.tick(start + 1016);
+  expect(net.getNerdPing).toHaveBeenCalled();
+  expect(document.querySelector('#nerdStats').textContent).toContain('PING HOST 17.4 ms');
 });
 it('captures and persists a key binding outside pointer lock and refreshes the guide', () => {
   fixture = applicationFixture();

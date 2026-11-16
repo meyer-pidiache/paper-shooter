@@ -75,3 +75,14 @@ it('keeps frame uniforms and palette values owned by each renderer', () => {
     second.dispose();
   }
 });
+
+it('changes the dark paper palette without rebuilding the post-processing pass', () => {
+  const renderer = new InkRenderer(document.createElement('canvas'));
+  const uniforms = renderer.post.uniforms;
+  expect(uniforms.uDarkMode.value).toBe(0);
+  renderer.setDarkMode(true);
+  expect(uniforms.uDarkMode.value).toBe(1);
+  renderer.setDarkMode(false);
+  expect(uniforms.uDarkMode.value).toBe(0);
+  renderer.dispose();
+});

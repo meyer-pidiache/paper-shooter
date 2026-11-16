@@ -201,6 +201,30 @@ it('measures rendered animation frames and resets after a background-tab pause',
   f.runtime.statsEnabled = false;
   f.loop.stop();
 });
+it('samples nerd stats only while enabled during play or dying phases', () => {
+  const f = fixture();
+  f.runtime.statsEnabled = true;
+  f.loop.start();
+  f.game.state = 'pause';
+  f.loop.tick(f.start + 500);
+  expect(f.hud.setNerdStats).not.toHaveBeenCalled();
+
+  f.runtime.statsEnabled = false;
+  f.game.state = 'play';
+  f.loop.tick(f.start + 516);
+  expect(f.hud.setNerdStats).not.toHaveBeenCalled();
+
+  f.runtime.statsEnabled = true;
+  f.game.state = 'dying';
+  f.loop.tick(f.start + 532);
+  for (let frame = 1; frame <= 61; frame++) f.loop.tick(f.start + 532 + (frame * 1000) / 60);
+  expect(f.hud.setNerdStats).toHaveBeenCalled();
+  f.game.state = 'dead';
+  const calls = f.hud.setNerdStats.mock.calls.length;
+  f.loop.tick(f.start + 1600);
+  expect(f.hud.setNerdStats).toHaveBeenCalledTimes(calls);
+  f.loop.stop();
+});
 it('uses the captured phase for a pause transition and scales simulation independently of real time', () => {
   const f = fixture();
   f.game.hitstopT = 0.01;

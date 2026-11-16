@@ -61,6 +61,27 @@ describe('browser input adapter', () => {
     expect(input.keyLabel('jump')).toBe('Space');
   });
 
+  it('handles action aliases, unknown inputs, and mouse binding conflicts', () => {
+    input = new Input(document.createElement('canvas'));
+    expect(input.keyLabel('slide')).toBe('Ctrl / C');
+    expect(input.keyLabel('block')).toBe('RMB');
+    expect(input.keyLabel('unmapped')).toBe('unmapped');
+    key('keydown', 'KeyB');
+    document.dispatchEvent(new MouseEvent('mousedown', { button: 5 }));
+    input.update(1 / 60);
+    expect(input.down('unmapped')).toBe(false);
+
+    expect(input.updateBinding('jump', 'mouse', 2)).toBe('aim');
+    input.clearBinding('aim', 'mouse');
+    expect(input.updateBinding('jump', 'mouse', 2)).toBeNull();
+    document.dispatchEvent(new MouseEvent('mouseup', { button: 5 }));
+    document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }));
+    input.update(1 / 60);
+    expect(input.down('jump')).toBe(true);
+    expect(input.updateBinding('missing', 'key', 'KeyJ')).toBeNull();
+    input.clearBinding('missing', 'key');
+  });
+
   it('handles pointer lock, mouse movement, clicks and wheel input', async () => {
     vi.useFakeTimers();
     const canvas = document.createElement('canvas');

@@ -81,6 +81,8 @@ describe('browser preferences', () => {
     const safe = prefs.load();
     expect(safe.appearance).toBe('light');
     expect(safe.keyBindings.jump).toEqual(DEFAULT_KEY_BINDINGS.jump);
+    values.set('paper_keyBindings', '{invalid json');
+    expect(prefs.load().keyBindings.jump).toEqual(DEFAULT_KEY_BINDINGS.jump);
     expect(new Preferences(null).load().nerdStats).toBe(false);
   });
 });
