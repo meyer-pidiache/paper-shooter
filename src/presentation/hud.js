@@ -1,3 +1,4 @@
+import { escapeHtml } from './html.js';
 import { KB_KEYS, PAD_KEYS } from './input-guide.js';
 export { KB_KEYS, PAD_KEYS, CONTROLS_HTML } from './input-guide.js';
 // DOM heads-up display drawn in "pen" style (multiplied over the paper canvas).
@@ -201,13 +202,21 @@ export class HUD {
     }
   }
   setSlots(slots) {
-    const key = slots.map((s) => `${s.name}|${s.active ? 1 : 0}|${s.ammo}`).join(';');
+    const labels = slots.map((_, i) => {
+      const number = String(i + 1);
+      const action = 'slot' + number;
+      const binding = this.keyLabel?.(action);
+      return binding && binding !== action ? binding : number;
+    });
+    const key = slots
+      .map((s, i) => `${s.name}|${s.active ? 1 : 0}|${s.empty ? 1 : 0}|${s.ammo}|${labels[i]}`)
+      .join(';');
     if (key === this._lastSlots) return;
     this._lastSlots = key;
     this.el.slots.innerHTML = slots
       .map(
         (s, i) =>
-          `<div class="slot${s.active ? ' active' : ''}${s.empty ? ' empty' : ''}"><span class="num">${i + 1}</span>${s.name}<span class="sammo">${s.ammo}</span></div>`,
+          `<div class="slot${s.active ? ' active' : ''}${s.empty ? ' empty' : ''}"><span class="num">${escapeHtml(labels[i])}</span>${s.name}<span class="sammo">${s.ammo}</span></div>`,
       )
       .join('');
   }

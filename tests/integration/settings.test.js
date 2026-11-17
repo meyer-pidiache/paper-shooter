@@ -183,6 +183,33 @@ it('captures and persists a key binding outside pointer lock and refreshes the g
   expect(document.querySelector('#bindingStatus').textContent).toContain('cancelled');
 });
 
+it('refreshes the weapon shortcut badge after a remap with the same weapon and ammo', () => {
+  fixture = applicationFixture();
+  const { app, frame, player } = fixture;
+  const shortcut = () => document.querySelector('#slots .num').textContent;
+  const press = (code, key) => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { code, key, cancelable: true }));
+    frame();
+    window.dispatchEvent(new KeyboardEvent('keyup', { code, key }));
+  };
+
+  app.session.begin();
+  frame();
+  expect(shortcut()).toBe('1');
+  app.session.pause();
+  document.querySelector('[data-action="slot1"][data-capture="key"]').click();
+  press('KeyZ', 'z');
+  expect(shortcut()).toBe('Z');
+  app.session.resume();
+
+  press('Digit2', '2');
+  expect(player.weaponIndex).toBe(1);
+  press('Digit1', '1');
+  expect(player.weaponIndex).toBe(1);
+  press('KeyZ', 'z');
+  expect(player.weaponIndex).toBe(0);
+});
+
 it('keeps controller confirmation from starting or resuming with the settings dialog open', () => {
   fixture = applicationFixture();
   const { app, frame, game, input } = fixture;
