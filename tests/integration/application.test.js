@@ -253,7 +253,14 @@ describe('composed application without the GPU transport', () => {
       .mockResolvedValue([]);
     document.querySelector('#onlineBtn').click();
     await Promise.resolve();
-    expect(document.querySelector('#lobbyRows').textContent).toContain('could not look');
+    expect(document.querySelector('#lobbyRows').textContent).toContain(
+      'Could not load public lobbies',
+    );
+    document.querySelector('#backBtn').click();
+    document.querySelector('#onlineBtn').click();
+    expect(document.querySelector('#lobbyRows').textContent).toContain(
+      'Press Refresh to try again',
+    );
     await app.screens.refreshLobbies();
     expect(document.querySelector('#lobbyRows').textContent).toContain('QUICK PLAY');
   });

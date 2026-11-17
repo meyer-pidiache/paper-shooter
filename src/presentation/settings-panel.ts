@@ -7,7 +7,6 @@ interface SettingsView {
   readonly musicWanted: boolean;
   readonly appearance: 'light' | 'dark';
   readonly nerdStats: boolean;
-  readonly keyBindings: KeyBindings;
 }
 interface SettingsCommands {
   setSensitivity(value: number): void;
@@ -30,8 +29,8 @@ interface SettingsCommands {
 
 /** DOM event translation and markup only; the command receiver owns persistence and adapter state. */
 export class SettingsPanel {
-  private capture: { action: KeyBindingAction; device: BindingDevice; button: HTMLElement } | null =
-    null;
+  private dialog: HTMLDialogElement | null = null;
+  private capture: { device: BindingDevice; button: HTMLButtonElement } | null = null;
   private captureKeydown: ((event: KeyboardEvent) => void) | null = null;
   private captureMousedown: ((event: MouseEvent) => void) | null = null;
 
@@ -40,36 +39,55 @@ export class SettingsPanel {
     private readonly commands: SettingsCommands,
   ) {}
 
+  get open() {
+    return Boolean(this.dialog?.isConnected && this.dialog.open);
+  }
+
+  close() {
+    this.cancelCapture();
+    if (this.open) this.dialog?.close();
+    this.dialog = null;
+  }
+
   html() {
     const keyLabel = (action: string) => this.commands.keyLabel(action);
-    return `<details class="settings-shell" id="settingsShell">
-      <summary>SETTINGS &amp; CONTROLS</summary>
+    return `<button type="button" class="settings-button" id="openSettings" aria-haspopup="dialog">Settings &amp; Controls</button>
+    <dialog class="settings-dialog" id="settingsShell" aria-labelledby="settingsTitle">
       <div class="settings" id="settings">
-        <label>look sensitivity <input type="range" id="setSens" min="25" max="250" step="5" value="${this.view.settings.sens}"><b id="setSensV">${this.view.settings.sens}%</b></label>
-        <label><input type="checkbox" id="setInv" ${this.view.settings.invert ? 'checked' : ''}> invert vertical look</label>
-        <label><input type="checkbox" id="setMus" ${this.view.musicWanted ? 'checked' : ''}> music <span class="k">(${keyLabel('music')})</span></label>
-        <label>appearance <select id="setAppearance"><option value="light" ${this.view.appearance === 'light' ? 'selected' : ''}>light</option><option value="dark" ${this.view.appearance === 'dark' ? 'selected' : ''}>dark</option></select></label>
-        <label><input type="checkbox" id="setNerdStats" ${this.view.nerdStats ? 'checked' : ''}> nerd stats · FPS and multiplayer ping</label>
-        <details class="controls-editor">
-          <summary>KEYBOARD &amp; MOUSE BINDINGS</summary>
+        <header class="settings-header">
+          <h2 id="settingsTitle">Settings &amp; Controls</h2>
+          <button type="button" id="closeSettings" autofocus>Close</button>
+        </header>
+        <div class="settings-nav" role="group" aria-label="Settings sections">
+          <button type="button" aria-controls="settingsPreferences" aria-pressed="true">Preferences</button>
+          <button type="button" aria-controls="settingsBindings" aria-pressed="false">Key bindings</button>
+          <button type="button" aria-controls="settingsGuide" aria-pressed="false">Control guide</button>
+        </div>
+        <div class="settings-scroll">
+          <div class="settings-preferences" id="settingsPreferences">
+          <label class="settings-row" for="setSens">Look sensitivity <b id="setSensV">${this.view.settings.sens}%</b></label>
+          <input type="range" id="setSens" min="25" max="250" step="5" value="${this.view.settings.sens}" aria-describedby="setSensV">
+          <label class="settings-row">Invert vertical look <input type="checkbox" id="setInv" ${this.view.settings.invert ? 'checked' : ''}></label>
+          <label class="settings-row"><span>Music <small id="musicBinding">(${keyLabel('music')})</small></span><input type="checkbox" id="setMus" ${this.view.musicWanted ? 'checked' : ''}></label>
+          <label class="settings-row">Appearance <select id="setAppearance"><option value="light" ${this.view.appearance === 'light' ? 'selected' : ''}>Light</option><option value="dark" ${this.view.appearance === 'dark' ? 'selected' : ''}>Dark</option></select></label>
+          <label class="settings-row"><span>Nerd stats <small>FPS and multiplayer ping</small></span><input type="checkbox" id="setNerdStats" ${this.view.nerdStats ? 'checked' : ''}></label>
+          </div>
+          <div id="settingsBindings" hidden>
           <p class="settings-help">Changing a key or mouse button replaces that action's bindings for the device. Reset restores the default aliases. Escape cancels capture; browser shortcuts are reserved.</p>
+          <button type="button" id="resetBindings">Reset to defaults</button>
           <div class="binding-list" id="controlBindings">${this.bindingsHTML()}</div>
-          <div class="binding-actions"><button type="button" class="alt" id="resetBindings">RESET TO DEFAULTS</button></div>
-          <div class="binding-status" id="bindingStatus" aria-live="polite"></div>
-          <details class="control-guide"><summary>CONTROL GUIDE</summary><div class="dynamic-controls">${controlsHTML(keyLabel)}</div></details>
-        </details>
+          </div>
+          <div id="settingsGuide" class="dynamic-controls" hidden>${controlsHTML(keyLabel)}</div>
+        </div>
+        <div class="binding-status" id="bindingStatus" role="status"></div>
       </div>
-    </details>`;
+    </dialog>`;
   }
 
   wire(panel: ParentNode) {
     const box = panel.querySelector<HTMLElement>('#settings');
     if (!box) return;
-    const shell = panel.querySelector('#settingsShell');
-    shell?.addEventListener('click', (event) => event.stopPropagation());
-    shell?.addEventListener('keydown', (event) => event.stopPropagation());
-    box.addEventListener('click', (event) => event.stopPropagation());
-    box.addEventListener('keydown', (event) => event.stopPropagation());
+    this.wireDialog(panel, box);
     const sensitivity = box.querySelector<HTMLInputElement>('#setSens');
     const output = box.querySelector('#setSensV');
     if (sensitivity && output)
@@ -98,8 +116,9 @@ export class SettingsPanel {
       const device = target.dataset.device as BindingDevice;
       if (target.dataset.capture) this.startCapture(action, device, target, box);
       else if (target.dataset.clear) {
+        this.cancelCapture();
         this.commands.clearBinding(action, device);
-        this.refreshBindings(box);
+        this.refreshBindings(box, target);
         this.setStatus(
           box,
           `${KEY_BINDING_LABELS[action]} ${device === 'key' ? 'key' : 'mouse'} binding cleared.`,
@@ -114,6 +133,53 @@ export class SettingsPanel {
     });
   }
 
+  private wireDialog(panel: ParentNode, box: HTMLElement) {
+    const dialog = panel.querySelector<HTMLDialogElement>('#settingsShell');
+    const opener = panel.querySelector<HTMLButtonElement>('#openSettings');
+    const close = box.querySelector<HTMLButtonElement>('#closeSettings');
+    const scroll = box.querySelector<HTMLElement>('.settings-scroll');
+    const sections = box.querySelectorAll<HTMLButtonElement>('.settings-nav button');
+    if (!dialog || !opener || !close || !scroll) return;
+    this.dialog = dialog;
+
+    for (const eventName of ['click', 'keydown', 'mousedown']) {
+      dialog.addEventListener(eventName, (event) => event.stopPropagation());
+    }
+    opener.addEventListener('mousedown', (event) => event.stopPropagation());
+    opener.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const music = box.querySelector<HTMLInputElement>('#setMus');
+      if (music) music.checked = this.view.musicWanted;
+      dialog.showModal();
+    });
+    const closeDialog = () => {
+      this.cancelCapture();
+      this.setStatus(box, '');
+      dialog.close();
+      opener.focus({ preventScroll: true });
+    };
+    close.addEventListener('click', closeDialog);
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeDialog();
+    });
+    for (const button of sections) {
+      button.addEventListener('click', () => {
+        this.cancelCapture();
+        this.setStatus(box, '');
+        for (const section of sections) {
+          const active = button === section;
+          section.setAttribute('aria-pressed', String(active));
+          const content = box.querySelector<HTMLElement>(
+            '#' + section.getAttribute('aria-controls'),
+          );
+          if (content) content.hidden = !active;
+        }
+        scroll.scrollTop = 0;
+      });
+    }
+  }
+
   wireName(panel: ParentNode) {
     const name = panel.querySelector<HTMLInputElement>('#setName');
     name?.addEventListener('input', () => this.commands.setName(name.value));
@@ -125,30 +191,43 @@ export class SettingsPanel {
       (action) => `<div class="binding-row">
       <span class="binding-name">${KEY_BINDING_LABELS[action]}</span>
       <kbd>${bindingLabel(action, bindings)}</kbd>
-      <button type="button" class="alt" data-action="${action}" data-device="key" data-capture="key">CHANGE KEY</button>
-      <button type="button" class="alt" data-action="${action}" data-device="mouse" data-capture="mouse">CHANGE MOUSE</button>
-      <button type="button" class="alt clear-binding" data-action="${action}" data-device="key" data-clear="key">CLEAR KEY</button>
-      <button type="button" class="alt clear-binding" data-action="${action}" data-device="mouse" data-clear="mouse">CLEAR MOUSE</button>
+      <div class="binding-buttons">
+        <button type="button" aria-label="Change key for ${KEY_BINDING_LABELS[action]}" data-action="${action}" data-device="key" data-capture="key">CHANGE KEY</button>
+        <button type="button" aria-label="Clear key for ${KEY_BINDING_LABELS[action]}" data-action="${action}" data-device="key" data-clear="key">CLEAR KEY</button>
+        <button type="button" aria-label="Change mouse for ${KEY_BINDING_LABELS[action]}" data-action="${action}" data-device="mouse" data-capture="mouse">CHANGE MOUSE</button>
+        <button type="button" aria-label="Clear mouse for ${KEY_BINDING_LABELS[action]}" data-action="${action}" data-device="mouse" data-clear="mouse">CLEAR MOUSE</button>
+      </div>
     </div>`,
     ).join('');
   }
 
-  private refreshBindings(box: HTMLElement) {
+  private refreshBindings(box: HTMLElement, focused?: HTMLButtonElement) {
     const list = box.querySelector('#controlBindings');
     if (list) list.innerHTML = this.bindingsHTML();
+    if (focused) {
+      const { action, device, capture } = focused.dataset;
+      const operation = capture ? 'data-capture' : 'data-clear';
+      list
+        ?.querySelector<HTMLButtonElement>(
+          `[data-action="${action}"][data-device="${device}"][${operation}]`,
+        )
+        ?.focus({ preventScroll: true });
+    }
     const guide = box.querySelector('.dynamic-controls');
     if (guide) guide.innerHTML = controlsHTML((action) => this.commands.keyLabel(action));
+    const music = box.querySelector('#musicBinding');
+    if (music) music.textContent = `(${this.commands.keyLabel('music')})`;
   }
 
   private startCapture(
     action: KeyBindingAction,
     device: BindingDevice,
-    button: HTMLElement,
+    button: HTMLButtonElement,
     box: HTMLElement,
   ) {
     this.cancelCapture();
     this.commands.releasePointerLock();
-    this.capture = { action, device, button };
+    this.capture = { device, button };
     const noun = device === 'key' ? 'key' : 'mouse button';
     this.setStatus(box, `Press a ${noun} for ${KEY_BINDING_LABELS[action]}. Escape cancels.`);
     button.textContent = 'PRESS INPUT…';
@@ -163,9 +242,9 @@ export class SettingsPanel {
       }
       if (event.repeat) return;
       if (
-        event.ctrlKey ||
-        event.metaKey ||
-        event.altKey ||
+        (event.ctrlKey && event.code !== 'ControlLeft' && event.code !== 'ControlRight') ||
+        (event.metaKey && event.code !== 'MetaLeft' && event.code !== 'MetaRight') ||
+        (event.altKey && event.code !== 'AltLeft' && event.code !== 'AltRight') ||
         ['Tab', 'F5', 'F11', 'F12'].includes(event.code)
       ) {
         this.setStatus(
@@ -184,10 +263,16 @@ export class SettingsPanel {
         return;
       }
       this.cancelCapture();
-      this.refreshBindings(box);
+      this.refreshBindings(box, button);
       this.setStatus(box, `${KEY_BINDING_LABELS[action]} now uses ${event.key}.`);
     };
     this.captureMousedown = (event) => {
+      if (
+        event.button === 0 &&
+        event.target instanceof Element &&
+        event.target.closest('#closeSettings')
+      )
+        return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
@@ -208,7 +293,7 @@ export class SettingsPanel {
         return;
       }
       this.cancelCapture();
-      this.refreshBindings(box);
+      this.refreshBindings(box, button);
       this.setStatus(box, `${KEY_BINDING_LABELS[action]} mouse binding updated.`);
     };
     window.addEventListener('keydown', this.captureKeydown, true);

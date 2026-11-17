@@ -14,7 +14,7 @@ export class HUD {
       <div class="grapple-ret" id="gret"></div><div class="gstam" id="gstam" hidden><i id="gstamfill"></i></div>
       <div class="hitmarker" id="hitmarker"><i></i><i></i></div>
       <div class="dmg-ind" id="dmg"></div>
-      <div class="hud-tl"><div class="score">SCORE <b id="score">0</b></div><div class="combo" id="combo"></div></div>
+      <div class="hud-tl"><div class="score">SCORE <b id="score">0</b></div><div class="nerd-stats" id="nerdStats" hidden aria-live="off"></div><div class="combo" id="combo"></div></div>
       <div class="hud-tr"><div class="wave">WAVE <b id="wave">1</b></div><div class="modifier" id="modifier"></div><div class="left"><b id="left">0</b> enemies left</div><div class="timer" id="timer"></div><div class="pvpscore" id="pvpscore" hidden></div></div><div class="board" id="board" hidden></div>
       <div class="bossbar" id="bossbar"><div class="bossname" id="bossname"></div><div class="bar big"><div class="fill red" id="bossfill"></div></div></div>
       <div class="hud-bl">
@@ -25,7 +25,6 @@ export class HUD {
       <div class="hud-br"><div class="slots" id="slots"></div><div class="weapon" id="weapon">RIFLE</div><div class="hint" id="hint"></div></div>
       <div class="tip" id="tip"></div>
       <div class="message"><div class="msg-main" id="msg"></div><div class="msg-sub" id="msgsub"></div></div>
-      <div class="nerd-stats" id="nerdStats" hidden aria-live="off">FPS -- · PING HOST -- ms</div>
       <div class="killfeed" id="killfeed"></div>
       <div class="screen" id="screen"><div class="panel" id="panel"></div></div>`;
     const q = (id) => root.querySelector('#' + id);
@@ -82,10 +81,15 @@ export class HUD {
     this._ads = false;
     this._mode = '';
     this.onScreenClick = null;
+    this.onScreenChange = null;
     this._tipT = 0;
     this._nerdStatsText = '';
     this.el.screen.addEventListener('click', () => {
       if (this.onScreenClick) this.onScreenClick();
+    });
+    this.el.screen.addEventListener('keydown', (event) => {
+      if (event.target instanceof HTMLButtonElement && (event.key === 'Enter' || event.key === ' '))
+        event.stopPropagation();
     });
   }
   // katana charge gauge: fills with katana kills, catches fire when a focus slash is ready
@@ -286,10 +290,12 @@ export class HUD {
     setTimeout(() => i.remove(), 1000);
   }
   showScreen(html) {
+    this.onScreenChange?.();
     this.el.panel.innerHTML = html;
     this.el.screen.classList.add('show');
   }
   hideScreen() {
+    this.onScreenChange?.();
     this.el.screen.classList.remove('show');
   }
   setGameplayVisible(v) {

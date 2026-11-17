@@ -10,6 +10,7 @@ export interface InteractionPorts {
   hud: { tip(message: string, duration: number): void; setBoard(html: string | null): void };
   online(): boolean;
   menuOpen(): boolean;
+  settingsOpen(): boolean;
   screenClick(): void;
   resume(): void;
   pause(): void;
@@ -23,10 +24,12 @@ export class FrameInteraction {
   private lockTipT = 0.5;
   constructor(private readonly ports: InteractionPorts) {}
   update(phase: GamePhase, playing: boolean, dt: number) {
-    this.menuInput(phase);
-    if (this.ports.input.pressed('music')) {
-      const wanted = this.ports.toggleMusic();
-      this.ports.hud.tip(wanted ? 'music on' : 'music off', 1.5);
+    if (!this.ports.settingsOpen()) {
+      this.menuInput(phase);
+      if (this.ports.input.pressed('music')) {
+        const wanted = this.ports.toggleMusic();
+        this.ports.hud.tip(wanted ? 'music on' : 'music off', 1.5);
+      }
     }
     this.board(playing);
     this.cursorHint(phase, dt);

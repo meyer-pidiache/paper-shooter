@@ -61,6 +61,7 @@ export type ApplicationHud = PlayerPresentation['hud'] &
   MultiplayerPorts['hud'] &
   PickupFeedback['hud'] & {
     el: { board: { readonly hidden: boolean } };
+    onScreenChange?: (() => void) | null;
     setNerdStatsVisible?(visible: boolean): void;
   };
 export type ApplicationAudio = PlayerPresentation['audio'] &

@@ -18,7 +18,6 @@ export class GameLoop {
     if (!this.running) return;
     this.frameId = this.ports.scheduling.request(this.tick);
     this.step(now);
-    this.sampleNerdStats(now);
   };
   start() {
     if (this.running) return;
@@ -83,6 +82,7 @@ export class GameLoop {
     if (playing) this.simulate(phase, dt, dt * scale);
     else this.idle(phase, dt);
     presentation.present(playing, dt, scale);
+    if (this.running) this.sampleNerdStats(now);
   }
   private timeScale(dt: number) {
     const { game } = this.ports;

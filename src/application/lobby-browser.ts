@@ -8,6 +8,7 @@ interface BrowserPorts {
 /** Owns browse cache, coalescing and publication lifetime; signaling endpoints belong to transport. */
 export class LobbyBrowser {
   private disposed = false;
+  private lastError: unknown = null;
   private readonly snapshot: { busy: boolean; rows: readonly LobbyRowView[] | null } = {
     busy: false,
     rows: null,
@@ -16,12 +17,16 @@ export class LobbyBrowser {
   get view(): LobbyListView {
     return this.snapshot;
   }
+  get error() {
+    return this.lastError;
+  }
   dispose() {
     this.disposed = true;
   }
   async refresh() {
     if (this.disposed || this.snapshot.busy || this.ports.active()) return;
     this.snapshot.busy = true;
+    this.lastError = null;
     this.ports.changed(null);
     let found: readonly LobbyRowView[] = [],
       error: unknown = null;
@@ -33,6 +38,7 @@ export class LobbyBrowser {
     if (this.disposed) return;
     this.snapshot.rows = found;
     this.snapshot.busy = false;
+    this.lastError = error;
     this.ports.changed(error);
   }
 }

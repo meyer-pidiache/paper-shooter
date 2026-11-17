@@ -72,7 +72,11 @@ export class Input {
         if (this.usingGamepad && this.onDeviceChange) this.onDeviceChange(false);
         this.usingGamepad = false;
       }
-      if (['Space', 'Tab', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+      if (
+        ['Space', 'ArrowUp', 'ArrowDown'].includes(e.code) ||
+        (e.code === 'Tab' && this.pointerLocked)
+      )
+        e.preventDefault();
       this.anyInput = true;
     });
     this._listen(window, 'keyup', (e) => {

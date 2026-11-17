@@ -28,6 +28,7 @@ interface FrameServices {
   toggleMusic(): boolean;
   boardVisible(): boolean;
   screenClick(): void;
+  settingsOpen(): boolean;
   scheduling?: FrameScheduling;
   stats?: LoopPorts['stats'];
 }
@@ -40,6 +41,7 @@ export function createLoop(ports: FrameServices, actions: FrameActions) {
     hud,
     online,
     menuOpen: () => game.menu,
+    settingsOpen: ports.settingsOpen,
     screenClick: ports.screenClick,
     resume: actions.resume,
     pause: actions.pause,

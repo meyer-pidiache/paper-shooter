@@ -33,13 +33,13 @@ export function mainHTML(view: MainScreenView, settings: string) {
 export function onlineHTML(view: OnlineScreenView, list: string) {
   return `<h1>PLAY ONLINE</h1><h2>free for all · first to ${FFA_TARGET} · up to 10 players</h2>
     <div class="online" id="online">
-      <div class="row"><span>your name</span><input type="text" class="namebox" id="setName" maxlength="14" value="${esc(view.myName)}"></div>
-      <div class="row"><button type="button" class="big" id="quickBtn">QUICK PLAY</button><span class="hint">jumps into an open public lobby, or opens one for you</span></div>
-      <details class="online-flow" id="createFlow"><summary>CREATE A GAME</summary><p class="hint">Choose who can discover and join your lobby.</p><div class="row"><div class="radio"><label><input type="radio" name="vis" value="public" ${view.isPublic ? 'checked' : ''}> public · listed for everyone</label><label><input type="radio" name="vis" value="private" ${view.isPublic ? '' : 'checked'}> private · friends with the code</label></div><button type="button" id="createBtn">CREATE LOBBY</button></div></details>
-      <details class="online-flow" id="joinFlow"><summary>JOIN WITH CODE</summary><p class="hint">Enter the five-letter code shared by your friend.</p><div class="row"><input type="text" id="codeBox" placeholder="CODE" maxlength="5" autocomplete="off" aria-label="Lobby code"><button type="button" id="joinBtn">JOIN</button></div></details>
-      <details class="online-flow" id="browseFlow"><summary>BROWSE PUBLIC GAMES</summary><div class="lobbylist" id="lobbylist"><div class="row"><span>open public lobbies</span><button type="button" class="alt" id="refreshBtn">REFRESH</button></div><div class="rows" id="lobbyRows">${list}</div></div></details>
-      <div class="status" id="status">${esc(view.status || '')}</div>
-      ${view.rejoinCode ? `<div class="row"><button type="button" class="big" id="rejoinBtn">REJOIN ${esc(view.rejoinCode)}</button></div>` : ''}
+      <div class="row"><label for="setName">Your name</label><input type="text" class="namebox" id="setName" maxlength="14" value="${esc(view.myName)}"></div>
+      <div class="quick-play"><button type="button" class="big" id="quickBtn" aria-describedby="quickHint">QUICK PLAY</button><p class="hint" id="quickHint">Joins an open public lobby or creates one for you.</p></div>
+      ${view.rejoinCode ? `<div class="row"><button type="button" class="alt" id="rejoinBtn">REJOIN ${esc(view.rejoinCode)}</button></div>` : ''}
+      <details class="online-flow" name="online-flow" id="createFlow"><summary>CREATE A GAME</summary><div class="row"><div class="radio" role="group" aria-label="Lobby visibility"><label><input type="radio" name="vis" value="public" ${view.isPublic ? 'checked' : ''}> Public · listed and available to Quick Play</label><label><input type="radio" name="vis" value="private" ${view.isPublic ? '' : 'checked'}> Private · anyone with the lobby code</label></div><button type="button" id="createBtn">CREATE LOBBY</button></div></details>
+      <details class="online-flow" name="online-flow" id="joinFlow"><summary>JOIN WITH CODE</summary><p class="hint" id="codeHint">Enter the five-letter code shared by your friend.</p><div class="row"><input type="text" id="codeBox" placeholder="CODE" maxlength="5" autocomplete="off" aria-label="Lobby code" aria-describedby="codeHint"><button type="button" id="joinBtn">JOIN</button></div></details>
+      <details class="online-flow" name="online-flow" id="browseFlow"><summary>BROWSE PUBLIC GAMES</summary><div class="lobbylist" id="lobbylist"><div class="row"><button type="button" class="alt" id="refreshBtn">REFRESH</button></div><div class="rows" id="lobbyRows" aria-live="polite">${list}</div></div></details>
+      <div class="status" id="status" role="status">${esc(view.status || '')}</div>
       <div class="row"><button type="button" class="alt" id="backBtn">BACK</button></div>
     </div>`;
 }
@@ -60,9 +60,10 @@ export function lobbyHTML(view: LobbyScreenView) {
 }
 
 export function lobbyListHTML(view: LobbyListView) {
-  if (view.busy) return '<div class="hint">looking…</div>';
+  if (view.busy) return '<div class="hint">Searching for public lobbies…</div>';
   if (!view.rows) return '<div class="hint">press refresh to look for open lobbies</div>';
-  if (!view.rows.length) return '<div class="hint">hit QUICK PLAY to join a lobby</div>';
+  if (!view.rows.length)
+    return '<div class="hint">No public lobbies found. You can refresh or hit QUICK PLAY to find or open a lobby.</div>';
   return view.rows
     .map(
       (l) =>
@@ -72,7 +73,7 @@ export function lobbyListHTML(view: LobbyListView) {
 }
 
 export function lobbyErrorHTML(message: string) {
-  return `<div class="hint">could not look: ${esc(message)}</div>`;
+  return `<div class="hint">Could not load public lobbies. ${esc(message)}. Press Refresh to try again.</div>`;
 }
 
 export function menuBtnHTML() {

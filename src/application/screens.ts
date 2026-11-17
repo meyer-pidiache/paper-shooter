@@ -9,12 +9,12 @@ export class ScreenController {
   private readonly browser: LobbyBrowser;
   private readonly events: ScreenEvents;
   constructor(private readonly ports: ScreenPorts) {
-    const { transport, profile, actions } = ports;
+    const { transport, profile, actions, view } = ports;
     this.browser = new LobbyBrowser({
       active: () => transport.active,
       name: () => profile.myName,
       fetch: (name) => transport.listLobbies({ name }),
-      changed: (error) => this.publishLobbies(error),
+      changed: () => view.rows(this.lobbyListHTML()),
     });
     this.events = {
       begin: () => actions.begin(),
@@ -87,13 +87,11 @@ export class ScreenController {
       actions.setStatus('asking the host to start…');
     }
   }
-  private publishLobbies(error: unknown) {
-    const { view, actions } = this.ports;
-    view.rows(
-      error
-        ? views.lobbyErrorHTML(actions.friendlyError(error))
-        : views.lobbyListHTML(this.browser.view),
-    );
+  private lobbyListHTML() {
+    const { error, view } = this.browser;
+    return error === null
+      ? views.lobbyListHTML(view)
+      : views.lobbyErrorHTML(this.ports.actions.friendlyError(error));
   }
   private mainHTML() {
     const { profile, records, view } = this.ports;
@@ -111,7 +109,7 @@ export class ScreenController {
         status: lobby.status,
         rejoinCode: lobby.rejoinCode,
       },
-      views.lobbyListHTML(this.browser.view),
+      this.lobbyListHTML(),
     );
   }
   private lobbyHTML() {

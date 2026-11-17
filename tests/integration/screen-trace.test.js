@@ -96,7 +96,7 @@ it('preserves menu, browsing, host/follower lobby, pause, death and prompt prese
   if (process.env.RECORD_SCREENS_BASELINE === '1')
     writeFileSync(
       'tests/fixtures/screens-baseline.json',
-      JSON.stringify({ source: '430e41e', ...result }, null, 2) + '\n',
+      JSON.stringify({ source: 'Issue #5', ...result }, null, 2) + '\n',
     );
   else {
     if (result.digest !== baseline.digest) {

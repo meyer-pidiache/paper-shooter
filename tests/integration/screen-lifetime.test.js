@@ -22,7 +22,7 @@ it.each(['success', 'failure'])(
     const rows = hud.el.panel.querySelector('#lobbyRows');
     const refreshing = app.screens.refreshLobbies();
     const before = rows.innerHTML;
-    expect(before).toContain('looking');
+    expect(before).toContain('Searching for public lobbies');
     app.dispose();
     if (outcome === 'success') resolve([]);
     else reject(new Error('outdated failure'));

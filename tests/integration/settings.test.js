@@ -104,8 +104,6 @@ it('persists and applies appearance and nerd stats without rebuilding the render
 it('clears and restores configurable bindings through the persisted settings model', () => {
   fixture = applicationFixture();
   const { state, values } = fixture;
-  document.querySelector('#settingsShell').open = true;
-  document.querySelector('.controls-editor').open = true;
   document.querySelector('[data-action="jump"][data-device="key"][data-clear]').click();
   expect(state.keyBindings.jump.keys).toEqual([]);
   expect(JSON.parse(values.get('paper_keyBindings')).jump.keys).toEqual([]);
@@ -117,8 +115,6 @@ it('clears and restores configurable bindings through the persisted settings mod
 it('keeps an existing binding when the requested key is already assigned', () => {
   fixture = applicationFixture();
   const { input, state, values } = fixture;
-  document.querySelector('#settingsShell').open = true;
-  document.querySelector('.controls-editor').open = true;
   document.querySelector('[data-action="jump"][data-capture="key"]').click();
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', key: 'w', bubbles: true }));
   expect(state.keyBindings.jump.keys).toEqual(['Space']);
@@ -136,6 +132,7 @@ it('shows multiplayer ping values but keeps offline stats clearly unavailable', 
   app.loop.start();
   const start = performance.now();
   app.loop.tick(start + 16);
+  expect(document.querySelector('.hud-tl #nerdStats')).not.toBeNull();
   expect(document.querySelector('#nerdStats').textContent).toContain('PING N/A -- ms');
 
   game.mode = 'ffa';
@@ -144,12 +141,34 @@ it('shows multiplayer ping values but keeps offline stats clearly unavailable', 
   expect(net.getNerdPing).toHaveBeenCalled();
   expect(document.querySelector('#nerdStats').textContent).toContain('PING HOST 17.4 ms');
 });
+
+it('can restore standalone Ctrl and Alt bindings while reserving browser shortcuts', () => {
+  fixture = applicationFixture();
+  const { state, values } = fixture;
+  const startCapture = (action) =>
+    document.querySelector(`[data-action="${action}"][data-capture="key"]`).click();
+  const press = (code, modifiers = {}) =>
+    window.dispatchEvent(new KeyboardEvent('keydown', { code, cancelable: true, ...modifiers }));
+
+  startCapture('crouch');
+  press('KeyZ');
+  expect(state.keyBindings.crouch.keys).toEqual(['KeyZ']);
+  startCapture('crouch');
+  press('KeyR', { ctrlKey: true });
+  expect(document.querySelector('#bindingStatus').textContent).toContain('reserved');
+  expect(state.keyBindings.crouch.keys).toEqual(['KeyZ']);
+  press('ControlLeft', { ctrlKey: true });
+  expect(state.keyBindings.crouch.keys).toEqual(['ControlLeft']);
+
+  startCapture('dash');
+  press('KeyT');
+  startCapture('dash');
+  press('AltLeft', { altKey: true });
+  expect(JSON.parse(values.get('paper_keyBindings')).dash.keys).toEqual(['AltLeft']);
+});
 it('captures and persists a key binding outside pointer lock and refreshes the guide', () => {
   fixture = applicationFixture();
   const { input, state, values } = fixture;
-  const settings = document.querySelector('#settingsShell');
-  settings.open = true;
-  document.querySelector('.controls-editor').open = true;
   document.querySelector('[data-action="jump"][data-capture="key"]').click();
   expect(input.pointerLocked).toBe(false);
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ', key: 'j', bubbles: true }));
@@ -162,4 +181,49 @@ it('captures and persists a key binding outside pointer lock and refreshes the g
     new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape', bubbles: true }),
   );
   expect(document.querySelector('#bindingStatus').textContent).toContain('cancelled');
+});
+
+it('keeps controller confirmation from starting or resuming with the settings dialog open', () => {
+  fixture = applicationFixture();
+  const { app, frame, game, input } = fixture;
+  const pad = { axes: [], buttons: [{ pressed: true, value: 1 }] };
+  vi.spyOn(input, '_getPad').mockReturnValue(pad);
+
+  const dialog = document.querySelector('#settingsShell');
+  dialog.open = true;
+  frame();
+  expect(game.state).toBe('start');
+  dialog.open = false;
+  app.session.begin();
+  app.session.pause();
+
+  const pausedDialog = document.querySelector('#settingsShell');
+  pausedDialog.open = true;
+  pad.buttons[0].pressed = false;
+  pad.buttons[0].value = 0;
+  frame();
+  pad.buttons[0].pressed = true;
+  frame();
+  expect(game.state).toBe('pause');
+  pausedDialog.open = false;
+  pad.buttons[0].pressed = false;
+  frame();
+  pad.buttons[0].pressed = true;
+  frame();
+  expect(game.state).toBe('play');
+});
+
+it('releases a pending binding capture when match results replace the pause screen', () => {
+  fixture = applicationFixture();
+  const { app, game, hud, values } = fixture;
+  game.mode = 'ffa';
+  game.state = 'play';
+  app.screens.showPause();
+  document.querySelector('[data-action="jump"][data-capture="key"]').click();
+
+  hud.showScreen('<h1>MATCH RESULTS</h1>');
+  const key = new KeyboardEvent('keydown', { code: 'KeyJ', key: 'j', cancelable: true });
+  window.dispatchEvent(key);
+  expect(key.defaultPrevented).toBe(false);
+  expect(values.has('paper_keyBindings')).toBe(false);
 });

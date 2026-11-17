@@ -156,6 +156,7 @@ function fixture() {
       toggleMusic: () => runtime.userSettings.toggleMusic(),
       boardVisible: () => !hud.el.board.hidden,
       screenClick: () => hud.onScreenClick(),
+      settingsOpen: () => false,
       stats: {
         enabled: () => runtime.statsEnabled,
         ping: () => runtime.statsPing,
@@ -199,6 +200,18 @@ it('measures rendered animation frames and resets after a background-tab pause',
   f.loop.tick(f.start + 5000);
   expect(f.hud.setNerdStats).toHaveBeenLastCalledWith(null, 42, 'HOST');
   f.runtime.statsEnabled = false;
+  f.loop.stop();
+});
+it('includes frames rendered by the online background scheduler in FPS', () => {
+  const f = fixture();
+  f.runtime.net.active = true;
+  f.runtime.statsEnabled = true;
+  f.loop.start();
+  f.loop.tick(f.start);
+  vi.advanceTimersByTime(1000);
+
+  expect(f.runtime.R.render).toHaveBeenCalledTimes(3);
+  expect(f.hud.setNerdStats).toHaveBeenLastCalledWith(2, 42, 'HOST');
   f.loop.stop();
 });
 it('samples nerd stats only while enabled during play or dying phases', () => {
