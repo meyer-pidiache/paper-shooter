@@ -53,9 +53,8 @@ test('Paper settings survive a reload and inherit existing Doodle saves', async 
   await expect(page.locator('#setSens')).toHaveValue('150');
 });
 
-test('settings stay usable on resize without moving the menu or resuming a paused game', async ({
-  page,
-}) => {
+test('settings stay usable on resize without moving the main menu', async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 480 });
   await page.goto('/');
   const opener = page.getByRole('button', { name: 'Settings & Controls' });
   const modal = page.getByRole('dialog', { name: 'Settings & Controls' });
@@ -89,8 +88,16 @@ test('settings stay usable on resize without moving the menu or resuming a pause
   await page.keyboard.press('Escape');
   await expect(modal).toBeHidden();
   await expect(opener).toBeFocused();
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('paper_keyBindings')).jump),
+  ).toEqual({ keys: ['KeyJ'], mouse: [] });
+});
 
-  await page.setViewportSize({ width: 1000, height: 720 });
+test('closing settings during binding capture keeps the solo game paused', async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 480 });
+  await page.goto('/');
+  const opener = page.getByRole('button', { name: 'Settings & Controls' });
+  const modal = page.getByRole('dialog', { name: 'Settings & Controls' });
   await page.locator('#soloBtn').click();
   await page.keyboard.down('Escape');
   await expect(page.getByRole('heading', { name: 'PAUSED' })).toBeVisible();
@@ -104,9 +111,7 @@ test('settings stay usable on resize without moving the menu or resuming a pause
   await expect(modal).toBeHidden();
   await expect(opener).toBeFocused();
   expect(await page.evaluate(() => window.__game.inspect().state)).toBe('pause');
-  expect(
-    await page.evaluate(() => JSON.parse(localStorage.getItem('paper_keyBindings')).jump),
-  ).toEqual({ keys: ['KeyJ'], mouse: [] });
+  expect(await page.evaluate(() => localStorage.getItem('paper_keyBindings'))).toBeNull();
 });
 
 test('online actions can be explored independently with the keyboard', async ({ page }) => {
