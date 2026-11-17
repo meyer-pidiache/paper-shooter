@@ -1,17 +1,11 @@
 # Paper Shooter
 
 > **Project provenance:** Paper Shooter is an independent continuation based on source recovered
-> from [iifor/doodleshooter](https://github.com/iifor/doodleshooter). The preserved Git history
-> credits the original Doodle Shooter game to **Evan Milenko** (for example, [commit
-> `faf3e90`](https://github.com/meyer-pidiache/paper-shooter/commit/faf3e906f87e384639f2d9ab8b1568280d57c889)).
-> The maintainer believes iifor's repository preserves an earlier copy of Evan's project, though
-> GitHub currently lists it without a parent repository link. Evan's original GitHub repository or
-> account could not be located; the reason is unknown. The recovered history also credits iifor for
-> Chinese localization, local library packaging and Docker deployment support ([commit
-> `8d8fad9`](https://github.com/iifor/doodleshooter/commit/8d8fad9ebeff2564881f427f4365336db98941b7)).
-> See [Evan's original showcase](https://x.com/EvanMilenko/status/2097514352869884163). For a
-> separate fanwork exploring the visual style, see [Doodle Games](https://doodle.ckgrafico.com/);
-> it is not the source of this game's inherited code.
+> from [iifor/doodleshooter](https://github.com/iifor/doodleshooter). The preserved history credits
+> **Evan Milenko** as the original creator of Doodle Shooter. It is possible that the iifor
+> repository preserves an earlier copy of Evan's project. See [Evan's original
+> showcase](https://x.com/EvanMilenko/status/2097514352869884163).
+> For a separate fanwork exploring the visual style, see [Doodle Games](https://doodle.ckgrafico.com/);
 
 A first-person survival shooter drawn in blue ballpoint on lined notebook paper. Grapple across
 rooftops and canyons, slice bullets back at the doodles that fired them, lob grenades, and see how
@@ -34,7 +28,7 @@ Open http://127.0.0.1:5173. Development reloads game code and styles through Vit
 `pnpm build:client` produces `dist/` for any static HTTPS host. Solo and STUN-only multiplayer
 need no project API; temporary TURN credentials can use the optional Node/Vercel adapter.
 
-For the existing VPS workflow, configure `.env.example` and use `docker compose up --build -d`.
+For Docker-based deployment, configure `.env.example` and use `docker compose up --build -d`.
 See [deployment](docs/deployment.md) for static hosting, Vercel, nonroot container targets and the
 migration from the previous two-container deployment. [Development](docs/development.md) also
 covers the optional container environment.
