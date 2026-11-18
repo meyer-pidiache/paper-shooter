@@ -3,17 +3,19 @@ import { makeInkMaterial } from '../ink/materials.js';
 import { INK } from '../../shared/ink.js';
 import { box, hand } from './weapon-kit.js';
 import type { KatanaModel } from './weapon-contracts.js';
-export function buildKatana(root: THREE.Group): KatanaModel {
-  const model: Partial<KatanaModel> = {};
-
-  const mat = makeInkMaterial({ ink: INK.BLUE }),
-    dark = makeInkMaterial({ ink: INK.BLACK });
-  const g = root;
-  model.blade = box([0.012, 0.035, 1.0], [0, 0, -0.55], mat, g);
+export function buildKatanaBody(g: THREE.Group, mat: THREE.Material, dark: THREE.Material) {
+  const blade = box([0.012, 0.035, 1.0], [0, 0, -0.55], mat, g);
   box([0.012, 0.02, 0.08], [0, 0.007, -1.07], mat, g).rotation.x = 0.3;
   box([0.1, 0.1, 0.02], [0, 0, -0.05], dark, g);
   box([0.03, 0.036, 0.3], [0, 0, 0.12], dark, g);
   for (let i = 0; i < 6; i++) box([0.036, 0.04, 0.02], [0, 0, 0.02 + i * 0.045], mat, g);
+  return blade;
+}
+export function buildKatana(g: THREE.Group): KatanaModel {
+  const model: Partial<KatanaModel> = {};
+  const mat = makeInkMaterial({ ink: INK.BLUE }),
+    dark = makeInkMaterial({ ink: INK.BLACK });
+  model.blade = buildKatanaBody(g, mat, dark);
   hand(mat, [0.0, -0.005, 0.05], g, { direction: [0.5, -0.5, 1] });
   hand(mat, [0.0, -0.005, 0.2], g, { direction: [-0.4, -0.7, 1] });
   model.tip = new THREE.Object3D();

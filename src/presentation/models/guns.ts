@@ -1,13 +1,19 @@
 import * as THREE from 'three';
 import { TAU } from '../../engine/math.js';
 import { box, cylinder, sphere, frame, hand, flash } from './weapon-kit.js';
-import { completeGunModel, type GunMaterials, type GunModel } from './weapon-contracts.js';
-export function buildRifle(root: THREE.Group, materials: GunMaterials): GunModel {
+import {
+  completeGunModel,
+  type GunMaterials,
+  type GunModel,
+  type Triple,
+} from './weapon-contracts.js';
+export const RIFLE_GRIP: Triple = [0.02, -0.15, 0.13];
+export const SHOTGUN_GRIP: Triple = [0.02, -0.16, 0.17];
+export const SNIPER_GRIP: Triple = [0.02, -0.16, 0.24];
+export function buildRifleBody(g: THREE.Group, materials: GunMaterials): Partial<GunModel> {
   const model: Partial<GunModel> = {};
 
-  const g = root,
-    mat = materials.mat,
-    dark = materials.dark;
+  const { mat, dark } = materials;
   box([0.09, 0.12, 0.5], [0, 0, 0], mat, g);
   box([0.075, 0.085, 0.36], [0, 0, -0.42], mat, g);
   cylinder([0.018, 0.42], [0, 0.02, -0.75], dark, g);
@@ -21,7 +27,12 @@ export function buildRifle(root: THREE.Group, materials: GunMaterials): GunModel
   frame([0.075, 0.07, 0.012, 0.03], [0, 0.12, -0.05], mat, g);
   box([0.03, 0.018, 0.05], [0, 0.062, -0.05], dark, g);
   sphere(0.0012, [0, 0.12, -0.05], materials.red, g, 5);
-  hand(mat, [0.02, -0.15, 0.13], g, { direction: [0.5, -0.6, 1] });
+  return model;
+}
+export function buildRifle(g: THREE.Group, materials: GunMaterials): GunModel {
+  const model = buildRifleBody(g, materials);
+  const { mat } = materials;
+  hand(mat, RIFLE_GRIP, g, { direction: [0.5, -0.6, 1] });
   model.handL = hand(mat, [-0.05, -0.08, -0.4], g, { direction: [-0.35, -0.9, 0.9] });
   model.handLPos = model.handL.position.clone();
   model.muzzle = new THREE.Object3D();
@@ -34,12 +45,10 @@ export function buildRifle(root: THREE.Group, materials: GunMaterials): GunModel
 
   return completeGunModel(model);
 }
-export function buildShotgun(root: THREE.Group, materials: GunMaterials): GunModel {
+export function buildShotgunBody(g: THREE.Group, materials: GunMaterials): Partial<GunModel> {
   const model: Partial<GunModel> = {};
 
-  const g = root,
-    mat = materials.mat,
-    dark = materials.dark;
+  const { mat, dark } = materials;
   box([0.09, 0.13, 0.42], [0, 0, 0.05], mat, g);
   cylinder([0.021, 0.92], [0, 0.05, -0.62], dark, g);
   cylinder([0.019, 0.72], [0, -0.02, -0.5], mat, g);
@@ -51,7 +60,12 @@ export function buildShotgun(root: THREE.Group, materials: GunMaterials): GunMod
   grip.rotation.x = 0.35;
   sphere(0.013, [0, 0.095, -1.0], materials.red, g, 6);
   box([0.03, 0.025, 0.02], [0, 0.085, -0.02], dark, g);
-  hand(mat, [0.02, -0.16, 0.17], g, { direction: [0.5, -0.6, 1] });
+  return model;
+}
+export function buildShotgun(g: THREE.Group, materials: GunMaterials): GunModel {
+  const model = buildShotgunBody(g, materials);
+  const { mat } = materials;
+  hand(mat, SHOTGUN_GRIP, g, { direction: [0.5, -0.6, 1] });
   model.handL = hand(mat, [-0.04, -0.06, -0.45], g, { direction: [-0.35, -0.9, 0.9] });
   model.handLPos = model.handL.position.clone();
   model.handL.userData.foreEnd = true;
@@ -65,12 +79,10 @@ export function buildShotgun(root: THREE.Group, materials: GunMaterials): GunMod
 
   return completeGunModel(model);
 }
-export function buildSniper(root: THREE.Group, materials: GunMaterials): GunModel {
+export function buildSniperBody(g: THREE.Group, materials: GunMaterials): Partial<GunModel> {
   const model: Partial<GunModel> = {};
 
-  const g = root,
-    mat = materials.mat,
-    dark = materials.dark;
+  const { mat, dark } = materials;
   box([0.085, 0.115, 0.6], [0, 0, 0.05], mat, g);
   cylinder([0.024, 1.25], [0, 0.02, -0.92], dark, g);
   cylinder([0.032, 0.16], [0, 0.02, -1.5], dark, g);
@@ -101,7 +113,12 @@ export function buildSniper(root: THREE.Group, materials: GunMaterials): GunMode
   bl.rotation.z = 0.35;
   const br = box([0.02, 0.26, 0.02], [0.07, -0.13, -0.78], dark, g);
   br.rotation.z = -0.35;
-  hand(mat, [0.02, -0.16, 0.24], g, { direction: [0.5, -0.6, 1] });
+  return model;
+}
+export function buildSniper(g: THREE.Group, materials: GunMaterials): GunModel {
+  const model = buildSniperBody(g, materials);
+  const { mat } = materials;
+  hand(mat, SNIPER_GRIP, g, { direction: [0.5, -0.6, 1] });
   model.handL = hand(mat, [-0.05, -0.09, -0.5], g, { direction: [-0.35, -0.9, 0.9] });
   model.handLPos = model.handL.position.clone();
   model.muzzle = new THREE.Object3D();
