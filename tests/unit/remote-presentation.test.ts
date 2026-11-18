@@ -1,5 +1,14 @@
 import { expect, it } from 'vitest';
-import { Scene, Vector3, Group, MeshBasicMaterial } from 'three';
+import {
+  BoxGeometry,
+  CylinderGeometry,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  Scene,
+  SphereGeometry,
+  Vector3,
+} from 'three';
 import { SceneResources } from '../../src/engine/resources.js';
 import { RemoteGrapple } from '../../src/presentation/remote-grapple.js';
 import {
@@ -79,16 +88,36 @@ it('uses the latest snapshot to mount the weapon and raise or lower it while aim
     0,
     INK.BLUE,
   );
-  const snapshot = (weapon: number, flags: number, time: number, pitch = 0.2) => {
+  const snapshot = (weapon: number, flags: number, time: number, pitch = 0.2, dt = 0.25) => {
     remote.push([0, 0, 0, 0.3, pitch, weapon, flags, 100, 0, 0, 0], time);
-    remote.update(0.25, time + 0.1);
+    remote.update(dt, time + 0.1);
     return remote.J.gun.children.find((child) => child instanceof Group)!;
+  };
+  const barrelLength = (weapon: Group) =>
+    weapon.children.find(
+      (part): part is Mesh<CylinderGeometry> =>
+        part instanceof Mesh && part.geometry instanceof CylinderGeometry,
+    )?.geometry.parameters.height;
+  const checkSupport = (weapon: Group) => {
+    const receiver = weapon.children.find(
+      (part) => part instanceof Mesh && part.geometry instanceof BoxGeometry,
+    ) as Mesh<BoxGeometry>;
+    const mitten = remote.J.foreL.children.find(
+      (part) => part instanceof Mesh && part.geometry instanceof SphereGeometry,
+    ) as Mesh<SphereGeometry>;
+    receiver.geometry.computeBoundingBox();
+    const hand = receiver.worldToLocal(mitten.getWorldPosition(new Vector3()));
+    const nearest = receiver.geometry.boundingBox!.clampPoint(hand, new Vector3());
+    expect(nearest.distanceTo(hand) * weapon.scale.x).toBeLessThan(
+      mitten.geometry.parameters.radius * Math.min(...mitten.scale.toArray()),
+    );
   };
   const alive = 64 | 16;
   const aim = 8;
   const gunHeight = () => remote.J.gun.getWorldPosition(new Vector3()).y;
   try {
     const rifle = snapshot(0, alive, 1);
+    expect(barrelLength(rifle)).toBe(0.42);
     const carryHeight = gunHeight();
     expect(snapshot(0, alive | aim, 2)).toBe(rifle);
     expect(gunHeight()).toBeGreaterThan(carryHeight + 0.2);
@@ -99,6 +128,7 @@ it('uses the latest snapshot to mount the weapon and raise or lower it while aim
     const shotgun = snapshot(1, alive | aim | 1, 3, 1.4);
     expect(rifle.parent).toBeNull();
     expect(shotgun).not.toBe(rifle);
+    expect(barrelLength(shotgun)).toBe(0.92);
     expect(remote.J.gun.getWorldDirection(new Vector3()).dot(remote.forward)).toBeGreaterThan(
       0.999,
     );
@@ -106,21 +136,36 @@ it('uses the latest snapshot to mount the weapon and raise or lower it while aim
     const sniper = snapshot(2, alive, 4);
     expect(shotgun.parent).toBeNull();
     expect(sniper).not.toBe(shotgun);
+    expect(barrelLength(sniper)).toBe(1.25);
     expect(gunHeight()).toBeCloseTo(carryHeight, 1);
     expect(remote.J.gun.getWorldDirection(new Vector3()).dot(remote.forward)).toBeLessThan(0.9);
+    checkSupport(sniper);
+    expect(snapshot(2, alive | aim, 5, 0.2, 1)).toBe(sniper);
+    checkSupport(sniper);
+    const aimedHeight = gunHeight();
 
-    const blade = snapshot(3, alive | 4, 5);
+    const blade = snapshot(3, alive | 4, 6);
     expect(sniper.parent).toBeNull();
     expect(blade).not.toBe(sniper);
+    expect(
+      blade.children.some(
+        (part) =>
+          part instanceof Mesh &&
+          part.geometry instanceof BoxGeometry &&
+          part.geometry.parameters.depth === 1,
+      ),
+    ).toBe(true);
     expect(remote.J.armR.rotation.z).toBe(-0.8);
 
-    snapshot(3, 0, 6);
+    snapshot(3, 0, 7);
     remote.ragdoll();
     const corpseGun = remote.J.gun;
-    expect(snapshot(2, alive | aim, 7)).not.toBe(blade);
+    const respawned = snapshot(2, alive | aim, 8, 0.2, 1 / 60);
+    expect(respawned).not.toBe(blade);
+    expect(barrelLength(respawned)).toBe(1.25);
     expect(blade.parent).toBe(corpseGun);
     expect(remote.weaponIndex).toBe(2);
-    expect(gunHeight()).toBeGreaterThan(carryHeight + 0.2);
+    expect(gunHeight()).toBeCloseTo(aimedHeight, 5);
   } finally {
     remote.dispose();
     resources.release(scene);

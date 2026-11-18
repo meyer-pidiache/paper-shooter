@@ -79,13 +79,14 @@ export class RemoteAnimation {
 
   private poseGun(J: RemoteAnimationRig['joints'], pitch: number, sway: number) {
     const aim = this.aim;
-    this.grip.set(0.14 - 0.03 * aim, 0.23 + 0.26 * aim, 0.31 - 0.04 * aim);
+    this.grip.set(0.14 - 0.03 * aim, 0.23 + 0.26 * aim, 0.26 + 0.01 * aim);
     this.weaponAngles.set(-pitch + (0.48 + sway) * (1 - aim), -0.38 * (1 - aim), 0);
     // Express the look direction in torso space so crouching and gait keep their own motion.
     this.weaponRotation
       .setFromEuler(this.weaponAngles)
       .premultiply(this.inverse.copy(J.torso.quaternion).invert());
-    this.support.set(-0.04, 0.04, 0.25).applyQuaternion(this.weaponRotation).add(this.grip);
+    // Support the receiver, within reach even when the muzzle is lowered.
+    this.support.set(-0.035, 0.06, 0.16).applyQuaternion(this.weaponRotation).add(this.grip);
     this.poseArm(J.armR, J.foreR, this.grip, 0.75);
     this.poseArm(J.armL, J.foreL, this.support, -0.75);
     this.orientHeldWeapon(J);
