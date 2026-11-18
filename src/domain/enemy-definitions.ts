@@ -7,7 +7,7 @@ interface EnemyBase {
   scale: number;
   name: string;
   ink?: number;
-  hat?: 'cap' | 'band' | 'helmet' | 'hood' | 'crown';
+  hat?: 'band' | 'helmet' | 'hood' | 'crown';
   model?: 'bomber' | 'blob' | 'flyer';
   flying?: boolean;
   boss?: boolean;

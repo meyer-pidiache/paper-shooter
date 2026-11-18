@@ -9,14 +9,7 @@ export function buildHat(
   T: Pick<CharacterAppearance, 'hat'>,
 ) {
   const h = T.hat;
-  if (h === 'cap') {
-    const c = new THREE.Mesh(new THREE.SphereGeometry(0.29, 10, 5, 0, TAU, 0, Math.PI * 0.5), mat);
-    c.position.y = 0.05;
-    c.scale.y = 0.62;
-    headG.add(c);
-    const brim = bx([0.34, 0.035, 0.24], [0, 0.05, 0.24], mat, headG);
-    brim.rotation.x = -0.18;
-  } else if (h === 'band') {
+  if (h === 'band') {
     const b = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.028, 5, 14), solid);
     b.rotation.x = Math.PI / 2;
     b.position.y = 0.11;

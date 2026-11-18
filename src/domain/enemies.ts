@@ -21,7 +21,6 @@ export const TYPES = {
     score: 100,
     scale: 1.0,
     name: 'GRUNT',
-    hat: 'cap',
     build: { bodyW: 1, headS: 1, limbR: 0.032 },
   },
   rusher: {

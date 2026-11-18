@@ -88,7 +88,6 @@ export class RemotePlayer {
   readonly T: CharacterAppearance & { blockRadius: number } = {
     weapon: 'rifle',
     scale: 1.0,
-    hat: 'cap',
     build: { bodyW: 1, headS: 1, limbR: 0.033 },
     blockRadius: 0,
   };

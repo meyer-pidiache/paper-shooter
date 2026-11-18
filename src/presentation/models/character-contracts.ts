@@ -2,7 +2,7 @@
 export interface CharacterAppearance {
   weapon: 'rifle' | 'blade' | 'shotgun' | 'sniper' | 'pistol' | 'boss' | 'bomb' | 'dive';
   scale: number;
-  hat?: 'cap' | 'band' | 'helmet' | 'hood' | 'crown';
+  hat?: 'band' | 'helmet' | 'hood' | 'crown';
   shield?: boolean;
   bossKind?: 'doodler' | 'eraser' | 'inkblot';
   build?: { bodyW?: number; headS?: number; limbR?: number };
