@@ -51,7 +51,11 @@ class ScreenBindings {
       const button =
         event.target instanceof Element ? event.target.closest<HTMLButtonElement>('.mapbtn') : null;
       const map = LEVELS.find((item) => item.key === button?.dataset.map);
-      if (button && !button.disabled && map) onPick(map.key);
+      if (button && !button.disabled && map) {
+        onPick(map.key);
+        if (event instanceof MouseEvent && event.detail === 0)
+          this.panel.querySelector<HTMLButtonElement>(`.mapbtn[data-map="${map.key}"]`)?.focus();
+      }
     });
   }
   main() {
@@ -199,6 +203,6 @@ export class BrowserScreens {
     const box = this.hud.el.panel.querySelector('#online');
     if (box)
       for (const button of box.querySelectorAll<HTMLButtonElement>('button'))
-        button.disabled = false;
+        if (button.getAttribute('aria-disabled') !== 'true') button.disabled = false;
   }
 }

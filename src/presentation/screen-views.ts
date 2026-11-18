@@ -19,9 +19,14 @@ export function checkpointHTML(checkpoint: number) {
   return h + '</div>';
 }
 
-export function mapHTML(sel: MapKey, canPick: boolean) {
+export function mapHTML(selected: MapKey, canPick: boolean) {
   if (LEVELS.length < 2) return '';
-  return `<div class="mapsel" id="mapsel"><span>map</span>${LEVELS.map((m) => `<button type="button" class="mapbtn${m.key === sel ? ' on' : ''}" data-map="${m.key}" ${canPick ? '' : 'disabled'}>${m.name}<i>${m.blurb}</i></button>`).join('')}</div>`;
+  const buttons = LEVELS.map(({ key, name, blurb }) => {
+    const active = key === selected;
+    const disabled = canPick ? '' : 'disabled aria-disabled="true"';
+    return `<button type="button" class="mapbtn${active ? ' on' : ''}" data-map="${key}" aria-pressed="${active}" ${disabled}>${name}<i>${blurb}</i></button>`;
+  });
+  return `<div class="mapsel" id="mapsel"><span>map</span>${buttons.join('')}</div>`;
 }
 
 export function mainHTML(view: MainScreenView, settings: string) {

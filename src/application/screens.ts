@@ -75,7 +75,7 @@ export class ScreenController {
   }
   private pickLobbyMap(map: MapKey) {
     const { transport, lobby, actions } = this.ports;
-    if (!transport.isHost) return;
+    if (!transport.isHost || this.ports.game.state !== 'lobby') return;
     lobby.map = map;
     actions.broadcastLobby();
   }

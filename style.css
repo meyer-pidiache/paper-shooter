@@ -1331,6 +1331,30 @@ canvas#c {
   padding: 6px 18px;
   cursor: pointer;
 }
+.online button.mapbtn {
+  position: relative;
+}
+.online button.mapbtn:not(.on) {
+  color: var(--ink);
+  background: transparent;
+}
+.online button.mapbtn:disabled {
+  opacity: 0.72;
+}
+.online button.mapbtn.on:disabled {
+  opacity: 1;
+}
+.online button.mapbtn.on::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 10px;
+  inset-inline-end: 8px;
+  width: 9px;
+  height: 5px;
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: rotate(-45deg);
+}
 .online button.alt {
   color: var(--ink);
   background: transparent;
