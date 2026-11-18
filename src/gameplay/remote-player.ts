@@ -6,6 +6,7 @@ import type {
   CharacterPart,
 } from '../presentation/models/character-contracts.js';
 import type { RemoteAnimationRig } from '../presentation/characters/remote-animation.js';
+import { buildRemoteNameTag } from '../presentation/characters/remote-name-tag.js';
 import { RemoteRagdoll } from '../presentation/characters/remote-ragdoll.js';
 import { RemoteGrapple } from '../presentation/remote-grapple.js';
 import { RemoteInterpolation } from './remote/interpolation.js';
@@ -38,11 +39,21 @@ export { encodeLocal } from '../domain/player-snapshots.js';
 
 type RemoteModel = ReturnType<typeof buildHumanoid> & {
   tagG: THREE.Group;
+  nameTag: ReturnType<typeof buildRemoteNameTag>;
   animation: RemoteAnimationRig;
   weapon: THREE.Group;
 };
 export class RemotePlayer {
-  name: string;
+  private displayName = 'paper';
+  get name() {
+    return this.displayName;
+  }
+  set name(name: string) {
+    const next = name.slice(0, 14) || 'paper';
+    if (next === this.displayName) return;
+    this.displayName = next;
+    if (this.root) this.model.nameTag.setName(next);
+  }
   readonly isLocal = false;
   alive = true;
   parryWindow = false;
@@ -112,7 +123,7 @@ export class RemotePlayer {
     readonly team: number,
     readonly ink: number,
   ) {
-    this.name = name || 'paper';
+    this.displayName = name.slice(0, 14) || 'paper';
     this.death = new RemoteRagdoll(services.scene, services.effects);
     this.mat = makeInkMaterial({ ink, shadeScale: 0, shadeBias: 1 });
     this.solid = makeInkMaterial({ ink: INK.BLACK, fill: true, side: THREE.DoubleSide });
@@ -153,15 +164,13 @@ export class RemotePlayer {
     const tagG = new THREE.Group();
     model.root.add(tagG);
     tagG.position.y = 2.25;
-    const flag = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 0.28, 0.02),
-      makeInkMaterial({ ink: this.ink, fill: true, side: THREE.DoubleSide }),
-    );
-    tagG.add(flag);
+    const nameTag = buildRemoteNameTag();
+    nameTag.setName(this.name);
+    tagG.add(nameTag.mesh);
     const animation = { root: model.root, joints: model.J, tag: tagG, face: model.face };
     this.corpse = false;
     this.services.resources.track(model.root);
-    return { ...model, tagG, animation, weapon };
+    return { ...model, tagG, nameTag, animation, weapon };
   }
   private buildWeapon() {
     return buildHeldWeapon(WEAPON_KINDS[this.weaponIndex], {
