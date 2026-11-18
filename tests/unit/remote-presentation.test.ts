@@ -1,11 +1,14 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import {
   BoxGeometry,
+  CanvasTexture,
   CylinderGeometry,
   Group,
   Mesh,
   MeshBasicMaterial,
+  PlaneGeometry,
   Scene,
+  ShaderMaterial,
   SphereGeometry,
   Vector3,
 } from 'three';
@@ -171,4 +174,47 @@ it('uses the latest snapshot to mount the weapon and raise or lower it while aim
     resources.release(scene);
   }
   expect(resources.resourceCount).toBe(0);
+});
+
+it('redraws confirmed player names and releases their textures when the avatar retires', () => {
+  const context = { fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn() };
+  const canvas = { width: 0, height: 0, getContext: () => context };
+  vi.stubGlobal('CanvasRenderingContext2D', class {});
+  vi.stubGlobal('document', { createElement: () => canvas });
+  const resources = new SceneResources();
+  const scene = new Scene();
+  try {
+    const remote = new RemotePlayer(
+      {
+        scene,
+        resources,
+        effects: { debris() {}, blood() {}, bloodPool() {} },
+        localEye: () => null,
+      },
+      'peer',
+      'paper',
+      0,
+      INK.BLUE,
+    );
+    const tagMaterial = (remote.tagG.children[0] as Mesh<PlaneGeometry, ShaderMaterial>).material;
+    const texture = tagMaterial.uniforms.uNameMask.value as CanvasTexture;
+    const releaseTexture = vi.fn();
+    texture.addEventListener('dispose', releaseTexture);
+    expect(context.fillText).toHaveBeenLastCalledWith('paper', 256, 53, 484);
+    const initialVersion = texture.version;
+
+    remote.name = 'a very long player name';
+    expect(remote.name).toBe('a very long pl');
+    expect(context.fillText).toHaveBeenLastCalledWith('a very long pl', 256, 53, 484);
+    expect(texture.version).toBe(initialVersion + 1);
+    remote.name = 'a very long pl';
+    expect(texture.version).toBe(initialVersion + 1);
+
+    remote.dispose();
+    expect(releaseTexture).toHaveBeenCalledOnce();
+    expect(resources.resourceCount).toBe(0);
+  } finally {
+    resources.dispose();
+    vi.unstubAllGlobals();
+  }
 });
