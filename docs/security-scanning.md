@@ -1,9 +1,6 @@
 # Security scanning
 
-The Security workflow runs a quick [Strix](https://github.com/usestrix/strix) scan scoped to the
-files a pull request changes, measured against `origin/<base branch>`. Maintainers can also start it
-manually from the Actions tab with the `base` input (default `origin/main`), accepting any branch or
-commit as the diff base; that value is passed to Strix as `STRIX_DIFF_BASE` through `--diff-base`.
+The Security workflow runs only on manual dispatch and scans changes from the configured base.
 Strix sends its LLM
 requests to the deployed [OmniRoute](https://omniroute.hagicode.com/) OpenAI-compatible endpoint
 with the model `openai/auto`, so OmniRoute chooses the provider and model for each request. The
@@ -29,7 +26,3 @@ pricing and usage data, and requests already in flight can exceed the configured
 Findings below the severity threshold still appear in the report. When generated, the
 `strix_runs/` report is retained as the `strix-report` artifact for 14 days. Only the separate
 Code Scanning upload job receives `security-events: write`.
-
-The scan job skips pull requests whose head branch is in a fork. That check is based on branch
-location, so moving an external contribution to this repository changes which trust boundary
-applies to its code.
