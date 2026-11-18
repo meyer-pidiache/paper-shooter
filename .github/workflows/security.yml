@@ -10,6 +10,11 @@ on:
         default: origin/main
         type: string
 
+env:
+  # Keep STRIX_VERSION and STRIX_SHA256 in sync when upgrading.
+  STRIX_VERSION: 1.7.1
+  STRIX_SHA256: c8e836251578baa228afe9e65f4a901ef6ae1116c444f8f0a67f7ae7898c480f
+
 jobs:
   strix-scan:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -22,7 +27,16 @@ jobs:
           fetch-depth: 0
 
       - name: Install Strix
-        run: curl -sSL https://strix.ai/install | bash
+        run: |
+          archive="strix-$STRIX_VERSION-linux-x86_64"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 3 \
+            -o "$RUNNER_TEMP/$archive.tar.gz" \
+            "https://github.com/usestrix/strix/releases/download/v$STRIX_VERSION/$archive.tar.gz"
+          echo "$STRIX_SHA256  $RUNNER_TEMP/$archive.tar.gz" | sha256sum --check --strict -
+          mkdir -p "$RUNNER_TEMP/strix/bin"
+          tar -xzf "$RUNNER_TEMP/$archive.tar.gz" -C "$RUNNER_TEMP/strix"
+          install -m 0755 "$RUNNER_TEMP/strix/$archive" "$RUNNER_TEMP/strix/bin/strix"
+          echo "$RUNNER_TEMP/strix/bin" >> "$GITHUB_PATH"
 
       - name: Run Security Scan
         env:
