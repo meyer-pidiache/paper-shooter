@@ -308,7 +308,8 @@ export function buildDistrict(B, arena = false) {
     rail(x1, z2, -37.4, z2, 12);
     rail(-34.4, z2, x2, z2, 12);
     rail(x1, z1, x1, z2, 12);
-    rail(x2, z1, x2, 9, 12);
+    rail(x2, z1, x2, arena ? 4.7 : 9, 12);
+    if (arena) rail(x2, 7.3, x2, 9, 12);
     rail(x2, 15, x2, z2, 12);
     // fire escape: switchback on the south face (z 21..23)
     let y = 0;
@@ -324,11 +325,12 @@ export function buildDistrict(B, arena = false) {
     }
     // ruler bridge from the A roof: to the tower's third floor in solo, right across to building B in a match (y=12)
     {
-      const bx2 = arena ? 24.2 : -7;
-      const len = bx2 + 25.2;
-      box((bx2 - 25.2) / 2, 11.6, 6, len, 0.4, 2.4, { ink: INK.ORANGE });
-      for (let i = 0; i <= Math.floor(len); i++)
-        box(-25 + i, 12, 5, 0.06, 0.02, i % 5 === 0 ? 0.6 : 0.35, {
+      const bx1 = arena ? x2 : -25.2;
+      const bx2 = arena ? 24 : -7;
+      const len = bx2 - bx1;
+      box((bx1 + bx2) / 2, 11.6, 6, len, 0.4, 2.4, { ink: INK.ORANGE });
+      for (let i = 0; i <= Math.floor(arena ? len - 0.25 : len); i++)
+        box((arena ? bx1 + 0.2 : -25) + i, 12, 5, 0.06, 0.02, i % 5 === 0 ? 0.6 : 0.35, {
           noCollide: true,
           ink: INK.BLACK,
         });
@@ -410,11 +412,14 @@ export function buildDistrict(B, arena = false) {
     rail(x1, z2, 33.4, z2, 12);
     rail(36.4, z2, x2, z2, 12);
     rail(x2, z1, x2, z2, 12);
-    rail(x1, z1, x1, 9, 12);
+    rail(x1, z1, x1, arena ? 4.7 : 9, 12);
+    if (arena) rail(x1, 7.3, x1, 9, 12);
     rail(x1, 15, x1, z2, 12);
     // plank bridge tower floor 3 -> B roof
-    box(15.5, 11.6, 6, 17.4, 0.4, 2.2);
-    rail(7, 4.9, 24, 4.9, 12);
+    if (!arena) {
+      box(15.5, 11.6, 6, 17.4, 0.4, 2.2);
+      rail(7, 4.9, 24, 4.9, 12);
+    }
 
     spawn(34, 12, 18);
     spawn(40, 0, 8);
