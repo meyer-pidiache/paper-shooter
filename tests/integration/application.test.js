@@ -157,6 +157,27 @@ describe('composed application without the GPU transport', () => {
     expect(enemies.alive).toBe(0);
   });
 
+  it('honors the results read time after disconnecting and keeps the original status', () => {
+    fixture = applicationFixture();
+    const { app, game, hud, state, net, lobby } = fixture;
+    app.session.finishMatch({ id: 'host', name: 'player' });
+    const leave = vi.spyOn(net, 'leave');
+    app.multiplayer.leaveOnline('could not take over the lobby');
+    expect(leave).toHaveBeenCalledOnce();
+    expect(game.state).toBe('over');
+    app.session.requestLobbyReturn();
+
+    const leaveDisconnected = vi.fn();
+    app.session.updateResults(4, leaveDisconnected);
+    expect(game.state).toBe('over');
+    app.session.updateResults(1, leaveDisconnected);
+    expect(state.screen).toBe('online');
+    expect(lobby.status).toBe('could not take over the lobby');
+    expect(hud.el.panel.textContent).toContain(lobby.status);
+    expect(leaveDisconnected).not.toHaveBeenCalled();
+    expect(leave).toHaveBeenCalledOnce();
+  });
+
   it('scores and respawns an FFA match without changing its rules', () => {
     fixture = applicationFixture();
     const { app, game, net, lobby, player, scores } = fixture;

@@ -11,7 +11,7 @@ const RESULTS_GUEST_TIMEOUT = 25;
 
 /** Owns run/session transitions; input, screens and network request commands through composition. */
 export class SessionController {
-  private resultsReturnRequested = false;
+  private resultsDestination: 'lobby' | 'online' | null = null;
   private resultsInputArmed = false;
   private prompt: ReturnType<typeof setTimeout> | null = null;
   private readonly death: DeathProgress;
@@ -65,7 +65,7 @@ export class SessionController {
   finishMatch(winner: Winner) {
     const { game } = this.ports;
     if (game.state === 'over') return;
-    this.resultsReturnRequested = false;
+    this.resultsDestination = null;
     this.resultsInputArmed = false;
     game.over = winner;
     game.overT = 0;
@@ -87,7 +87,8 @@ export class SessionController {
     if (phase === 'pause' || phase === 'dead') this.resume();
   }
   requestLobbyReturn() {
-    if (this.ports.game.state === 'over') this.resultsReturnRequested = true;
+    if (this.ports.game.state === 'over' && this.resultsDestination !== 'online')
+      this.resultsDestination = 'lobby';
   }
   returnFromResults() {
     const { game, transport } = this.ports;
@@ -100,6 +101,10 @@ export class SessionController {
     if (game.state !== 'over') return;
     game.overT += elapsed;
     if (game.overT < RESULTS_READ_TIME) return;
+    if (this.resultsDestination === 'online') {
+      this.returnOnline();
+      return;
+    }
     if (transport.isHost) {
       hud.enableResultsReturn();
       if (!input.down('jump') && !input.down('confirm')) this.resultsInputArmed = true;
@@ -108,7 +113,7 @@ export class SessionController {
         this.resultsInputArmed &&
         (input.pressed('jump') || input.pressed('confirm'));
       if (controllerReturn || game.overT >= RESULTS_AUTO_RETURN) this.returnFromResults();
-    } else if (this.resultsReturnRequested || game.overT >= RESULTS_GUEST_TIMEOUT) {
+    } else if (this.resultsDestination === 'lobby' || game.overT >= RESULTS_GUEST_TIMEOUT) {
       if (transport.active) this.toLobbyScreen();
       else leaveDisconnected();
     }
@@ -314,9 +319,10 @@ export class SessionController {
     this.cancelPrompt();
     const { game, hud, setArena, screen, presentation } = this.ports;
     if (game.state === 'over' && game.overT < RESULTS_READ_TIME) {
-      this.resultsReturnRequested = true;
+      this.resultsDestination = 'online';
       return;
     }
+    this.resultsDestination = null;
     hud.setBoard(null);
     if (game.state !== 'start') {
       game.state = 'start';
