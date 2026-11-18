@@ -11,7 +11,8 @@ import { RemoteGrapple } from '../presentation/remote-grapple.js';
 import { RemoteInterpolation } from './remote/interpolation.js';
 import { makeInkMaterial, setFill } from '../presentation/ink/materials.js';
 import { INK } from '../shared/ink.js';
-import { buildHumanoid, buildWeaponProp } from '../presentation/models/characters.js';
+import { buildHumanoid } from '../presentation/models/humanoid.js';
+import { buildRemoteWeapon } from '../presentation/models/remote-weapon.js';
 import {
   RemoteAnimation,
   remoteAnimationFrame,
@@ -38,6 +39,7 @@ export { encodeLocal } from '../domain/player-snapshots.js';
 type RemoteModel = ReturnType<typeof buildHumanoid> & {
   tagG: THREE.Group;
   animation: RemoteAnimationRig;
+  weapon: THREE.Group;
 };
 export class RemotePlayer {
   name: string;
@@ -81,6 +83,7 @@ export class RemotePlayer {
   lastSeen = 0;
   readonly mat: THREE.ShaderMaterial;
   readonly solid: THREE.ShaderMaterial;
+  private readonly sight: THREE.ShaderMaterial;
   private readonly releaseMaterials: () => void;
   readonly T: CharacterAppearance & { blockRadius: number } = {
     weapon: 'rifle',
@@ -114,7 +117,8 @@ export class RemotePlayer {
     this.death = new RemoteRagdoll(services.scene, services.effects);
     this.mat = makeInkMaterial({ ink, shadeScale: 0, shadeBias: 1 });
     this.solid = makeInkMaterial({ ink: INK.BLACK, fill: true, side: THREE.DoubleSide });
-    this.releaseMaterials = services.resources.retain([this.mat, this.solid]);
+    this.sight = makeInkMaterial({ ink: INK.RED, fill: true });
+    this.releaseMaterials = services.resources.retain([this.mat, this.solid, this.sight]);
     this.model = this.buildModel();
     this.root = this.model.root;
     this.ropeView = new RemoteGrapple(services.scene, services.resources);
@@ -141,10 +145,10 @@ export class RemotePlayer {
     return this.model.animation;
   }
   private buildModel(): RemoteModel {
-    const model = buildHumanoid(this.mat, this.solid, this.T);
+    const weapon = this.buildWeapon();
+    const model = buildHumanoid(this.mat, this.solid, this.T, (gun) => gun.add(weapon));
     model.root.visible = false;
     this.services.scene.add(model.root);
-    this.weaponIndex = -1;
     const tagG = new THREE.Group();
     model.root.add(tagG);
     tagG.position.y = 2.25;
@@ -156,7 +160,14 @@ export class RemotePlayer {
     const animation = { root: model.root, joints: model.J, tag: tagG, face: model.face };
     this.corpse = false;
     this.services.resources.track(model.root);
-    return { ...model, tagG, animation };
+    return { ...model, tagG, animation, weapon };
+  }
+  private buildWeapon() {
+    return buildRemoteWeapon(WEAPON_KINDS[this.weaponIndex], {
+      mat: this.mat,
+      dark: this.solid,
+      red: this.sight,
+    });
   }
 
   // knocked flat with some physics: the whole figure tumbles away as debris (bits come off on a
@@ -177,12 +188,14 @@ export class RemotePlayer {
     return 0;
   }
   setWeapon(i: number) {
-    if (i === this.weaponIndex && this.J.gun.children.length) return;
+    if (!WEAPON_KINDS[i]) i = 0;
+    if (i === this.weaponIndex) return;
     this.weaponIndex = i;
-    const gun = this.J.gun;
-    while (gun.children.length) this.services.resources.release(gun.children[0]);
-    buildWeaponProp(gun, this.mat, this.solid, { weapon: WEAPON_KINDS[i] || 'rifle' });
-    this.services.resources.track(gun);
+    if (!this.root) return;
+    this.services.resources.release(this.model.weapon);
+    this.model.weapon = this.buildWeapon();
+    this.services.resources.track(this.model.weapon);
+    this.J.gun.add(this.model.weapon);
   }
   get snapA() {
     return this.interpolation.previous;
@@ -218,6 +231,7 @@ export class RemotePlayer {
     if (this.alive && this.corpse) {
       this.model = this.buildModel();
       this.root = this.model.root;
+      this.animation.resetAim(this.aiming);
       this.interpolation.clearPrevious();
       this.body.pos.copy(latest.p);
     }
@@ -296,7 +310,7 @@ export class RemotePlayer {
     const frame = this.animationFrame;
     frame.onGround = this.body.onGround;
     frame.alive = this.alive;
-    frame.blade = this.weaponIndex === WEAPON_KINDS.length - 1;
+    frame.blade = WEAPON_KINDS[this.weaponIndex] === 'blade';
     frame.aiming = this.aiming;
     frame.blocking = this.blocking;
     frame.pitch = this.pitch;

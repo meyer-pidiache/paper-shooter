@@ -160,7 +160,7 @@ it('preserves remote snapshots, poses, weapon replacement, ragdolls and respawn 
   remote = null;
   for (let frame = 0; frame < 240; frame++) effects.update(0.05);
   const result = {
-    source: '87fdbe8',
+    source: 'issue-17',
     frames: frames.length,
     digest: createHash('sha256').update(JSON.stringify({ frames, wire })).digest('hex'),
     remainingFragments: effects.debrisList.length,

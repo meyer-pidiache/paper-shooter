@@ -192,7 +192,7 @@ it('preserves composed PvP guard, rope, prop, blast and shot-report outcomes', (
   if (process.env.RECORD_COMBAT_BASELINE === '1')
     writeFileSync(
       'tests/fixtures/combat-baseline.json',
-      JSON.stringify({ source: '70baa77', ...result }, null, 2) + '\n',
+      JSON.stringify({ source: 'issue-17', ...result }, null, 2) + '\n',
     );
   else {
     if (result.digest !== baseline.digest) {

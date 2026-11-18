@@ -5,7 +5,12 @@ import { doodleFace } from './character-face.js';
 import { rand } from '../../engine/math.js';
 import { buildHat } from './character-hats.js';
 import { buildWeaponProp } from './character-weapons.js';
-export function buildHumanoid(mat: THREE.Material, solid: THREE.Material, T: CharacterAppearance) {
+export function buildHumanoid(
+  mat: THREE.Material,
+  solid: THREE.Material,
+  T: CharacterAppearance,
+  buildWeapon: (gun: THREE.Group) => void = (gun) => buildWeaponProp(gun, mat, solid, T),
+) {
   const { root, hips, torso, headG, hipsPoint, torsoPoint, headPoint, fc, bodyW, limbR } =
     buildBody(mat, solid, T);
   const shY = 0.46,
@@ -25,7 +30,7 @@ export function buildHumanoid(mat: THREE.Material, solid: THREE.Material, T: Cha
   const gun = new THREE.Group();
   gun.position.set(0, -0.29, 0.07);
   foreR.add(gun);
-  buildWeaponProp(gun, mat, solid, T);
+  buildWeapon(gun);
   const tip = new THREE.Object3D();
   tip.position.set(0, 0.05, T.weapon === 'blade' ? 0.92 : T.weapon === 'boss' ? 0.4 : 0.78);
   gun.add(tip);

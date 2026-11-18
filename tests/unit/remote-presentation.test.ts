@@ -7,6 +7,8 @@ import {
   remoteAnimationFrame,
 } from '../../src/presentation/characters/remote-animation.js';
 import { buildHumanoid } from '../../src/presentation/models/humanoid.js';
+import { RemotePlayer } from '../../src/gameplay/remote-player.js';
+import { INK } from '../../src/shared/ink.js';
 it('projects and retires remote ropes independently without changing borrowed endpoints', () => {
   const scene = new Scene(),
     resources = new SceneResources();
@@ -60,4 +62,68 @@ it('owns remote guard, airborne and slumped poses while leaving the borrowed fra
   } finally {
     resources.dispose();
   }
+});
+
+it('uses the latest snapshot to mount the weapon and raise or lower it while aiming', () => {
+  const scene = new Scene();
+  const resources = new SceneResources();
+  const remote = new RemotePlayer(
+    {
+      scene,
+      resources,
+      effects: { debris() {}, blood() {}, bloodPool() {} },
+      localEye: () => null,
+    },
+    'peer',
+    'paper',
+    0,
+    INK.BLUE,
+  );
+  const snapshot = (weapon: number, flags: number, time: number, pitch = 0.2) => {
+    remote.push([0, 0, 0, 0.3, pitch, weapon, flags, 100, 0, 0, 0], time);
+    remote.update(0.25, time + 0.1);
+    return remote.J.gun.children.find((child) => child instanceof Group)!;
+  };
+  const alive = 64 | 16;
+  const aim = 8;
+  const gunHeight = () => remote.J.gun.getWorldPosition(new Vector3()).y;
+  try {
+    const rifle = snapshot(0, alive, 1);
+    const carryHeight = gunHeight();
+    expect(snapshot(0, alive | aim, 2)).toBe(rifle);
+    expect(gunHeight()).toBeGreaterThan(carryHeight + 0.2);
+    expect(remote.J.gun.getWorldDirection(new Vector3()).dot(remote.forward)).toBeGreaterThan(
+      0.999,
+    );
+
+    const shotgun = snapshot(1, alive | aim | 1, 3, 1.4);
+    expect(rifle.parent).toBeNull();
+    expect(shotgun).not.toBe(rifle);
+    expect(remote.J.gun.getWorldDirection(new Vector3()).dot(remote.forward)).toBeGreaterThan(
+      0.999,
+    );
+
+    const sniper = snapshot(2, alive, 4);
+    expect(shotgun.parent).toBeNull();
+    expect(sniper).not.toBe(shotgun);
+    expect(gunHeight()).toBeCloseTo(carryHeight, 1);
+    expect(remote.J.gun.getWorldDirection(new Vector3()).dot(remote.forward)).toBeLessThan(0.9);
+
+    const blade = snapshot(3, alive | 4, 5);
+    expect(sniper.parent).toBeNull();
+    expect(blade).not.toBe(sniper);
+    expect(remote.J.armR.rotation.z).toBe(-0.8);
+
+    snapshot(3, 0, 6);
+    remote.ragdoll();
+    const corpseGun = remote.J.gun;
+    expect(snapshot(2, alive | aim, 7)).not.toBe(blade);
+    expect(blade.parent).toBe(corpseGun);
+    expect(remote.weaponIndex).toBe(2);
+    expect(gunHeight()).toBeGreaterThan(carryHeight + 0.2);
+  } finally {
+    remote.dispose();
+    resources.release(scene);
+  }
+  expect(resources.resourceCount).toBe(0);
 });
