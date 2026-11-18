@@ -132,7 +132,7 @@ function fixture() {
     updateWaves: event('waves'),
     updateArenaPickups: event('arenaPickups'),
     updateDeath: event('death'),
-    toLobbyScreen: event('lobby'),
+    updateResults: event('results'),
   };
   const loop = createLoop(
     {
@@ -291,21 +291,12 @@ it('preserves mouse hold versus controller toggle for the scoreboard and hides i
   f.loop.step(f.start + 250);
   expect(f.hud.el.board.hidden).toBe(true);
 });
-it.each([
-  [true, 8],
-  [false, 15],
-])('returns results to the lobby strictly after the existing host=%s delay', (host, delay) => {
+it('advances results by wall time only after observing the results screen', () => {
   const f = fixture();
   f.game.state = 'over';
-  f.game.mode = 'ffa';
-  f.game.overT = delay;
-  f.runtime.net.isHost = host;
-  f.loop.step(f.start);
-  expect(f.actions.toLobbyScreen).not.toHaveBeenCalled();
-  f.loop.step(f.start + 10);
-  expect(f.actions.toLobbyScreen).toHaveBeenCalledOnce();
-  if (host) expect(f.runtime.net.send).toHaveBeenCalledWith('backtolobby', {});
-  else expect(f.runtime.net.send).not.toHaveBeenCalled();
+  f.loop.step(f.start + 10_000);
+  f.loop.step(f.start + 15_000);
+  expect(f.actions.updateResults.mock.calls).toEqual([[0], [5]]);
 });
 it('uses background steps without creating another animation chain and stops its schedulers', () => {
   const f = fixture();

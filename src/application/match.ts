@@ -145,6 +145,7 @@ export class MatchController {
     }
   }
   endMatch(winner: Winner) {
+    if (this.ports.finished()) return;
     const { session, endFocus, exitLock, hud } = this.ports;
     session.finishMatch(winner);
     endFocus();
@@ -152,5 +153,6 @@ export class MatchController {
     hud.setBoard(null);
     hud.setGameplayVisible(false);
     hud.showScreen(matchResults(this.view(), winner));
+    hud.bindResultsReturn(() => session.returnFromResults());
   }
 }

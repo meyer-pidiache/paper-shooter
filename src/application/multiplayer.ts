@@ -42,7 +42,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     breakProp,
     hostStart,
     endMatch,
-    toLobbyScreen,
+    requestLobbyReturn,
     spawnPickup,
     removePickup,
     tallyDeath,
@@ -139,7 +139,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
   net.onPeerLeave = (id) => roster.peerLeave(id);
   net.onDisconnect = () => {
     if (lobby.order && lobby.order.some((id) => id !== lobby.hostId)) void migrateHost();
-    else leaveOnline('the host left the lobby');
+    else if (game.state !== 'over') leaveOnline('the host left the lobby');
   };
   net.on('refused', (d) => leaveOnline(d.reason));
   net.hostName = ports.local.myName;
@@ -166,7 +166,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
   });
   net.onHost('end', (d) => endMatch(d));
   net.onHost('backtolobby', () => {
-    if (!net.isHost) toLobbyScreen();
+    if (!net.isHost) requestLobbyReturn();
   });
   net.onHost('pickup', (d) => {
     if (!net.isHost) spawnPickup(d.kind, new THREE.Vector3().fromArray(d.pos), d.id);

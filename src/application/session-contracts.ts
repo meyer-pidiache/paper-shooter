@@ -27,6 +27,8 @@ export interface SessionScreen {
 export interface SessionInput extends DeathInput {
   readonly usingGamepad: boolean;
   readonly pointerLocked: boolean;
+  pressed(action: 'pause' | 'jump' | 'confirm'): boolean;
+  down(action: 'pause' | 'jump' | 'confirm'): boolean;
   requestLock(): void;
   exitLock(): void;
 }
@@ -41,6 +43,7 @@ export interface SessionHud {
   hideScreen(): void;
   setGameplayVisible(visible: boolean): void;
   setBoard(html: string | null): void;
+  enableResultsReturn(): void;
   message(title: string, detail: string, duration: number): void;
   tip(html: string, duration: number): void;
   key(action: string): string;
@@ -54,6 +57,7 @@ export interface SessionPresentation {
 export interface SessionTransport {
   readonly id: string | null;
   readonly isHost: boolean;
+  readonly active: boolean;
   inMatch: boolean;
   send(type: 'backtolobby', data: Record<string, never>): void;
   send(type: 'start', data: MatchStart): void;

@@ -91,7 +91,7 @@ export interface MultiplayerActions {
   breakProp(prop: Breakable, direction: Vector3 | null, local: boolean, quiet?: boolean): void;
   hostStart(): void;
   endMatch(winner: Winner): void;
-  toLobbyScreen(): void;
+  requestLobbyReturn(): void;
   spawnPickup(kind: 'ammo' | 'health', point: Vector3, id: number): void;
   removePickup(pickup: Pickup): void;
   tallyDeath(victim: string, killer?: string | null): void;

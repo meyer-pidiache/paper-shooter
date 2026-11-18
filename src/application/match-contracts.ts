@@ -33,6 +33,7 @@ export interface MatchHud {
   setBoard(html: string | null): void;
   setGameplayVisible(visible: boolean): void;
   showScreen(html: string): void;
+  bindResultsReturn(onReturn: () => void): void;
 }
 export interface MatchPorts {
   player: MatchPlayer;
@@ -54,5 +55,6 @@ export interface MatchPorts {
     playerDied(): void;
     playerRespawned(): void;
     finishMatch(winner: Winner): void;
+    returnFromResults(): void;
   };
 }

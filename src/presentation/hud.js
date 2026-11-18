@@ -245,6 +245,25 @@ export class HUD {
   setModifier(text) {
     this.el.modifier.textContent = text || '';
   }
+  bindResultsReturn(onReturn) {
+    const button = this.el.panel.querySelector('#resultsReturn');
+    button?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      onReturn();
+    });
+    button?.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.stopPropagation();
+      if (event.repeat) event.preventDefault();
+    });
+  }
+  enableResultsReturn() {
+    const button = this.el.panel.querySelector('#resultsReturn');
+    if (button?.disabled) {
+      button.disabled = false;
+      button.hidden = false;
+    }
+  }
   setTimer(text) {
     this.el.timer.textContent = text || '';
   }

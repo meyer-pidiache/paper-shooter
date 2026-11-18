@@ -16,7 +16,6 @@ export interface LoopPorts {
     comboT: number;
     combo: number;
     readonly score: number;
-    overT: number;
   };
   player: {
     body: { pos: Vector3 };
@@ -33,8 +32,6 @@ export interface LoopPorts {
   };
   net: {
     readonly active: boolean;
-    readonly isHost: boolean;
-    send(kind: 'backtolobby', data: Record<string, never>): void;
   };
   audio: { readonly musicPlaying: boolean; musicOn(playing: boolean): void; resume(): void };
   musicWanted(): boolean;
@@ -56,6 +53,6 @@ export interface LoopPorts {
     updateWaves(dt: number): void;
     updateArenaPickups(dt: number): void;
     updateDeath(phase: GamePhase, dt: number): void;
-    toLobbyScreen(): void;
+    updateResults(elapsed: number): void;
   };
 }

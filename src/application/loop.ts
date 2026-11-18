@@ -87,6 +87,7 @@ export class GameLoop {
       const clockElapsed = previousPhase === 'play' || previousPhase === 'dying' ? elapsed : dt;
       this.simulate(phase, dt, dt * scale, clockElapsed);
     } else this.idle(phase, dt);
+    if (phase === 'over') actions.updateResults(previousPhase === 'over' ? elapsed : 0);
     presentation.present(playing, dt, scale);
     if (this.running) this.sampleNerdStats(now);
   }
@@ -150,11 +151,5 @@ export class GameLoop {
     if (['start', 'dead', 'lobby', 'over'].includes(phase)) player.idleCam(game.time);
     effects.update(dt);
     if (net.active) actions.netUpdate(dt);
-    if (phase !== 'over') return;
-    game.overT += dt;
-    if (net.isHost && game.overT > 8) {
-      net.send('backtolobby', {});
-      actions.toLobbyScreen();
-    } else if (!net.isHost && game.overT > 15) actions.toLobbyScreen();
   }
 }

@@ -141,6 +141,7 @@ export function createApplication(options: ApplicationOptions) {
       playerDied: () => session.playerDied(),
       playerRespawned: () => session.playerRespawned(),
       finishMatch: (winner) => session.finishMatch(winner),
+      returnFromResults: () => session.returnFromResults(),
     },
   });
   const reset = new RunReset({
@@ -239,7 +240,7 @@ export function createApplication(options: ApplicationOptions) {
       breakProp: (...args) => combat.breakProp(...args),
       hostStart: (...args) => session.hostStart(...args),
       endMatch: (...args) => match.endMatch(...args),
-      toLobbyScreen: (...args) => session.toLobbyScreen(...args),
+      requestLobbyReturn: () => session.requestLobbyReturn(),
       spawnPickup: (...args) => pickups.spawnPickup(...args),
       removePickup: (...args) => pickups.removePickup(...args),
       tallyDeath: (...args) => match.tallyDeath(...args),
@@ -337,7 +338,8 @@ export function createApplication(options: ApplicationOptions) {
       updateWaves: (...args) => waves.updateWaves(...args),
       updateArenaPickups: (...args) => pickups.updateArenaPickups(...args),
       updateDeath: (phase, dt) => session.updateDeath(phase, dt),
-      toLobbyScreen: (...args) => session.toLobbyScreen(...args),
+      updateResults: (elapsed) =>
+        session.updateResults(elapsed, () => multiplayer.leaveOnline('the host left the lobby')),
     },
   );
 

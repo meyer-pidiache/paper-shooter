@@ -5,8 +5,14 @@ import { DeathProgress } from './death-progress.js';
 import type { ClockState } from '../network/game-message-types.js';
 import type { GamePhase } from '../domain/match.js';
 
+const RESULTS_READ_TIME = 5;
+const RESULTS_AUTO_RETURN = 20;
+const RESULTS_GUEST_TIMEOUT = 25;
+
 /** Owns run/session transitions; input, screens and network request commands through composition. */
 export class SessionController {
+  private resultsReturnRequested = false;
+  private resultsInputArmed = false;
   private prompt: ReturnType<typeof setTimeout> | null = null;
   private readonly death: DeathProgress;
   constructor(private readonly ports: SessionPorts) {
@@ -58,20 +64,17 @@ export class SessionController {
   }
   finishMatch(winner: Winner) {
     const { game } = this.ports;
+    if (game.state === 'over') return;
+    this.resultsReturnRequested = false;
+    this.resultsInputArmed = false;
     game.over = winner;
     game.overT = 0;
     game.state = 'over';
   }
   screenClick() {
-    const { game, transport, screen } = this.ports;
+    const { game, screen } = this.ports;
     const phase = game.state;
-    if (phase === 'over') {
-      if (transport.isHost) {
-        transport.send('backtolobby', {});
-        this.toLobbyScreen();
-      }
-      return;
-    }
+    if (phase === 'over') return;
     if (phase === 'lobby') return;
     if (phase === 'start') {
       if (screen.screen === 'main') this.begin();
@@ -82,6 +85,33 @@ export class SessionController {
       return;
     }
     if (phase === 'pause' || phase === 'dead') this.resume();
+  }
+  requestLobbyReturn() {
+    if (this.ports.game.state === 'over') this.resultsReturnRequested = true;
+  }
+  returnFromResults() {
+    const { game, transport } = this.ports;
+    if (game.state !== 'over' || game.overT < RESULTS_READ_TIME || !transport.isHost) return;
+    transport.send('backtolobby', {});
+    this.toLobbyScreen();
+  }
+  updateResults(elapsed: number, leaveDisconnected: () => void) {
+    const { game, transport, input, hud } = this.ports;
+    if (game.state !== 'over') return;
+    game.overT += elapsed;
+    if (game.overT < RESULTS_READ_TIME) return;
+    if (transport.isHost) {
+      hud.enableResultsReturn();
+      if (!input.down('jump') && !input.down('confirm')) this.resultsInputArmed = true;
+      const controllerReturn =
+        input.usingGamepad &&
+        this.resultsInputArmed &&
+        (input.pressed('jump') || input.pressed('confirm'));
+      if (controllerReturn || game.overT >= RESULTS_AUTO_RETURN) this.returnFromResults();
+    } else if (this.resultsReturnRequested || game.overT >= RESULTS_GUEST_TIMEOUT) {
+      if (transport.active) this.toLobbyScreen();
+      else leaveDisconnected();
+    }
   }
   canvasClick() {
     const { game, input } = this.ports;
@@ -283,6 +313,10 @@ export class SessionController {
   returnOnline() {
     this.cancelPrompt();
     const { game, hud, setArena, screen, presentation } = this.ports;
+    if (game.state === 'over' && game.overT < RESULTS_READ_TIME) {
+      this.resultsReturnRequested = true;
+      return;
+    }
     hud.setBoard(null);
     if (game.state !== 'start') {
       game.state = 'start';

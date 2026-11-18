@@ -36,7 +36,7 @@ export class FrameInteraction {
   }
   private menuInput(phase: GamePhase) {
     const { input, online, menuOpen, screenClick, resume, pause } = this.ports;
-    if (['start', 'pause', 'dead', 'over'].includes(phase)) {
+    if (['start', 'pause', 'dead'].includes(phase)) {
       if (this.confirmed(phase)) screenClick();
       return;
     }
