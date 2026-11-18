@@ -88,6 +88,7 @@ export class GameLoop {
       this.simulate(phase, dt, dt * scale, clockElapsed);
     } else this.idle(phase, dt);
     if (phase === 'over') actions.updateResults(previousPhase === 'over' ? elapsed : 0);
+    actions.updateTabProtection?.();
     presentation.present(playing, dt, scale);
     if (this.running) this.sampleNerdStats(now);
   }

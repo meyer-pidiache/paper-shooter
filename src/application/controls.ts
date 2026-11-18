@@ -1,3 +1,4 @@
+import { createTabProtection } from '../platform/tab-protection.js';
 import type { SessionAudio, SessionInput } from './session-contracts.js';
 interface ControlInput extends SessionInput {
   onLockChange: ((locked: boolean) => void) | null;
@@ -5,6 +6,9 @@ interface ControlInput extends SessionInput {
 }
 interface ControlPorts {
   canvas: HTMLCanvasElement;
+  panel: HTMLElement;
+  matchInProgress(): boolean;
+  matchTakingInput(): boolean;
   input: ControlInput;
   audio: Pick<SessionAudio, 'init' | 'resume'>;
   hud: {
@@ -25,6 +29,9 @@ interface SessionInputCommands {
 export function createControls(ports: ControlPorts, session: SessionInputCommands) {
   const { canvas, input, audio, hud, player, applySettings, leavePage } = ports;
   const listeners: (() => void)[] = [];
+  const tabProtection = createTabProtection();
+  const updateTabProtection = () =>
+    tabProtection.sync(ports.matchInProgress(), ports.matchTakingInput());
   function listen(
     target: EventTarget,
     event: string,
@@ -35,6 +42,7 @@ export function createControls(ports: ControlPorts, session: SessionInputCommand
     listeners.push(() => target.removeEventListener(event, handler, options));
   }
   function dispose() {
+    tabProtection.dispose();
     for (const remove of listeners) remove();
     listeners.length = 0;
     input.onLockChange = null;
@@ -43,6 +51,26 @@ export function createControls(ports: ControlPorts, session: SessionInputCommand
   }
   hud.onScreenClick = () => session.screenClick();
   listen(canvas, 'click', () => session.canvasClick());
+  listen(document, 'fullscreenchange', updateTabProtection);
+  listen(
+    ports.panel,
+    'click',
+    (event) => {
+      if (!(event.target instanceof Element) || !event.target.closest('[data-fullscreen]')) return;
+      event.stopPropagation();
+      tabProtection.toggleFullscreen();
+    },
+    { capture: true },
+  );
+  listen(ports.panel, 'keydown', (event) => {
+    if (
+      event instanceof KeyboardEvent &&
+      (event.key === 'Enter' || event.key === ' ') &&
+      event.target instanceof Element &&
+      event.target.closest('[data-fullscreen]')
+    )
+      event.stopPropagation();
+  });
   input.onLockChange = (locked) => session.lockChanged(locked);
   input.onDeviceChange = (pad) => {
     hud.setDevice(pad);
@@ -62,5 +90,5 @@ export function createControls(ports: ControlPorts, session: SessionInputCommand
   hud.setDevice(input.usingGamepad);
   applySettings();
   hud.setWeapon(player.weapon.name, player.weapon.hint);
-  return { dispose };
+  return { dispose, updateTabProtection };
 }

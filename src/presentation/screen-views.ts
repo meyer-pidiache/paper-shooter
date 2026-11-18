@@ -88,6 +88,9 @@ export function menuBtnHTML() {
   return '<div class="online menubtn"><div class="row"><button type="button" class="alt" id="menuBtn">MAIN MENU</button></div></div>';
 }
 
+const fullscreenButton =
+  '<button type="button" class="alt" data-fullscreen>TOGGLE FULLSCREEN</button>';
+
 export function pauseOnlineHTML(view: PauseScreenView, settings: string, confirm: string) {
   return `<h1>MENU</h1><h2>free for all · lobby ${esc(view.code.replace(/-\d+$/, ''))}</h2><div class="scoreboard">${view.scores
     .map(
@@ -96,7 +99,7 @@ export function pauseOnlineHTML(view: PauseScreenView, settings: string, confirm
     )
     .join(
       '',
-    )}</div>${settings}<div class="online" id="online"><div class="row"><button type="button" class="alt" id="leaveBtn">LEAVE MATCH</button></div></div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO KEEP PLAYING</div>`;
+    )}</div>${settings}<div class="online" id="online"><div class="row"><button type="button" class="alt" id="leaveBtn">LEAVE MATCH</button>${fullscreenButton}</div></div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO KEEP PLAYING</div>`;
 }
 
 export function pauseSoloHTML(
@@ -104,7 +107,7 @@ export function pauseSoloHTML(
   settings: string,
   confirm: string,
 ) {
-  return `<h1>PAUSED</h1><h2>wave ${view.wave} · score ${view.score}</h2>${settings}${menuBtnHTML()}<div class="go">CLICK ANYWHERE (or press ${confirm}) TO RESUME</div>`;
+  return `<h1>PAUSED</h1><h2>wave ${view.wave} · score ${view.score}</h2>${settings}<div class="online"><div class="row"><button type="button" class="alt" id="menuBtn">MAIN MENU</button>${fullscreenButton}</div></div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO RESUME</div>`;
 }
 
 export function deathHTML(view: DeathScreenView, newBest: boolean, confirm: string) {
@@ -112,5 +115,5 @@ export function deathHTML(view: DeathScreenView, newBest: boolean, confirm: stri
 }
 
 export function clickToPlayHTML(confirm: string) {
-  return `<h1>MATCH ON</h1><h2>free for all · first to ${FFA_TARGET}</h2><div class="go">CLICK ANYWHERE (or press ${confirm}) TO PLAY</div>`;
+  return `<h1>MATCH ON</h1><h2>free for all · first to ${FFA_TARGET}</h2><div class="online">${fullscreenButton}</div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO PLAY</div>`;
 }

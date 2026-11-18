@@ -54,5 +54,6 @@ export interface LoopPorts {
     updateArenaPickups(dt: number): void;
     updateDeath(phase: GamePhase, dt: number): void;
     updateResults(elapsed: number): void;
+    updateTabProtection?(): void;
   };
 }

@@ -77,6 +77,10 @@ in-game under **Settings & Controls**; the in-game guide follows the active conf
 
 On-screen hints follow whichever device you touched last.
 
+If your browser treats Ctrl+W as Close Tab, use C to crouch. The pause menu can toggle fullscreen
+to capture Ctrl+W during play in supported browsers. Otherwise, the browser may ask you to confirm
+when leaving an active match.
+
 ## Weapons and gear
 
 Rifle, shotgun, sniper (with scope) and a katana. Holding block with the katana parries

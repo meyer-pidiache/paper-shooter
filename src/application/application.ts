@@ -265,6 +265,10 @@ export function createApplication(options: ApplicationOptions) {
   const controls = createControls(
     {
       canvas: runtime.canvas,
+      panel: runtime.hud.el.panel,
+      matchInProgress: () => ['play', 'dying', 'pause'].includes(runtime.game.state),
+      matchTakingInput: () =>
+        !runtime.game.menu && (runtime.game.state === 'play' || runtime.game.state === 'dying'),
       input: runtime.input,
       hud: runtime.hud,
       audio,
@@ -338,6 +342,7 @@ export function createApplication(options: ApplicationOptions) {
       updateWaves: (...args) => waves.updateWaves(...args),
       updateArenaPickups: (...args) => pickups.updateArenaPickups(...args),
       updateDeath: (phase, dt) => session.updateDeath(phase, dt),
+      updateTabProtection: controls.updateTabProtection,
       updateResults: (elapsed) =>
         session.updateResults(elapsed, () => multiplayer.leaveOnline('the host left the lobby')),
     },
