@@ -98,6 +98,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     map: () => ports.local.mapKey,
     phase: () => game.state,
     inMatch,
+    clock: () => ({ left: ports.local.matchLeft, on: game.clockStarted }),
     brokenIds: () =>
       ports.local.level.breakables.filter((prop) => !prop.alive).map((prop) => prop.id),
     farthestSpawnIndex,
@@ -148,7 +149,12 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
   net.onHost('start', (d) => {
     if (net.isHost) return;
     if (d.map) lobby.map = knownMap(d.map);
-    startMatch(!!d.late, d.spawns ? (net.id === null ? undefined : d.spawns[net.id]) : d.spawn);
+    if (d.duration !== undefined) lobby.duration = d.duration;
+    startMatch(
+      !!d.late,
+      d.spawns ? (net.id === null ? undefined : d.spawns[net.id]) : d.spawn,
+      d.clock,
+    );
     if (d.broken)
       for (const id of d.broken) {
         const br = ports.local.level.breakables[id];
@@ -293,7 +299,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     broadcastLobby,
     migrateHost,
     idleUpdate: (dt: number) => idle.update(dt),
-    netUpdate: (dt: number) => sync.update(dt),
+    netUpdate: (dt: number, clockElapsed?: number) => sync.update(dt, clockElapsed),
     leaveOnline,
     createLobby: (isPublic: boolean) => connection.createLobby(isPublic),
     joinLobby: (code: string) => connection.joinLobby(code),

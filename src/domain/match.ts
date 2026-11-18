@@ -3,6 +3,12 @@ import { isRecord } from '../shared/ice.js';
 export const MAX_PLAYERS = 10;
 export const FFA_TARGET = 20;
 export const FFA_TIME = 600;
+export const FFA_DURATIONS = [180, 300, FFA_TIME, 900] as const;
+export type MatchDuration = (typeof FFA_DURATIONS)[number];
+
+export function isMatchDuration(value: unknown): value is MatchDuration {
+  return FFA_DURATIONS.some((seconds) => seconds === value);
+}
 export const RESPAWN = 2.5;
 
 export type GamePhase = 'start' | 'lobby' | 'play' | 'pause' | 'dying' | 'dead' | 'over';

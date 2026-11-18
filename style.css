@@ -1355,6 +1355,14 @@ canvas#c {
   border-left: 2px solid currentColor;
   transform: rotate(-45deg);
 }
+.duration select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel-paper);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
 .online button.alt {
   color: var(--ink);
   background: transparent;

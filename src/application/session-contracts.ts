@@ -1,5 +1,7 @@
 import type { Vector3 } from 'three';
 import type { EnemyKind } from '../domain/enemies.js';
+import type { MatchStart } from '../network/game-message-types.js';
+import type { LobbyState } from './lobby-contracts.js';
 import type { MapKey } from '../domain/maps.js';
 import type { Score, Winner, GamePhase } from '../domain/match.js';
 import type { DeathState, DeathInput } from './death-progress.js';
@@ -54,7 +56,7 @@ export interface SessionTransport {
   readonly isHost: boolean;
   inMatch: boolean;
   send(type: 'backtolobby', data: Record<string, never>): void;
-  send(type: 'start', data: { spawns: Record<string, number>; map: MapKey }): void;
+  send(type: 'start', data: MatchStart): void;
 }
 export interface SessionPorts {
   game: SessionGame;
@@ -64,7 +66,7 @@ export interface SessionPorts {
   hud: SessionHud;
   presentation: SessionPresentation;
   transport: SessionTransport;
-  lobby: { players: ReadonlyMap<string, { name: string }>; map: MapKey | null };
+  lobby: Pick<LobbyState, 'players' | 'map' | 'duration'>;
   scores: Map<string, Score>;
   player: { reset(position: Vector3): void; shieldT: number };
   remote: () => Iterable<{ lastSeen: number }>;

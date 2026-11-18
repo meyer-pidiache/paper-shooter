@@ -5,6 +5,7 @@ import type { LoopPorts } from './loop-contracts.js';
 /** Owns variable frame integration and scheduler lifetime, with scoped simulation and view ports. */
 export class GameLoop {
   private last: number;
+  private lastPhase: GamePhase | null = null;
   private musicHealT = 2;
   private running = false;
   private frameId = 0;
@@ -70,17 +71,22 @@ export class GameLoop {
   step(now: number) {
     const { game, input, online, interaction, presentation, actions } = this.ports;
     // Preserve the captured phase, variable step and 50 ms cap, including transitions during input.
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    const elapsed = Math.max(0, (now - this.last) / 1000);
+    const dt = Math.min(0.05, elapsed);
     this.last = now;
     input.update(dt);
     const phase = game.state;
+    const previousPhase = this.lastPhase;
+    this.lastPhase = phase;
     const playing = phase === 'play' || phase === 'dying';
     interaction.update(phase, playing, dt);
     const scale = this.timeScale(dt);
     if (phase === 'play' && !online()) actions.updateFocus(dt);
     else actions.endFocus();
-    if (playing) this.simulate(phase, dt, dt * scale);
-    else this.idle(phase, dt);
+    if (playing) {
+      const clockElapsed = previousPhase === 'play' || previousPhase === 'dying' ? elapsed : dt;
+      this.simulate(phase, dt, dt * scale, clockElapsed);
+    } else this.idle(phase, dt);
     presentation.present(playing, dt, scale);
     if (this.running) this.sampleNerdStats(now);
   }
@@ -122,7 +128,7 @@ export class GameLoop {
       hud.setScore(game.score, 0);
     }
   }
-  private simulate(phase: GamePhase, dt: number, scaled: number) {
+  private simulate(phase: GamePhase, dt: number, scaled: number, clockElapsed: number) {
     const { game, player, enemies, effects, actions, online } = this.ports;
     game.time += scaled;
     if (player.shieldT > 0) player.shieldT -= dt;
@@ -132,7 +138,7 @@ export class GameLoop {
     enemies.update(scaled);
     effects.update(scaled);
     actions.updatePickups(scaled);
-    actions.netUpdate(dt);
+    actions.netUpdate(dt, clockElapsed);
     if (phase === 'play' && !online()) actions.updateWaves(scaled);
     if (online()) actions.updateArenaPickups(dt);
     this.combo(scaled);

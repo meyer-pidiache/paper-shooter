@@ -42,9 +42,22 @@ it('transfers a reconnecting score before broadcasting and retains the exact lat
         isPublic: false,
         map: 'mexico',
         shown: 'ABCDE',
+        duration: 600,
       },
     ],
-    ['direct', 'new', 'start', { late: true, spawn: 3, map: 'mexico', broken: [0] }],
+    [
+      'direct',
+      'new',
+      'start',
+      {
+        late: true,
+        spawn: 3,
+        map: 'mexico',
+        broken: [0],
+        duration: 600,
+        clock: { left: 600, on: false },
+      },
+    ],
     ['scores'],
     ['feed', 'a very long pa joined', 0],
   ]);

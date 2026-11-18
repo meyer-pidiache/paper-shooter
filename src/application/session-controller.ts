@@ -2,6 +2,7 @@ import { FFA_TARGET, FFA_TIME, RESPAWN } from '../domain/match.js';
 import type { Winner } from '../domain/match.js';
 import type { SessionPorts } from './session-contracts.js';
 import { DeathProgress } from './death-progress.js';
+import type { ClockState } from '../network/game-message-types.js';
 import type { GamePhase } from '../domain/match.js';
 
 /** Owns run/session transitions; input, screens and network request commands through composition. */
@@ -128,7 +129,8 @@ export class SessionController {
     audio.reelLoop(false);
   }
   hostStart() {
-    const { scores, lobby, setArena, spawnSpots, transport, screen, sendScores } = this.ports;
+    const { scores, lobby, setArena, spawnSpots, transport, screen, sendScores, game } = this.ports;
+    if (!transport.isHost || game.state !== 'lobby') return;
     scores.clear();
     for (const [id, player] of lobby.players)
       scores.set(id, { name: player.name, kills: 0, deaths: 0 });
@@ -142,11 +144,15 @@ export class SessionController {
     [...lobby.players.keys()].forEach((id, index) => {
       spawns[id] = order[index % order.length];
     });
-    transport.send('start', { spawns, map: lobby.map || screen.mapKey });
+    transport.send('start', {
+      spawns,
+      map: lobby.map || screen.mapKey,
+      duration: lobby.duration ?? FFA_TIME,
+    });
     this.startMatch(false, transport.id === null ? undefined : spawns[transport.id]);
     sendScores();
   }
-  startMatch(late: boolean, spawnIndex?: number) {
+  startMatch(late: boolean, spawnIndex?: number, clock?: ClockState) {
     const {
       transport,
       game,
@@ -165,7 +171,9 @@ export class SessionController {
     game.mode = 'ffa';
     setArena(true);
     this.resetGame();
-    screen.matchLeft = FFA_TIME;
+    const duration = lobby.duration ?? FFA_TIME;
+    screen.matchLeft = clock?.left ?? duration;
+    screen.clockRunning = clock?.on ?? false;
     screen.clockT = 0;
     game.clockStarted = false;
     for (const actor of remote()) actor.lastSeen = performance.now();
@@ -185,11 +193,7 @@ export class SessionController {
       'FREE FOR ALL',
       late
         ? 'you joined a match in progress'
-        : 'first to ' +
-            FFA_TARGET +
-            ' · ' +
-            Math.round(FFA_TIME / 60) +
-            ' minutes · everyone is fair game',
+        : 'first to ' + FFA_TARGET + ' · ' + duration / 60 + ' minutes · everyone is fair game',
       3,
     );
     hud.tip(`hold <b>${hud.key('score')}</b> for the scoreboard`, 5);
@@ -258,11 +262,13 @@ export class SessionController {
     this.ports.presentation.start();
   }
   takeClockAuthority() {
-    const { game, screen } = this.ports;
-    game.clockStarted = screen.clockRunning || screen.matchLeft < FFA_TIME;
+    const { game, screen, lobby } = this.ports;
+    game.clockStarted = screen.clockRunning || screen.matchLeft < (lobby.duration ?? FFA_TIME);
+    screen.clockT = 0;
   }
   recoverHost(wasInMatch: boolean) {
-    const { game, refreshScores } = this.ports;
+    const { game, refreshScores, transport } = this.ports;
+    transport.inMatch = wasInMatch;
     if (game.state === 'over') return;
     if (wasInMatch) {
       if (game.state !== 'play' && game.state !== 'dying') game.state = 'play';
@@ -270,6 +276,7 @@ export class SessionController {
     } else this.enterLobby();
   }
   recoverFollower(wasInMatch: boolean) {
+    this.ports.transport.inMatch = wasInMatch;
     if (!wasInMatch) this.enterLobby();
   }
   /** Transport and roster are already cleared by the connection owner. */

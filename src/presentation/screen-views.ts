@@ -1,6 +1,6 @@
 import { LEVELS } from '../domain/maps.js';
 import type { MapKey } from '../domain/maps.js';
-import { FFA_TARGET } from '../domain/match.js';
+import { FFA_DURATIONS, FFA_TARGET, FFA_TIME } from '../domain/match.js';
 import { escapeHtml as esc } from './html.js';
 import type {
   MainScreenView,
@@ -57,6 +57,9 @@ export function lobbyHTML(view: LobbyScreenView) {
     <div class="online" id="online">
       <div class="row"><span>code</span><span class="code">${esc(String(view.code).replace(/-\d+$/, ''))}</span></div>
       ${mapHTML(view.mapKey, host)}
+      <div class="row duration">
+        ${host ? `<label for="matchDuration">Time limit</label><select id="matchDuration">${FFA_DURATIONS.map((seconds) => `<option value="${seconds}" ${seconds === (view.duration ?? FFA_TIME) ? 'selected' : ''}>${seconds / 60} minutes</option>`).join('')}</select>` : `<span>Time limit · ${(view.duration ?? FFA_TIME) / 60} minutes</span>`}
+      </div>
       <div class="hint">${view.isPublic ? 'this lobby is public: anyone can quick play in, or type the code' : 'private lobby: friends type this code under PLAY ONLINE → JOIN'}</div>
       <div class="plist">${rows.map((p) => `<div class="${p.id === view.hostId ? 'host' : ''}${p.id === view.localId ? ' me' : ''}"><span>${esc(p.name)}</span><span>${p.id === view.localId ? 'you' : ''}</span></div>`).join('')}</div>
       <div class="row"><button type="button" class="big" id="startBtn">START MATCH</button><button type="button" class="alt" id="leaveBtn">LEAVE</button></div>

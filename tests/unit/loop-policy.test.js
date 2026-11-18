@@ -251,7 +251,7 @@ it('uses the captured phase for a pause transition and scales simulation indepen
   expect(f.game.state).toBe('pause');
   expect(f.game.hitstopT).toBeCloseTo(-0.04);
   expect(f.player.update.mock.lastCall[0]).toBeCloseTo(0.01);
-  expect(f.actions.netUpdate).toHaveBeenCalledWith(0.05);
+  expect(f.actions.netUpdate).toHaveBeenCalledWith(0.05, 0.05);
   expect(f.actions.updateDeath).toHaveBeenCalledWith('play', 0.05);
   f.player.update.mockClear();
   f.input.pressed.mockReturnValue(false);

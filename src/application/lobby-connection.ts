@@ -1,3 +1,4 @@
+import { FFA_TIME } from '../domain/match.js';
 import type { LobbyConnectionPorts } from './lobby-contracts.js';
 import { SessionTasks } from './session-tasks.js';
 import { HostMigration } from './host-migration.js';
@@ -50,6 +51,7 @@ export class LobbyConnection {
     if (!transport.id) throw new Error('host identity missing after successful connection');
     lobby.isPublic = isPublic;
     lobby.map = local.mapKey;
+    lobby.duration = FFA_TIME;
     lobby.players.clear();
     lobby.players.set(transport.id, { name: local.myName });
     lobby.hostId = transport.id;
@@ -72,7 +74,7 @@ export class LobbyConnection {
     }
     lobby.isPublic = transport.isPublic;
     lobby.status = '';
-    session.enterLobby();
+    if (!transport.inMatch) session.enterLobby();
   }
   async quickPlay() {
     const task = this.tasks.begin('connect');
@@ -85,7 +87,7 @@ export class LobbyConnection {
       if (!task.current) return;
       lobby.isPublic = true;
       lobby.status = '';
-      session.enterLobby();
+      if (!transport.inMatch) session.enterLobby();
       return;
     } catch (error) {
       if (!task.current) return;

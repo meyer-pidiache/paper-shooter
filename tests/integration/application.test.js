@@ -166,6 +166,7 @@ describe('composed application without the GPU transport', () => {
     net.peer = { destroy() {} };
     lobby.players.set('host', { name: 'player' });
     lobby.players.set('other', { name: '<img src=x>' });
+    app.session.enterLobby();
     app.session.hostStart();
     expect(game.mode).toBe('ffa');
     expect(player.shieldT).toBe(2);

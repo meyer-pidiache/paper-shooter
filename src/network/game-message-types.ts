@@ -1,4 +1,4 @@
-import type { ScoreRow } from '../domain/match.js';
+import type { MatchDuration, ScoreRow } from '../domain/match.js';
 import type { MapKey } from '../domain/maps.js';
 import type { PickupKind } from '../domain/pickups.js';
 
@@ -18,8 +18,15 @@ export interface LobbyRoster {
   isPublic: boolean;
   map?: MapKey;
   shown?: string;
+  duration?: MatchDuration;
+}
+export interface ClockState {
+  left: number;
+  on: boolean;
 }
 export interface MatchStart {
+  duration?: MatchDuration;
+  clock?: ClockState;
   map?: MapKey;
   late?: boolean;
   spawn?: number;
@@ -65,7 +72,7 @@ export interface GamePayloads {
   score: ScoreRow[];
   fell: EmptyPayload;
   feed: { text: string };
-  clock: { left: number; on: boolean };
+  clock: ClockState;
   kick: { reason: string };
 }
 export type GameMessage = {

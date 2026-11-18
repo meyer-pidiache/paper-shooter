@@ -38,6 +38,12 @@ export class ScreenController {
         void this.refreshLobbies();
       },
       pickLobbyMap: (map) => this.pickLobbyMap(map),
+      pickDuration: (seconds) => {
+        const { transport, game, lobby, actions } = ports;
+        if (!transport.isHost || game.state !== 'lobby') return;
+        lobby.duration = seconds;
+        actions.broadcastLobby();
+      },
       startMatch: () => this.requestStart(),
       leave: () => {
         ports.lobby.rejoinCode = null;
@@ -123,6 +129,7 @@ export class ScreenController {
         ? transport.aliasCode || transport.code
         : lobby.shown || transport.code || '',
       mapKey: lobby.map || profile.mapKey,
+      duration: lobby.duration,
       maxPlayers: transport.maxPlayers,
       isPublic: lobby.isPublic,
       status: lobby.status,

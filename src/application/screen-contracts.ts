@@ -23,7 +23,10 @@ export interface ScreenPorts {
     readonly kills: number;
     readonly score: number;
   };
-  lobby: Pick<LobbyState, 'map' | 'hostId' | 'isPublic' | 'status' | 'rejoinCode' | 'shown'>;
+  lobby: Pick<
+    LobbyState,
+    'map' | 'hostId' | 'isPublic' | 'status' | 'rejoinCode' | 'shown' | 'duration'
+  >;
   transport: {
     readonly id: string | null;
     readonly code: string | null;

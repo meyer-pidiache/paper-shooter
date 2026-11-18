@@ -63,5 +63,6 @@ it('accepts unknown handshake metadata through guarded fields without map actor 
     isPublic: false,
     map: 'mexico',
     shown: 'ABCDE',
+    duration: 600,
   });
 });

@@ -1,5 +1,5 @@
 import type { MapKey } from '../domain/maps.js';
-import type { Score } from '../domain/match.js';
+import type { MatchDuration, Score } from '../domain/match.js';
 export interface LobbyState {
   players: Map<string, { name: string }>;
   hostId: string | null;
@@ -7,6 +7,7 @@ export interface LobbyState {
   status: string;
   code: string;
   map: MapKey | null;
+  duration?: MatchDuration;
   order?: string[];
   gen?: number;
   shown?: string | null;
@@ -16,6 +17,7 @@ export interface LobbyTransport {
   readonly id: string | null;
   readonly code: string | null;
   readonly isPublic: boolean;
+  readonly inMatch?: boolean;
   accepting: boolean;
   onAlias: (() => void) | null;
   host(options: { isPublic: boolean; code?: string }): Promise<unknown>;

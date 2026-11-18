@@ -85,7 +85,7 @@ describe('gameplay wire contracts', () => {
       ['ps', [...valid.ps.slice(0, 7), -1, ...valid.ps.slice(8)]],
       ['shots', { k: 'rifle', e: [1, 2] }],
       ['shots', { k: 'rifle', e: Array(771).fill(0) }],
-      ['clock', { left: 601, on: true }],
+      ['clock', { left: 901, on: true }],
       ['clock', { left: 1, on: 'yes' }],
       ['feed', { text: 'x'.repeat(513) }],
       ['score', [{ id: 'host', name: 'paper', kills: -1, deaths: 0 }]],

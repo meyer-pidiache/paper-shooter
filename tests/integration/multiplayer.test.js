@@ -42,8 +42,18 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       await flushMessages();
       expect(host.lobby.players.size).toBe(2);
       expect(guest.lobby.players.size).toBe(2);
+      expect(host.lobby.duration).toBe(600);
+      const duration = host.hud.el.panel.querySelector('#matchDuration');
+      duration.value = '900';
+      duration.dispatchEvent(new Event('change'));
+      await flushMessages();
+      expect(guest.lobby.duration).toBe(900);
+      expect(guest.hud.el.panel.textContent).toContain('Time limit · 15 minutes');
+      expect(guest.hud.el.panel.querySelector('#matchDuration')).toBeNull();
       host.app.session.hostStart();
       await flushMessages();
+      expect(host.state.matchLeft).toBe(900);
+      expect(guest.state.matchLeft).toBe(900);
       expect(guest.game).toMatchObject({ mode: 'ffa', state: 'play' });
       expect(guest.state.level.key).toBe('mexico');
       host.player.shieldT = 0;
@@ -96,6 +106,16 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       host.app.multiplayer.netUpdate(1);
       await flushMessages();
       expect(guest.state.clockRunning).toBe(true);
+      expect(guest.state.matchLeft).toBeGreaterThan(898);
+      expect(guest.state.matchLeft).toBeLessThan(900);
+      const late = make();
+      host.state.matchLeft = 9.5;
+      await late.app.multiplayer.joinLobby(host.net.code);
+      await flushMessages();
+      expect(late.game.state).toBe('play');
+      expect(late.state.matchLeft).toBeGreaterThan(9);
+      expect(late.state.matchLeft).toBeLessThanOrEqual(9.5);
+      expect(late.lobby.duration).toBe(900);
       host.scores.get(host.net.id).kills = 20;
       host.app.match.checkWin();
       await flushMessages();
@@ -110,26 +130,40 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
     },
   );
 
-  it('transfers a running lobby to the remaining player and reclaims its public alias', async () => {
-    vi.useFakeTimers();
-    const make = clients();
-    const host = make(),
-      guest = make();
-    await host.app.multiplayer.createLobby(true);
-    const code = host.net.code;
-    await guest.app.multiplayer.joinLobby(code);
-    await flushMessages();
-    host.app.session.hostStart();
-    await flushMessages();
-    host.net.leave();
-    await flushMessages();
-    await vi.advanceTimersByTimeAsync(1600);
-    await flushMessages();
-    expect(guest.net.isHost).toBe(true);
-    expect(guest.net.code).toBe(`${code}-1`);
-    expect(guest.net.aliasCode).toBe(code);
-    expect(guest.game.state).toBe('play');
-  });
+  it(
+    'transfers a running lobby to the remaining player and reclaims its public alias',
+    { timeout: 10_000 },
+    async () => {
+      vi.useFakeTimers();
+      const make = clients();
+      const host = make(),
+        guest = make();
+      await host.app.multiplayer.createLobby(true);
+      const code = host.net.code;
+      const duration = host.hud.el.panel.querySelector('#matchDuration');
+      duration.value = '900';
+      duration.dispatchEvent(new Event('change'));
+      await guest.app.multiplayer.joinLobby(code);
+      await flushMessages();
+      host.app.session.hostStart();
+      await flushMessages();
+      host.state.matchLeft = 730.5;
+      host.app.multiplayer.netUpdate(0);
+      await flushMessages();
+      expect(guest.state.matchLeft).toBe(730.5);
+      host.net.leave();
+      await flushMessages();
+      await vi.advanceTimersByTimeAsync(1600);
+      await flushMessages();
+      expect(guest.net.isHost).toBe(true);
+      expect(guest.net.code).toBe(`${code}-1`);
+      expect(guest.net.aliasCode).toBe(code);
+      expect(guest.game.state).toBe('play');
+      expect(guest.lobby.duration).toBe(900);
+      expect(guest.state.matchLeft).toBe(730.5);
+      expect(guest.game.clockStarted).toBe(true);
+    },
+  );
   it(
     'rejoins a third player to the elected successor without losing scores',
     { timeout: 10_000 },

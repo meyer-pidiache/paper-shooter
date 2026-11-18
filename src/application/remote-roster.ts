@@ -1,5 +1,5 @@
 import { knownMap, type MapKey } from '../domain/maps.js';
-import type { GamePhase, Score } from '../domain/match.js';
+import { FFA_TIME, type GamePhase, type Score } from '../domain/match.js';
 import type { GamePayloads } from '../network/game-message-types.js';
 import { isRecord } from '../shared/ice.js';
 import type { LobbyState } from './lobby-contracts.js';
@@ -22,6 +22,7 @@ export interface RosterPorts<Peer extends RosterPeer> {
   map(): MapKey;
   phase(): GamePhase;
   inMatch(): boolean;
+  clock?(): GamePayloads['clock'];
   brokenIds(): number[];
   farthestSpawnIndex(): number;
   render(): void;
@@ -65,6 +66,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
         isPublic: lobby.isPublic,
         map: lobby.map || map(),
         shown: transport.aliasCode || transport.code || undefined,
+        duration: lobby.duration ?? FFA_TIME,
       });
     render();
   }
@@ -100,6 +102,8 @@ export class RemoteRoster<Peer extends RosterPeer> {
       if (!scores.has(id)) scores.set(id, { name, kills: 0, deaths: 0 });
       transport.sendTo(id, 'start', {
         late: true,
+        duration: lobby.duration ?? FFA_TIME,
+        clock: this.ports.clock?.(),
         spawn: farthestSpawnIndex(),
         map: lobby.map || map(),
         broken: brokenIds(),
@@ -115,6 +119,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
     lobby.code = transport.code || '';
     lobby.shown = data.shown || transport.code;
     if (data.map) lobby.map = knownMap(data.map);
+    lobby.duration = data.duration ?? FFA_TIME;
     lobby.order = data.players.map((player) => player.id);
     lobby.players.clear();
     for (const player of data.players) lobby.players.set(player.id, { name: player.name });

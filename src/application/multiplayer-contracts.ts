@@ -87,7 +87,7 @@ export interface MultiplayerActions {
   sendScores(): void;
   refreshScoreHud(): void;
   farthestSpawnIndex(): number;
-  startMatch(late: boolean, spawn?: number): void;
+  startMatch(late: boolean, spawn?: number, clock?: GamePayloads['clock']): void;
   breakProp(prop: Breakable, direction: Vector3 | null, local: boolean, quiet?: boolean): void;
   hostStart(): void;
   endMatch(winner: Winner): void;

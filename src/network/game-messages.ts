@@ -1,5 +1,5 @@
 import { isRecord } from '../shared/ice.js';
-import { FFA_TIME, MAX_PLAYERS, parseScoreRows } from '../domain/match.js';
+import { FFA_DURATIONS, MAX_PLAYERS, isMatchDuration, parseScoreRows } from '../domain/match.js';
 import { LEVELS } from '../domain/maps.js';
 import { isWireMessage } from './protocol.js';
 import type { GameMessage, WireVector } from './game-message-types.js';
@@ -66,6 +66,7 @@ const rosterShape = record({
   isPublic: boolean,
   map: optional(map),
   shown: optional(code),
+  duration: optional(isMatchDuration),
 });
 function roster(value: unknown): boolean {
   if (!rosterShape(value)) return false;
@@ -80,7 +81,14 @@ function spawnTable(value: unknown): boolean {
     Object.entries(value).every(([key, entry]) => id(key) && index(entry))
   );
 }
+const clockShape = record({
+  left: (value) =>
+    number(value) && (value as number) >= 0 && (value as number) <= Math.max(...FFA_DURATIONS),
+  on: boolean,
+});
 const startShape = record({
+  duration: optional(isMatchDuration),
+  clock: optional(clockShape),
   map: optional(map),
   late: optional(boolean),
   spawn: optional(index),
@@ -165,10 +173,7 @@ const validators: Record<keyof import('./game-message-types.js').GamePayloads, V
   score,
   fell: empty,
   feed: record({ text: text(512) }),
-  clock: record({
-    left: (value) => number(value) && (value as number) >= 0 && (value as number) <= FFA_TIME,
-    on: boolean,
-  }),
+  clock: clockShape,
   kick: record({ reason: text(512) }),
 };
 

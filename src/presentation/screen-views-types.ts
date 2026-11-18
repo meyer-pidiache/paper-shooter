@@ -1,5 +1,5 @@
 import type { MapKey } from '../domain/maps.js';
-import type { Score } from '../domain/match.js';
+import type { MatchDuration, Score } from '../domain/match.js';
 export interface LobbyRowView {
   code: string;
   hostName: string;
@@ -31,6 +31,7 @@ export interface LobbyScreenView {
   hostId: string | null;
   maxPlayers: number;
   mapKey: MapKey;
+  duration?: MatchDuration;
   isPublic: boolean;
   status: string;
 }

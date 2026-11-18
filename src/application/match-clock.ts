@@ -43,7 +43,7 @@ export class MatchClock {
     state.clockT -= dt;
     if (state.clockT <= 0) {
       state.clockT = 2;
-      transport.send('clock', { left: Math.round(state.matchLeft), on });
+      transport.send('clock', { left: state.matchLeft, on });
     }
   }
   private finish() {
