@@ -130,7 +130,8 @@ it('shows multiplayer ping values but keeps offline stats clearly unavailable', 
   app.runtime.userSettings.setNerdStats(true);
   game.state = 'play';
   app.loop.start();
-  const start = performance.now();
+  // Use integer timestamps so the next sample lands exactly on the 1,000 ms boundary.
+  const start = Math.ceil(performance.now());
   app.loop.tick(start + 16);
   expect(document.querySelector('.hud-tl #nerdStats')).not.toBeNull();
   expect(document.querySelector('#nerdStats').textContent).toContain('PING N/A -- ms');
