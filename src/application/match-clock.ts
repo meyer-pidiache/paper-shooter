@@ -12,7 +12,7 @@ export interface MatchClockPorts {
   opponentCount(): number;
   localName(): string;
   sortedScores(): Array<[string, Score]>;
-  timer(text: string): void;
+  timer(text: string, urgent?: boolean): void;
   end(winner: Winner): void;
 }
 /** Host starts/finishes the clock; followers only project the last authoritative clock. */
@@ -31,7 +31,13 @@ export class MatchClock {
     if (inMatch() && !game.over) {
       if (on) state.matchLeft = Math.max(0, state.matchLeft - dt);
       if (transport.isHost) this.report(dt, on);
-      timer(on ? formatClock(state.matchLeft) : 'clock starts when someone joins');
+      const urgent = on && state.matchLeft <= 10;
+      timer(
+        on
+          ? (urgent ? 'FINAL SECONDS · ' : '') + formatClock(state.matchLeft)
+          : 'clock starts when someone joins',
+        urgent,
+      );
     }
     if (transport.isHost && on) {
       game.matchT += dt;

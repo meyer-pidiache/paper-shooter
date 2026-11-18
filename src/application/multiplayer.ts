@@ -234,7 +234,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     opponentCount: () => remote.size,
     localName: () => ports.local.myName,
     sortedScores,
-    timer: (text) => hud.setTimer(text),
+    timer: (text, urgent) => hud.setTimer(text, urgent),
     end: endMatch,
   });
   const idle = new IdlePlayers({

@@ -90,7 +90,7 @@ it('owns clock reporting cadence and sends the fallback host result after the fi
   events.length = 0;
   owner.update(0.5);
   expect(events).toEqual([
-    ['timer', '0:00'],
+    ['timer', 'FINAL SECONDS · 0:00'],
     ['end', { id: 'me', name: 'paper' }],
     ['result', { id: 'me', name: 'paper' }],
   ]);

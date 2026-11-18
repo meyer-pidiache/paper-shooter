@@ -264,8 +264,10 @@ export class HUD {
       button.hidden = false;
     }
   }
-  setTimer(text) {
-    this.el.timer.textContent = text || '';
+  setTimer(text, urgent = false) {
+    const timer = this.el.timer;
+    if (timer.textContent !== (text || '')) timer.textContent = text || '';
+    timer.classList.toggle('urgent', urgent);
   }
   setScore(score, combo) {
     this.el.score.textContent = score;

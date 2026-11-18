@@ -33,6 +33,7 @@ export interface MatchHud {
   setBoard(html: string | null): void;
   setGameplayVisible(visible: boolean): void;
   showScreen(html: string): void;
+  setTimer(text: string): void;
   bindResultsReturn(onReturn: () => void): void;
 }
 export interface MatchPorts {

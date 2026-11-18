@@ -152,6 +152,7 @@ export class MatchController {
     exitLock();
     hud.setBoard(null);
     hud.setGameplayVisible(false);
+    hud.setTimer('');
     hud.showScreen(matchResults(this.view(), winner));
     hud.bindResultsReturn(() => session.returnFromResults());
   }

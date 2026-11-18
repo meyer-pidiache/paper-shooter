@@ -74,7 +74,7 @@ export interface MultiplayerPorts {
   };
   hud: NetworkCombatFeedbackPorts['hud'] & {
     hitmarker(kill: boolean, critical: boolean): void;
-    setTimer(text: string): void;
+    setTimer(text: string, urgent?: boolean): void;
     message(title: string, detail: string, duration: number): void;
   };
   shotQueue: number[];

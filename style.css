@@ -468,6 +468,17 @@ canvas#c {
   font-size: 24px;
   color: var(--red);
 }
+.timer.urgent {
+  display: inline-block;
+  max-width: min(230px, 55vw);
+  padding: 2px 8px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--panel-paper);
+  color: var(--ink);
+  font-size: clamp(16px, 4vw, 24px);
+  font-weight: bold;
+}
 @media (max-width: 900px) {
   .panel h1 {
     font-size: 56px;

@@ -116,11 +116,15 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       expect(late.state.matchLeft).toBeGreaterThan(9);
       expect(late.state.matchLeft).toBeLessThanOrEqual(9.5);
       expect(late.lobby.duration).toBe(900);
+      late.app.multiplayer.netUpdate(0);
+      expect(late.hud.el.timer.textContent).toBe('FINAL SECONDS · 0:10');
+      expect(late.hud.el.timer.classList.contains('urgent')).toBe(true);
       host.scores.get(host.net.id).kills = 20;
       host.app.match.checkWin();
       await flushMessages();
       expect(guest.game.state).toBe('over');
       expect(guest.game.over.id).toBe(host.net.id);
+      expect(late.hud.el.timer.classList.contains('urgent')).toBe(false);
       host.app.session.screenClick();
       host.app.session.returnFromResults();
       expect(host.game.state).toBe('over');
