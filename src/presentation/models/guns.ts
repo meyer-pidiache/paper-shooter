@@ -7,9 +7,12 @@ import {
   type GunModel,
   type Triple,
 } from './weapon-contracts.js';
-export const RIFLE_GRIP: Triple = [0.02, -0.15, 0.13];
-export const SHOTGUN_GRIP: Triple = [0.02, -0.16, 0.17];
-export const SNIPER_GRIP: Triple = [0.02, -0.16, 0.24];
+export const GUN_ATTACHMENTS = {
+  rifle: { grip: [0.02, -0.15, 0.13], muzzle: [0, 0.02, -0.98] },
+  shotgun: { grip: [0.02, -0.16, 0.17], muzzle: [0, 0.05, -1.09] },
+  sniper: { grip: [0.02, -0.16, 0.24], muzzle: [0, 0.02, -1.6] },
+  revolver: { grip: [0, -0.13, 0.08], muzzle: [0, 0.035, -0.4] },
+} satisfies Record<string, { grip: Triple; muzzle: Triple }>;
 export function buildRifleBody(g: THREE.Group, materials: GunMaterials): Partial<GunModel> {
   const model: Partial<GunModel> = {};
 
@@ -32,16 +35,16 @@ export function buildRifleBody(g: THREE.Group, materials: GunMaterials): Partial
 export function buildRifle(g: THREE.Group, materials: GunMaterials): GunModel {
   const model = buildRifleBody(g, materials);
   const { mat } = materials;
-  hand(mat, RIFLE_GRIP, g, { direction: [0.5, -0.6, 1] });
+  hand(mat, GUN_ATTACHMENTS.rifle.grip, g, { direction: [0.5, -0.6, 1] });
   model.handL = hand(mat, [-0.05, -0.08, -0.4], g, { direction: [-0.35, -0.9, 0.9] });
   model.handLPos = model.handL.position.clone();
   model.muzzle = new THREE.Object3D();
-  model.muzzle.position.set(0, 0.02, -0.98);
+  model.muzzle.position.set(...GUN_ATTACHMENTS.rifle.muzzle);
   g.add(model.muzzle);
   model.ejectPt = new THREE.Object3D();
   model.ejectPt.position.set(0.06, 0.02, 0.02);
   g.add(model.ejectPt);
-  model.flash = flash(g, [0, 0.02, -0.98], 1);
+  model.flash = flash(g, GUN_ATTACHMENTS.rifle.muzzle, 1);
 
   return completeGunModel(model);
 }
@@ -65,17 +68,17 @@ export function buildShotgunBody(g: THREE.Group, materials: GunMaterials): Parti
 export function buildShotgun(g: THREE.Group, materials: GunMaterials): GunModel {
   const model = buildShotgunBody(g, materials);
   const { mat } = materials;
-  hand(mat, SHOTGUN_GRIP, g, { direction: [0.5, -0.6, 1] });
+  hand(mat, GUN_ATTACHMENTS.shotgun.grip, g, { direction: [0.5, -0.6, 1] });
   model.handL = hand(mat, [-0.04, -0.06, -0.45], g, { direction: [-0.35, -0.9, 0.9] });
   model.handLPos = model.handL.position.clone();
   model.handL.userData.foreEnd = true;
   model.muzzle = new THREE.Object3D();
-  model.muzzle.position.set(0, 0.05, -1.09);
+  model.muzzle.position.set(...GUN_ATTACHMENTS.shotgun.muzzle);
   g.add(model.muzzle);
   model.ejectPt = new THREE.Object3D();
   model.ejectPt.position.set(0.06, 0.03, 0.05);
   g.add(model.ejectPt);
-  model.flash = flash(g, [0, 0.05, -1.09], 1);
+  model.flash = flash(g, GUN_ATTACHMENTS.shotgun.muzzle, 1);
 
   return completeGunModel(model);
 }
@@ -118,25 +121,23 @@ export function buildSniperBody(g: THREE.Group, materials: GunMaterials): Partia
 export function buildSniper(g: THREE.Group, materials: GunMaterials): GunModel {
   const model = buildSniperBody(g, materials);
   const { mat } = materials;
-  hand(mat, SNIPER_GRIP, g, { direction: [0.5, -0.6, 1] });
+  hand(mat, GUN_ATTACHMENTS.sniper.grip, g, { direction: [0.5, -0.6, 1] });
   model.handL = hand(mat, [-0.05, -0.09, -0.5], g, { direction: [-0.35, -0.9, 0.9] });
   model.handLPos = model.handL.position.clone();
   model.muzzle = new THREE.Object3D();
-  model.muzzle.position.set(0, 0.02, -1.6);
+  model.muzzle.position.set(...GUN_ATTACHMENTS.sniper.muzzle);
   g.add(model.muzzle);
   model.ejectPt = new THREE.Object3D();
   model.ejectPt.position.set(0.06, 0.04, 0.06);
   g.add(model.ejectPt);
-  model.flash = flash(g, [0, 0.02, -1.6], 1);
+  model.flash = flash(g, GUN_ATTACHMENTS.sniper.muzzle, 1);
 
   return completeGunModel(model);
 }
-export function buildRevolver(root: THREE.Group, materials: GunMaterials): GunModel {
+export function buildRevolverBody(g: THREE.Group, materials: GunMaterials): Partial<GunModel> {
   const model: Partial<GunModel> = {};
 
-  const g = root,
-    mat = materials.mat,
-    dark = materials.dark;
+  const { mat, dark } = materials;
   box([0.045, 0.09, 0.2], [0, 0, 0], mat, g);
   cylinder([0.02, 0.3], [0, 0.035, -0.24], dark, g);
   box([0.03, 0.03, 0.26], [0, 0.005, -0.22], mat, g);
@@ -157,16 +158,21 @@ export function buildRevolver(root: THREE.Group, materials: GunMaterials): GunMo
   box([0.01, 0.03, 0.02], [0, 0.075, -0.34], materials.red, g);
   box([0.012, 0.025, 0.015], [-0.014, 0.06, 0.08], mat, g);
   box([0.012, 0.025, 0.015], [0.014, 0.06, 0.08], mat, g);
-  hand(mat, [0.0, -0.13, 0.08], g, { direction: [0.45, -0.55, 1] });
+  return model;
+}
+export function buildRevolver(g: THREE.Group, materials: GunMaterials): GunModel {
+  const model = buildRevolverBody(g, materials);
+  const { mat } = materials;
+  hand(mat, GUN_ATTACHMENTS.revolver.grip, g, { direction: [0.45, -0.55, 1] });
   model.handL = hand(mat, [-0.05, -0.17, 0.02], g, { direction: [-0.4, -0.7, 1] });
   model.handLPos = model.handL.position.clone();
   model.muzzle = new THREE.Object3D();
-  model.muzzle.position.set(0, 0.035, -0.4);
+  model.muzzle.position.set(...GUN_ATTACHMENTS.revolver.muzzle);
   g.add(model.muzzle);
   model.ejectPt = new THREE.Object3D();
   model.ejectPt.position.set(-0.05, 0.02, 0);
   g.add(model.ejectPt);
-  model.flash = flash(g, [0, 0.035, -0.4], 1);
+  model.flash = flash(g, GUN_ATTACHMENTS.revolver.muzzle, 1);
 
   return completeGunModel(model);
 }

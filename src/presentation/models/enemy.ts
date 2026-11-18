@@ -3,6 +3,7 @@ import type { EnemyDefinition } from '../../domain/enemy-definitions.js';
 import { INK } from '../../shared/ink.js';
 import { makeInkMaterial, type InkMaterial } from '../ink/materials.js';
 import { buildHumanoid } from './humanoid.js';
+import { buildHeldWeapon, isHeldWeapon } from './held-weapon.js';
 import { buildBomber } from './bomber.js';
 import { buildFlyer } from './flyer.js';
 import type { WalkingJoints, FlyingJoints } from '../characters/animation-contracts.js';
@@ -23,7 +24,7 @@ interface EnemyRig {
 }
 export interface WalkingRig extends EnemyRig {
   kind: 'walking';
-  J: WalkingJoints & { gun: Object3D; shieldG: Group | null };
+  J: WalkingJoints & { shieldG: Group | null };
 }
 export interface FlyingRig extends EnemyRig {
   kind: 'flying';
@@ -59,7 +60,21 @@ export function buildEnemyModel(definition: EnemyDefinition): EnemyModel {
       mat,
     };
   }
-  const model = buildHumanoid(mat, solid, definition);
+  const weapon = definition.weapon;
+  const model = buildHumanoid(
+    mat,
+    solid,
+    definition,
+    isHeldWeapon(weapon)
+      ? (gun) => {
+          const red = weapon === 'blade' ? mat : makeInkMaterial({ ink: INK.RED, fill: true });
+          const held = buildHeldWeapon(weapon, { mat, dark: solid, red });
+          gun.position.set(0, -0.3, 0);
+          gun.add(held.model);
+          return held.tipPosition;
+        }
+      : undefined,
+  );
   return {
     ...model,
     kind: 'walking',

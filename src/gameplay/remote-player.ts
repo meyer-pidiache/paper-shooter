@@ -12,7 +12,7 @@ import { RemoteInterpolation } from './remote/interpolation.js';
 import { makeInkMaterial, setFill } from '../presentation/ink/materials.js';
 import { INK } from '../shared/ink.js';
 import { buildHumanoid } from '../presentation/models/humanoid.js';
-import { buildRemoteWeapon } from '../presentation/models/remote-weapon.js';
+import { buildHeldWeapon } from '../presentation/models/held-weapon.js';
 import {
   RemoteAnimation,
   remoteAnimationFrame,
@@ -146,7 +146,9 @@ export class RemotePlayer {
   }
   private buildModel(): RemoteModel {
     const weapon = this.buildWeapon();
-    const model = buildHumanoid(this.mat, this.solid, this.T, (gun) => gun.add(weapon));
+    const model = buildHumanoid(this.mat, this.solid, this.T, (gun) => {
+      gun.add(weapon);
+    });
     model.root.visible = false;
     this.services.scene.add(model.root);
     const tagG = new THREE.Group();
@@ -163,11 +165,11 @@ export class RemotePlayer {
     return { ...model, tagG, animation, weapon };
   }
   private buildWeapon() {
-    return buildRemoteWeapon(WEAPON_KINDS[this.weaponIndex], {
+    return buildHeldWeapon(WEAPON_KINDS[this.weaponIndex], {
       mat: this.mat,
       dark: this.solid,
       red: this.sight,
-    });
+    }).model;
   }
 
   // knocked flat with some physics: the whole figure tumbles away as debris (bits come off on a

@@ -1,23 +1,23 @@
 {
   "grunt": {
-    "geometry": "cae764b73a414099bb4e5b5e6567411514c2867a2901eaf569d5fd88f3486136",
-    "simulation": "55ce66f39f43bdce6755c2e498cac24695b9c86df8157084edcb16e682e3b945"
+    "geometry": "8c122c59bb8466b439532ee531bc0a97b3b8f0ecfd4acdfd299c578d6591d670",
+    "simulation": "0f89aef50a789f9731fb517223c3d956c551d23099eea82147b7f8098b16ae4e"
   },
   "rusher": {
-    "geometry": "896641f21657251cc4593d872daa76e673a31b241f5bfe5ad4dc7167dcc07b45",
-    "simulation": "c182c8b905224ba2db3f66bfe82a9024ca1be7608aedd00a20c1a5c61b240683"
+    "geometry": "897e518651a884cd4055ff3486a7245514657f6d5daff9987c3c36a744ce07b7",
+    "simulation": "2ecaaab01200174786c57d680b125e378c269a8e5dc18aff70899747079d46c4"
   },
   "heavy": {
-    "geometry": "00112ca50844ebd9f51aed07d5367f473a143f1f3538a2313f8f2d29c700ec91",
-    "simulation": "dec11cf156aff1f2ed7f15d818e931eb19cb6e84fb9d949cb7267105ef48f368"
+    "geometry": "0982b57903693826dce9972dd933854e3dc196cff6c1686be657d2b5b0298cdc",
+    "simulation": "6b976a018d522a00ea17fc18f7471c7c8f38bc6a1da73ac4f242fb1748a47ab4"
   },
   "sniper": {
-    "geometry": "c8a4c320b61b17019037fbe68aeff1dee331a2c3d67e42c069eaff3192f1f70a",
-    "simulation": "fac1143f31d20be62479b17ad88f39c9e4a05ab36286ea7a89c863d8e38e32d0"
+    "geometry": "df1188878e745d99b3634248ff3cfe492bee2a641778e248f93525d7867aa99a",
+    "simulation": "d4e7523dbe4e73b07dcb5269696a10b7a0c6d9275a05e09290019f9e4db606ef"
   },
   "shield": {
-    "geometry": "aafb6b5c7ab3def4650df6b279ef6580e8f2c73cdedaee709630869bd5860a7f",
-    "simulation": "1b4e7bc056694db52d963fdd2534e7b76f4f723cc6a250f965d6e0f399235dfe"
+    "geometry": "0f4e605cda4e1e8be2d6081e8913d106400c427ccbd619c8d88307204f3e4521",
+    "simulation": "4e83932d3396af61d686c053090755a612dade3893c8e19c6e6855a7fe46c3e4"
   },
   "bomber": {
     "geometry": "6ed2cafe47c3902d171542af32fab74d19f116faf0bf5f1246f6a3bd69bcb86e",

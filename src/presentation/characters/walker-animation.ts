@@ -1,10 +1,12 @@
 import { Vector3 } from 'three';
 import { clamp, damp, wrapAngle } from '../../engine/math.js';
+import { HeldWeaponPose } from './held-weapon-pose.js';
 import type { AnimationFrame, WalkingJoints, WalkingAppearance } from './animation-contracts.js';
 /** Owns gait/phase and joint poses; consumes a numeric borrowed frame, never an actor. */
 export class WalkerAnimation {
   private walk = 0;
   private readonly look = new Vector3();
+  private readonly weaponPose = new HeldWeaponPose();
   constructor(
     private readonly appearance: WalkingAppearance,
     private readonly joints: WalkingJoints,
@@ -34,15 +36,15 @@ export class WalkerAnimation {
       this.blob(e, w, c);
       return;
     }
+    this.look.subVectors(pc, e.center);
+    const lookYaw = wrapAngle(Math.atan2(this.look.x, this.look.z) - e.yaw);
+    const lookPitch = Math.atan2(this.look.y, Math.hypot(this.look.x, this.look.z));
     if (T.weapon === 'blade') this.blade(e, w, s);
     else if (T.weapon === 'boss') this.boss(e, w, s);
-    else this.ranged(e, w, s, e.aimAmt);
+    else this.ranged(e, w, s, lookPitch, lookYaw);
     J.hips.position.y = 0.86 + Math.abs(c) * 0.07 * w + (e.onGround ? 0 : -0.05);
-    this.look.subVectors(pc, e.center);
-    const yawTo = Math.atan2(this.look.x, this.look.z);
-    J.headG.rotation.y = clamp(wrapAngle(yawTo - e.yaw) - (J.torso.rotation.y || 0), -1.1, 1.1);
-    J.headG.rotation.x =
-      clamp(-Math.atan2(this.look.y, Math.hypot(this.look.x, this.look.z)), -0.6, 0.6) * 0.8;
+    J.headG.rotation.y = clamp(wrapAngle(lookYaw - (J.torso.rotation.y || 0)), -1.1, 1.1);
+    J.headG.rotation.x = clamp(-lookPitch, -0.6, 0.6) * 0.8;
     J.headG.rotation.z = Math.sin(this.phase * 0.5) * 0.06 * w;
     if (e.state === 'stunned') {
       J.torso.rotation.x = 0.6;
@@ -100,24 +102,23 @@ export class WalkerAnimation {
     J.foreL.rotation.x = -0.5;
     J.torso.rotation.x = -0.1 * w + e.flinch * 0.15 - raise * 0.3 + slam * 0.5;
   }
-  private ranged(e: AnimationFrame, w: number, s: number, aim: number) {
-    const J = this.joints,
-      T = this.appearance;
-    J.armR.rotation.x = -s * 1.0 * w * (1 - aim) + (-1.35 + e.flinch * 0.35) * aim;
-    J.armR.rotation.z = -0.25 * (1 - aim);
-    J.foreR.rotation.x = -0.35 * (1 - aim) + -0.2 * aim;
-    if (T.shield) {
-      J.armL.rotation.x = -1.2;
-      J.armL.rotation.y = 0.3;
-      J.foreL.rotation.x = -0.9;
-    } else {
-      J.armL.rotation.x = s * 1.0 * w * (1 - aim) + -1.2 * aim;
-      J.armL.rotation.y = 0.6 * aim;
-      J.armL.rotation.z = 0.25 * (1 - aim);
-      J.foreL.rotation.x = -0.4 * (1 - aim) + -0.5 * aim;
-    }
+  private ranged(e: AnimationFrame, w: number, s: number, pitch: number, yaw: number) {
+    const J = this.joints;
+    const aim = clamp(e.aimAmt, 0, 1);
     J.torso.rotation.x = -0.22 * w + e.flinch * 0.4;
     J.torso.rotation.y = -0.35 * aim;
     J.torso.rotation.z = Math.sin(this.phase) * 0.05 * w;
+    if (this.appearance.shield) {
+      J.armL.rotation.set(-1.2, 0.3, 0);
+      J.foreL.rotation.set(-0.9, 0, 0);
+    }
+    this.weaponPose.poseGun(
+      J,
+      aim,
+      (pitch - e.flinch * 0.35) * aim,
+      clamp(yaw, -0.65, 0.65) * aim,
+      s * 0.1 * w,
+      !this.appearance.shield,
+    );
   }
 }

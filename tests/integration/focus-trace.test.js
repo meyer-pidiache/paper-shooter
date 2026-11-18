@@ -140,7 +140,7 @@ it('preserves focus arming, chained execution, player movement and ordered prese
   if (process.env.RECORD_FOCUS_BASELINE === '1')
     writeFileSync(
       'tests/fixtures/focus-baseline.json',
-      JSON.stringify({ source: '3b97396', ...result }, null, 2) + '\n',
+      JSON.stringify({ source: 'issue-17', ...result }, null, 2) + '\n',
     );
   else {
     if (result.digest !== baseline.digest) {

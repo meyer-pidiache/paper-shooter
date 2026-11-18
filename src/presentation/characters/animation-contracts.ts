@@ -30,6 +30,7 @@ export interface WalkingJoints {
   legR: Object3D;
   shinL: Object3D;
   shinR: Object3D;
+  gun: Object3D;
   spark?: Object3D | null;
 }
 export interface FlyingJoints {
