@@ -140,7 +140,7 @@ export class GameLoop {
     enemies.update(scaled);
     effects.update(scaled);
     actions.updatePickups(scaled);
-    actions.netUpdate(dt, clockElapsed);
+    actions.netUpdate(dt, clockElapsed, this.last);
     if (phase === 'play' && !online()) actions.updateWaves(scaled);
     if (online()) actions.updateArenaPickups(dt);
     this.combo(scaled);
@@ -151,6 +151,6 @@ export class GameLoop {
     game.time += dt;
     if (['start', 'dead', 'lobby', 'over'].includes(phase)) player.idleCam(game.time);
     effects.update(dt);
-    if (net.active) actions.netUpdate(dt);
+    if (net.active) actions.netUpdate(dt, dt, this.last);
   }
 }

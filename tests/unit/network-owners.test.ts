@@ -61,7 +61,9 @@ function clockFixture() {
     over: null,
     matchT: 0,
   };
+  const now = vi.fn(() => 0);
   const ports: MatchClockPorts = {
+    now,
     state: { matchLeft: 1, clockRunning: false, clockT: 0 },
     game,
     transport: { isHost: true, id: 'me', send: (...args) => events.push(args) },
@@ -75,7 +77,7 @@ function clockFixture() {
       game.over = winner;
     },
   };
-  return { ports, events, owner: new MatchClock(ports) };
+  return { ports, events, now, owner: new MatchClock(ports) };
 }
 it('owns clock reporting cadence and sends the fallback host result after the final timer projection', () => {
   const { ports, owner, events } = clockFixture();
@@ -99,16 +101,45 @@ it('owns clock reporting cadence and sends the fallback host result after the fi
   expect(events).toHaveLength(3);
 });
 it('applies received clocks only on followers and gives no expiry authority to a follower', () => {
-  const { ports, owner } = clockFixture();
+  const { ports, owner, now } = clockFixture();
   owner.receive({ left: 60, on: true });
   expect(ports.state.matchLeft).toBe(1);
   ports.transport = { isHost: false, id: 'guest', send: vi.fn() };
   owner.receive({ left: 0.2, on: true });
+  now.mockReturnValue(1000);
   owner.update(1);
   expect(ports.state.matchLeft).toBe(0);
   expect(ports.transport.send).not.toHaveBeenCalled();
   expect(ports.game.over).toBeNull();
 });
+it('counts only time after the latest snapshot during a delayed follower frame', () => {
+  const { ports, owner, now } = clockFixture();
+  ports.transport = { isHost: false, id: 'guest', send: vi.fn() };
+  now.mockReturnValue(8000);
+  owner.receive({ left: 592, on: true });
+  now.mockReturnValue(9750);
+  owner.receive({ left: 590, on: true });
+
+  now.mockReturnValue(10060);
+  owner.update(10, 10000);
+  expect(ports.state.matchLeft).toBe(589.75);
+
+  owner.update(1, 11000);
+  expect(ports.state.matchLeft).toBe(588.75);
+});
+
+it('retains the observation when the frame timestamp precedes its receipt', () => {
+  const { ports, owner, now } = clockFixture();
+  ports.transport = { isHost: false, id: 'guest', send: vi.fn() };
+  now.mockReturnValue(10050);
+  owner.receive({ left: 10, on: true });
+
+  owner.update(10, 10000);
+  expect(ports.state.matchLeft).toBe(10);
+  owner.update(0.1, 10100);
+  expect(ports.state.matchLeft).toBeCloseTo(9.95);
+});
+
 it('waits for a hosting identity before claiming an expired clock during recovery', () => {
   const { ports, owner, events } = clockFixture();
   ports.transport = { ...ports.transport, id: null };

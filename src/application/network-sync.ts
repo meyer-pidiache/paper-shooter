@@ -27,7 +27,7 @@ export interface NetworkSyncPorts {
   idleSeconds(): number;
   now(): number;
   idle(dt: number): void;
-  clock(dt: number): void;
+  clock(dt: number, frameAt: number): void;
   remove(id: string): void;
   migrate(): Promise<unknown>;
   feed(text: string): void;
@@ -38,11 +38,12 @@ export interface NetworkSyncPorts {
 export class NetworkSync {
   private tick = 0;
   constructor(private readonly ports: NetworkSyncPorts) {}
-  update(dt: number, clockElapsed = dt) {
+  update(dt: number, clockElapsed = dt, frameAt?: number) {
     const { transport, opponents, player, shotQueue, inMatch, idleSeconds, now } = this.ports;
     this.ports.idle(dt);
     if (!transport.active) return;
-    const time = now() / 1000;
+    const nowMs = now();
+    const time = nowMs / 1000;
     this.tick++;
     for (const [, opponent] of opponents()) opponent.update(dt, time);
     if (inMatch() && !this.ports.migrating()) this.removeSilentPeers();
@@ -58,7 +59,7 @@ export class NetworkSync {
     }
     if (shotQueue.length)
       transport.broadcast('shots', { k: player.weapon.kind, e: shotQueue.splice(0) });
-    this.ports.clock(clockElapsed);
+    this.ports.clock(clockElapsed, frameAt ?? nowMs);
   }
   private removeSilentPeers() {
     const { transport, opponents, now, migrate, remove, feed, broadcastLobby, sendScores } =

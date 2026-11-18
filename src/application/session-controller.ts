@@ -2,7 +2,6 @@ import { FFA_TARGET, FFA_TIME, RESPAWN } from '../domain/match.js';
 import type { Winner } from '../domain/match.js';
 import type { SessionPorts } from './session-contracts.js';
 import { DeathProgress } from './death-progress.js';
-import type { ClockState } from '../network/game-message-types.js';
 import type { GamePhase } from '../domain/match.js';
 
 const RESULTS_READ_TIME = 5;
@@ -187,7 +186,7 @@ export class SessionController {
     this.startMatch(false, transport.id === null ? undefined : spawns[transport.id]);
     sendScores();
   }
-  startMatch(late: boolean, spawnIndex?: number, clock?: ClockState) {
+  startMatch(late: boolean, spawnIndex?: number) {
     const {
       transport,
       game,
@@ -207,8 +206,8 @@ export class SessionController {
     setArena(true);
     this.resetGame();
     const duration = lobby.duration ?? FFA_TIME;
-    screen.matchLeft = clock?.left ?? duration;
-    screen.clockRunning = clock?.on ?? false;
+    screen.matchLeft = duration;
+    screen.clockRunning = false;
     screen.clockT = 0;
     game.clockStarted = false;
     for (const actor of remote()) actor.lastSeen = performance.now();

@@ -60,13 +60,13 @@ it('orders idle, replicas, snapshots, queued shots and clock, retaining exact sn
   owner.update(0.1);
   events.length = 0;
   ports.shotQueue.push(1, 2, 3);
-  owner.update(0.1);
+  owner.update(0.1, 0.25, 9999);
   expect(events).toEqual([
     ['idle', 0.1],
     ['replica', 0.1, 10.001],
     ['send', 'ps', [1.23, 2, 3, 0, 0, 0, 112, 100, 4.6, 5, 6], true],
     ['broadcast', 'shots', { k: 'rifle', e: [1, 2, 3] }],
-    ['clock', 0.1],
+    ['clock', 0.25, 9999],
   ]);
   expect(ports.shotQueue).toEqual([]);
   ports.idleSeconds = () => 30.01;
@@ -104,7 +104,7 @@ it('retires a silent guest in order, tolerates a closed channel and suppresses s
     ['send', 'leave', { id: 'guest' }],
     ['lobby'],
     ['scores'],
-    ['clock', 0.1],
+    ['clock', 0.1, 10001],
   ]);
   expect(transport.conns.size).toBe(0);
 });
@@ -126,7 +126,7 @@ it('requests host recovery once and retains the captured update remainder after 
     ['replica', 0.1, 10.001],
     ['migrate'],
     ['broadcast', 'shots', { k: 'rifle', e: [1, 2, 3] }],
-    ['clock', 0.1],
+    ['clock', 0.1, 10001],
   ]);
   expect(ports.remove).not.toHaveBeenCalled();
   expect(transport.leave).not.toHaveBeenCalled();

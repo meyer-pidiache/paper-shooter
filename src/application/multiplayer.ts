@@ -150,11 +150,8 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     if (net.isHost) return;
     if (d.map) lobby.map = knownMap(d.map);
     if (d.duration !== undefined) lobby.duration = d.duration;
-    startMatch(
-      !!d.late,
-      d.spawns ? (net.id === null ? undefined : d.spawns[net.id]) : d.spawn,
-      d.clock,
-    );
+    startMatch(!!d.late, d.spawns ? (net.id === null ? undefined : d.spawns[net.id]) : d.spawn);
+    if (d.clock) clock.receive(d.clock);
     if (d.broken)
       for (const id of d.broken) {
         const br = ports.local.level.breakables[id];
@@ -230,6 +227,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     state: ports.local,
     game,
     transport: net,
+    now: () => performance.now(),
     inMatch,
     opponentCount: () => remote.size,
     localName: () => ports.local.myName,
@@ -274,7 +272,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     idleSeconds: () => input.idleSeconds,
     now: () => performance.now(),
     idle: (dt) => idle.update(dt),
-    clock: (dt) => clock.update(dt),
+    clock: (dt, frameAt) => clock.update(dt, frameAt),
     remove: removeRemote,
     migrate: migrateHost,
     feed: (text) => hud.kill(text, 0),
@@ -299,7 +297,8 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     broadcastLobby,
     migrateHost,
     idleUpdate: (dt: number) => idle.update(dt),
-    netUpdate: (dt: number, clockElapsed?: number) => sync.update(dt, clockElapsed),
+    netUpdate: (dt: number, clockElapsed?: number, frameAt?: number) =>
+      sync.update(dt, clockElapsed, frameAt),
     leaveOnline,
     createLobby: (isPublic: boolean) => connection.createLobby(isPublic),
     joinLobby: (code: string) => connection.joinLobby(code),

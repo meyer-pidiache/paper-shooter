@@ -49,7 +49,7 @@ export interface LoopPorts {
     updateFocus(dt: number): void;
     endFocus(): void;
     updatePickups(dt: number): void;
-    netUpdate(dt: number, clockElapsed?: number): void;
+    netUpdate(dt: number, clockElapsed: number, frameAt: number): void;
     updateWaves(dt: number): void;
     updateArenaPickups(dt: number): void;
     updateDeath(phase: GamePhase, dt: number): void;

@@ -8,6 +8,7 @@ export interface MatchClockPorts {
     readonly id: string | null;
     send<K extends 'clock' | 'end'>(kind: K, data: GamePayloads[K]): void;
   };
+  now(): number;
   inMatch(): boolean;
   opponentCount(): number;
   localName(): string;
@@ -17,19 +18,29 @@ export interface MatchClockPorts {
 }
 /** Host starts/finishes the clock; followers only project the last authoritative clock. */
 export class MatchClock {
+  private snapshotAt: number | null = null;
+
   constructor(private readonly ports: MatchClockPorts) {}
   receive(clock: GamePayloads['clock']) {
     if (this.ports.transport.isHost) return;
     this.ports.state.matchLeft = clock.left;
     this.ports.state.clockRunning = !!clock.on;
+    this.snapshotAt = this.ports.now();
   }
-  update(dt: number) {
+  update(dt: number, frameAt = this.ports.now()) {
     const { state, game, transport, inMatch, opponentCount, timer } = this.ports;
+    const snapshotAt = this.snapshotAt;
+    if (transport.isHost || (snapshotAt !== null && frameAt >= snapshotAt)) this.snapshotAt = null;
+    // An animation frame can carry a timestamp from before its callback was dispatched.
+    const elapsed =
+      !transport.isHost && snapshotAt !== null
+        ? Math.min(dt, Math.max(0, (frameAt - snapshotAt) / 1000))
+        : dt;
     if (transport.isHost && inMatch() && opponentCount() > 0) game.clockStarted = true;
     const on =
       inMatch() && !game.over && (transport.isHost ? !!game.clockStarted : state.clockRunning);
     if (inMatch() && !game.over) {
-      if (on) state.matchLeft = Math.max(0, state.matchLeft - dt);
+      if (on) state.matchLeft = Math.max(0, state.matchLeft - elapsed);
       if (transport.isHost) this.report(dt, on);
       const urgent = on && state.matchLeft <= 10;
       timer(
