@@ -177,7 +177,7 @@ it('uses the latest snapshot to mount the weapon and raise or lower it while aim
 });
 
 it('redraws confirmed player names and releases their textures when the avatar retires', () => {
-  const context = { fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn() };
+  const context = { clearRect: vi.fn(), fillText: vi.fn(), font: '' };
   const canvas = { width: 0, height: 0, getContext: () => context };
   vi.stubGlobal('CanvasRenderingContext2D', class {});
   vi.stubGlobal('document', { createElement: () => canvas });
@@ -200,11 +200,13 @@ it('redraws confirmed player names and releases their textures when the avatar r
     const texture = tagMaterial.uniforms.uNameMask.value as CanvasTexture;
     const releaseTexture = vi.fn();
     texture.addEventListener('dispose', releaseTexture);
+    expect(context.font).toBe('500 64px system-ui, sans-serif');
     expect(context.fillText).toHaveBeenLastCalledWith('paper', 256, 53, 484);
     const initialVersion = texture.version;
 
     remote.name = 'a very long player name';
     expect(remote.name).toBe('a very long pl');
+    expect(context.clearRect).toHaveBeenLastCalledWith(0, 0, 512, 106);
     expect(context.fillText).toHaveBeenLastCalledWith('a very long pl', 256, 53, 484);
     expect(texture.version).toBe(initialVersion + 1);
     remote.name = 'a very long pl';

@@ -18,8 +18,8 @@ varying vec3 vNormalV;
 uniform sampler2D uNameMask;
 uniform float uInk;
 void main() {
-  float glyph = step(0.5, texture2D(uNameMask, vUv).r);
-  gl_FragColor = vec4(mix(1.0, -1.0, glyph), uInk, normalize(vNormalV).xy);
+  if (texture2D(uNameMask, vUv).a < 0.5) discard;
+  gl_FragColor = vec4(-1.0, uInk, normalize(vNormalV).xy);
 }`;
 
 export function buildRemoteNameTag() {
@@ -41,13 +41,9 @@ export function buildRemoteNameTag() {
     mesh,
     setName(name: string) {
       if (!canvas || !context || !texture) return;
-      context.fillStyle = '#000';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.strokeStyle = '#fff';
-      context.lineWidth = 4;
-      context.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
+      context.clearRect(0, 0, canvas.width, canvas.height);
       context.fillStyle = '#fff';
-      context.font = 'bold 64px system-ui, sans-serif';
+      context.font = '500 64px system-ui, sans-serif';
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       context.fillText(name, canvas.width / 2, canvas.height / 2, canvas.width - 28);
