@@ -108,6 +108,7 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       expect(guest.state.clockRunning).toBe(true);
       expect(guest.state.matchLeft).toBeGreaterThan(898);
       expect(guest.state.matchLeft).toBeLessThan(900);
+      expect(guest.hud.el.timer.closest('.hud-tr')).toBeTruthy();
       const late = make();
       host.state.matchLeft = 9.5;
       await late.app.multiplayer.joinLobby(host.net.code);
@@ -117,7 +118,9 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       expect(late.state.matchLeft).toBeLessThanOrEqual(9.5);
       expect(late.lobby.duration).toBe(900);
       late.app.multiplayer.netUpdate(0);
-      expect(late.hud.el.timer.textContent).toBe('FINAL SECONDS · 0:10');
+      expect(late.hud.el.timer.textContent).toBe('0:10');
+      expect(late.hud.el.timer.parentElement).toBe(late.hud.root);
+      expect(late.hud.el.timer.nextElementSibling).toBe(late.hud.el.screen);
       expect(late.hud.el.timer.classList.contains('urgent')).toBe(true);
       host.scores.get(host.net.id).kills = 20;
       host.app.match.checkWin();
@@ -125,6 +128,8 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       expect(guest.game.state).toBe('over');
       expect(guest.game.over.id).toBe(host.net.id);
       expect(late.hud.el.timer.classList.contains('urgent')).toBe(false);
+      expect(late.hud.el.timer.textContent).toBe('');
+      expect(late.hud.el.timer.closest('.hud-tr')).toBeTruthy();
       host.app.session.screenClick();
       host.app.session.returnFromResults();
       expect(host.game.state).toBe('over');

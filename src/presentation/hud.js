@@ -267,7 +267,10 @@ export class HUD {
   setTimer(text, urgent = false) {
     const timer = this.el.timer;
     if (timer.textContent !== (text || '')) timer.textContent = text || '';
+    if (timer.classList.contains('urgent') === urgent) return;
     timer.classList.toggle('urgent', urgent);
+    if (urgent) this.el.screen.before(timer);
+    else this.el.pvpscore.before(timer);
   }
   setScore(score, combo) {
     this.el.score.textContent = score;

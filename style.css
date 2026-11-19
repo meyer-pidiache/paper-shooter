@@ -58,6 +58,7 @@ canvas#c {
 }
 #hud.nogame .hud-tl,
 #hud.nogame .hud-tr,
+#hud.nogame .timer.urgent,
 #hud.nogame .hud-bl,
 #hud.nogame .hud-br,
 #hud.nogame .crosshair,
@@ -469,15 +470,33 @@ canvas#c {
   color: var(--red);
 }
 .timer.urgent {
-  display: inline-block;
-  max-width: min(230px, 55vw);
-  padding: 2px 8px;
-  border: 2px solid var(--ink);
-  border-radius: 6px;
-  background: var(--panel-paper);
-  color: var(--ink);
-  font-size: clamp(16px, 4vw, 24px);
-  font-weight: bold;
+  position: absolute;
+  top: 3%;
+  left: 50%;
+  translate: -50% 0;
+  font-size: clamp(40px, 7vw, 72px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  mix-blend-mode: var(--hud-blend);
+}
+@media (max-width: 760px) {
+  #hud:has(> .timer.urgent) :is(.hud-tl, .hud-tr) {
+    top: calc(3% + clamp(52px, 9vw, 76px));
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .timer.urgent {
+    animation: timer-pulse 1s ease-in-out infinite;
+  }
+}
+@keyframes timer-pulse {
+  18% {
+    scale: 1.12;
+  }
+  38% {
+    scale: 1;
+  }
 }
 @media (max-width: 900px) {
   .panel h1 {

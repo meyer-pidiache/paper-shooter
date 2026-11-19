@@ -43,12 +43,7 @@ export class MatchClock {
       if (on) state.matchLeft = Math.max(0, state.matchLeft - elapsed);
       if (transport.isHost) this.report(dt, on);
       const urgent = on && state.matchLeft <= 10;
-      timer(
-        on
-          ? (urgent ? 'FINAL SECONDS · ' : '') + formatClock(state.matchLeft)
-          : 'clock starts when someone joins',
-        urgent,
-      );
+      timer(on ? formatClock(state.matchLeft) : 'clock starts when someone joins', urgent);
     }
     if (transport.isHost && on) {
       game.matchT += dt;
