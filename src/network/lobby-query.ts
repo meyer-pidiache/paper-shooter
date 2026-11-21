@@ -150,12 +150,18 @@ export class LobbyQuery {
       this.fail(attempt);
       return;
     }
-    if (message.t === 'welcome' && message.d.rejoinKey && this.options.rejoinToken) {
-      if (attempt.challenged) return;
-      attempt.challenged = true;
-      const token = this.options.rejoinToken(message.d.rejoinKey);
-      attempt.connection.send({ t: 'stay', d: token ? { token } : undefined });
-      return;
+    if (message.t === 'welcome' && this.options.rejoinToken) {
+      if (!attempt.challenged) {
+        const token = message.d.rejoinKey && this.options.rejoinToken(message.d.rejoinKey);
+        if (!token) {
+          this.fail(attempt);
+          return;
+        }
+        attempt.challenged = true;
+        attempt.connection.send({ t: 'stay', d: { token } });
+        return;
+      }
+      if (message.d.rejoinKey) return;
     }
     attempt.done = true;
     this.pending--;

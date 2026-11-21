@@ -34,7 +34,7 @@ function clients() {
 
 describe('complete multiplayer sessions through an in-memory signaling boundary', () => {
   it(
-    'restores a reload in a full match and replaces the old connection for everyone',
+    'restores a reload through Quick Play in a full match and replaces the old connection for everyone',
     { timeout: 15_000 },
     async () => {
       vi.useFakeTimers();
@@ -43,7 +43,7 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       const guest = make('district', browserRejoinCredentials());
       const observer = make();
       host.net.maxPlayers = 3;
-      await host.app.multiplayer.createLobby(false);
+      await host.app.multiplayer.createLobby(true);
       const code = host.net.code;
       await guest.app.multiplayer.joinLobby(code);
       await observer.app.multiplayer.joinLobby(code);
@@ -62,7 +62,7 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       );
 
       const reloaded = make('district', browserRejoinCredentials());
-      await reloaded.app.multiplayer.joinLobby(code);
+      await reloaded.app.multiplayer.quickPlay();
       await flushMessages();
       const id = reloaded.net.id;
       expect(reloaded.game.state).toBe('play');

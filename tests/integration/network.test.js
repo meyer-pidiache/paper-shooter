@@ -64,6 +64,51 @@ describe('PeerJS lobby transport', () => {
     expect(guest.active).toBe(true);
   });
 
+  it('recovers a full public lobby on the canonical channel after joining through an alias', async () => {
+    vi.useFakeTimers();
+    const { Peer } = setup();
+    const credentials = new RejoinCredentials(null);
+    const make = (rejoinCredentials = new RejoinCredentials(null)) => {
+      const net = new Net({
+        PeerClass: Peer,
+        options: async () => ({}),
+        namespace: 'rejoin-',
+        rejoinCredentials,
+      });
+      clients.push(net);
+      return net;
+    };
+    const host = make();
+    const guest = make(credentials);
+    const outsider = make(new RejoinCredentials(null));
+    await host.host({ code: 'PUB0-1', isPublic: true });
+    host.claimAlias('PUB0');
+    await vi.advanceTimersByTimeAsync(1500);
+    await guest.join('PUB0');
+    expect(guest.hostId).toBe('rejoin-PUB0');
+    expect(guest.authorityId).toBe(host.id);
+    const previous = guest.id;
+    const token = 'a'.repeat(32);
+    host.sendTo(previous, 'rejoin-token', { key: host.rejoinKey, token });
+    await flushMessages();
+    host.maxPlayers = 2;
+    host.onPeerResume = vi.fn((value) => (value === token ? previous : undefined));
+
+    outsider.rejoinCredentials.save('PUB0', {
+      hostId: host.id,
+      key: host.rejoinKey,
+      token: 'b'.repeat(32),
+    });
+    await expect(outsider.quickJoin()).rejects.toThrow('no open public');
+    expect(host.peerIds).toEqual([previous]);
+
+    const reloaded = make(credentials);
+    await reloaded.quickJoin();
+    expect(host.onPeerResume).toHaveBeenLastCalledWith(token);
+    expect(reloaded.hostId).toBe(host.id);
+    expect(host.peerIds).toEqual([reloaded.id]);
+  });
+
   it('drops malformed payloads before dispatch or forwarding to another peer', async () => {
     const { Peer } = setup();
     const make = () => {

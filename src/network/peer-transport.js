@@ -356,20 +356,23 @@ export class Net {
       hostName: this.hostName,
     };
   }
-  _refuse(conn) {
-    const reason = this.accepting ? 'that lobby is full' : 'that lobby is closed';
+  _refuse(conn, reason = this.accepting ? 'that lobby is full' : 'that lobby is closed') {
     conn.send({ t: 'refused', d: { ...this._lobbyOffer(), reason } });
     closeAfterNotice(conn);
   }
   _sendWelcome(conn, details = this._lobbyOffer()) {
     conn.send({ t: 'welcome', d: details, from: this.id });
   }
-  _seat(conn, { reply, token }) {
+  _seat(conn, { reply, resume = false, token }) {
     if (!conn.open || this.conns.has(conn.peer)) return;
     const previous = token && this.onPeerResume?.(token);
     const old = previous && this.conns.get(previous);
     if (!this.accepting || (this._full() && !old)) {
       this._refuse(conn);
+      return;
+    }
+    if (resume && !previous) {
+      this._refuse(conn, 'score recovery is unavailable');
       return;
     }
     if (old) {
@@ -403,11 +406,11 @@ export class Net {
           if (!this._validMessage(msg) || msg.t !== 'stay') return;
           conn.off('data', onData);
           if (generation === this.generation)
-            this._seat(conn, { reply: resume, token: msg.d?.token });
+            this._seat(conn, { reply: resume, resume, token: resume ? msg.d?.token : undefined });
         };
         conn.on('data', onData);
         const offer = this._lobbyOffer();
-        if (resume || conn.metadata?.rejoin === true) offer.rejoinKey = this.rejoinKey;
+        if (resume) offer.rejoinKey = this.rejoinKey;
         this._sendWelcome(conn, offer);
       } else {
         this._seat(conn, { reply: true });
@@ -437,6 +440,39 @@ export class Net {
     };
     this._aliasTimer = setTimeout(attempt, 1500);
   }
+  _adoptOffer(peer, offer) {
+    this.peer = peer;
+    this.id = peer.id;
+    this.code = lobbyCode(offer.details.code, offer.hostId.slice(this.prefix.length));
+    this._keepAlive(peer);
+    this._adopt(offer.hostId, offer.connection, offer.details);
+  }
+  _queryLobby(peer, ids, metadata, rejoinToken) {
+    return new LobbyQuery(peer, ids, metadata, {
+      mode: 'first',
+      timeout: JOIN_TIMEOUT,
+      gather: 0,
+      signal: this.sessionAbort.signal,
+      rejoinToken,
+      adopt: (offer) => this._adoptOffer(peer, offer),
+    }).run();
+  }
+  async _resume(peer, credential, meta) {
+    const generation = this.generation;
+    try {
+      // Older hosts see an ordinary probe and wait for stay before they allocate a seat.
+      await this._queryLobby(
+        peer,
+        [credential.hostId],
+        { ...meta, resume: true, probe: true },
+        (key) => (key === credential.key ? credential.token : undefined),
+      );
+      return true;
+    } catch (error) {
+      if (generation !== this.generation) throw error;
+      return false;
+    }
+  }
   async join(code, meta = {}, wantId = null) {
     this.leave();
     this.isHost = false;
@@ -446,40 +482,21 @@ export class Net {
     if (!code) throw new Error('enter a lobby code');
     this.peer = await this._newPeer(null);
     const generation = this.generation;
-    this.id = this.peer.id;
-    this._keepAlive(this.peer);
     // a lobby that changed hosts lives on a generation code; the plain code still finds it
     const base = code.replace(/-\d+$/, '');
     const ids = [
       code,
       ...['-1', '-2', '-3'].map((suf) => base + suf).filter((c) => c !== code),
     ].map((c) => this.prefix + c);
-    const query = (targets, metadata, rejoinToken) =>
-      new LobbyQuery(this.peer, targets, metadata, {
-        mode: 'first',
-        timeout: JOIN_TIMEOUT,
-        gather: 0,
-        signal: this.sessionAbort.signal,
-        rejoinToken,
-        adopt: (offer) => {
-          this.code = lobbyCode(offer.details.code, offer.hostId.slice(this.prefix.length));
-          this._adopt(offer.hostId, offer.connection, offer.details);
-          this._startPingPolling();
-        },
-      }).run();
     try {
       const credential = !meta.prev && this.rejoinCredentials.get(code);
-      if (credential && ids.includes(credential.hostId)) {
-        try {
-          await query([credential.hostId], { ...meta, resume: true }, (key) =>
-            key === credential.key ? credential.token : undefined,
-          );
-          return this.code;
-        } catch (error) {
-          if (generation !== this.generation) throw error;
-        }
-      }
-      await query(ids, meta, undefined);
+      if (
+        credential &&
+        ids.includes(credential.hostId) &&
+        (await this._resume(this.peer, credential, meta))
+      )
+        return this.code;
+      await this._queryLobby(this.peer, ids, meta);
     } catch (error) {
       if (generation === this.generation) this.leave();
       throw error;
@@ -493,28 +510,22 @@ export class Net {
    */
   async quickJoin(meta = {}, onStatus = null) {
     this.leave();
-    this.isHost = false;
+    const generation = this.generation;
     try {
-      await this.discovery.join(
-        { ...meta, rejoin: true },
-        (peer, offer) => {
-          this.peer = peer;
-          this.id = peer.id;
-          this.code = lobbyCode(offer.details.code, offer.hostId.slice(this.prefix.length));
-          this._keepAlive(peer);
-          this._adopt(offer.hostId, offer.connection, offer.details);
-          const credential = this.rejoinCredentials.get(this.code);
-          if (
-            credential &&
-            credential.hostId === offer.hostId &&
-            credential.key === offer.details.rejoinKey
-          )
-            return credential.token;
-        },
-        onStatus,
-      );
+      const credential = this.rejoinCredentials.latestPublic(this.prefix, PUBLIC_SLOT_COUNT);
+      if (credential) {
+        const peer = await this._newPeer(null);
+        try {
+          onStatus?.('rejoining your last match…');
+          if (generation !== this.generation) throw new Error('lobby operation cancelled');
+          if (await this._resume(peer, credential, meta)) return this.code;
+        } finally {
+          if (this.peer !== peer) peer.destroy();
+        }
+      }
+      await this.discovery.join(meta, (peer, offer) => this._adoptOffer(peer, offer), onStatus);
     } catch (error) {
-      this.leave();
+      if (generation === this.generation) this.leave();
       throw error;
     }
     return this.code;

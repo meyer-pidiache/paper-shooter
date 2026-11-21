@@ -49,6 +49,15 @@ export class RejoinCredentials {
     return this.read().find((entry) => entry.code === base);
   }
 
+  latestPublic(prefix: string, slotCount: number): RejoinCredential | undefined {
+    return this.read().find(({ code, hostId }) => {
+      if (!/^PUB(?:0|[1-9]\d*)$/.test(code) || Number(code.slice(3)) >= slotCount) return false;
+      if (!hostId.startsWith(prefix)) return false;
+      const canonicalCode = hostId.slice(prefix.length).replace(/-\d+$/, '');
+      return canonicalCode === code;
+    });
+  }
+
   save(code: string, credential: RejoinCredential): void {
     const base = code.replace(/-\d+$/, '');
     this.saved = [
