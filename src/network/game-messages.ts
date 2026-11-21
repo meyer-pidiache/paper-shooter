@@ -2,6 +2,7 @@ import { isRecord } from '../shared/ice.js';
 import { FFA_DURATIONS, MAX_PLAYERS, isMatchDuration, parseScoreRows } from '../domain/match.js';
 import { LEVELS } from '../domain/maps.js';
 import { isWireMessage } from './protocol.js';
+import { isRejoinSecret } from './rejoin-credentials.js';
 import type { GameMessage, WireVector } from './game-message-types.js';
 
 type Validator = (value: unknown) => boolean;
@@ -57,6 +58,7 @@ const offerFields = {
   max: count,
   inMatch: boolean,
   hostName: text(128),
+  rejoinKey: optional(isRejoinSecret),
 };
 const player = record({ id, name: text(128) });
 
@@ -136,7 +138,8 @@ const validators: Record<keyof import('./game-message-types.js').GamePayloads, V
       Object.entries(offerFields).map(([key, check]) => [key, optional(check)]),
     ),
   }),
-  stay: empty,
+  stay: optional(record({ token: optional(isRejoinSecret) })),
+  'rejoin-token': record({ key: isRejoinSecret, token: isRejoinSecret }),
   lobby: roster,
   leave: record({ id }),
   start,

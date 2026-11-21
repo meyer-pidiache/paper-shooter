@@ -12,6 +12,7 @@ export interface LobbyState {
   gen?: number;
   shown?: string | null;
   rejoinCode?: string | null;
+  migrationPeers?: Set<string>;
 }
 export interface LobbyTransport {
   readonly id: string | null;

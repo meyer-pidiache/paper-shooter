@@ -180,6 +180,8 @@ export function createApplication(options: ApplicationOptions) {
     spawnSpots: () => match.spawnSpots(),
     arenaSpawn: () => match.arenaSpawn(),
     sendScores: () => match.sendScores(),
+    prepareRejoins: () => multiplayer.beginMatch(),
+    clearRejoins: () => multiplayer.clearRejoins(),
     refreshScores: () => match.refreshScoreHud(),
     respawnLocal: () => match.respawnLocal(),
   });

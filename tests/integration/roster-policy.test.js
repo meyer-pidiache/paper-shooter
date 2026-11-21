@@ -6,7 +6,7 @@ afterEach(() => {
   fixture?.app.dispose();
   fixture = null;
 });
-it('transfers a reconnecting score before broadcasting and retains the exact late-join map and broken prop report', () => {
+it('transfers a migration follower score before broadcasting and retains the late-join map and broken prop report', () => {
   fixture = applicationFixture('mexico');
   const { app, net, game, lobby, scores, state } = fixture;
   net.id = 'host';
@@ -17,6 +17,7 @@ it('transfers a reconnecting score before broadcasting and retains the exact lat
   lobby.isPublic = false;
   lobby.players.set('old', { name: 'before' });
   lobby.order = ['host', 'old'];
+  lobby.migrationPeers = new Set(['old']);
   scores.set('old', { name: 'before', kills: 4, deaths: 2 });
   const previous = app.multiplayer.addRemote('old', 'before');
   const retired = vi.spyOn(previous, 'dispose');

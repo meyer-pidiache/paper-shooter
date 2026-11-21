@@ -11,8 +11,7 @@ export interface NetworkSyncPorts {
     readonly active: boolean;
     readonly isHost: boolean;
     readonly hostId: string | null;
-    readonly conns: Map<string, { close(): void }>;
-    send<K extends 'ps' | 'leave'>(kind: K, data: GamePayloads[K], relay?: boolean): void;
+    send(kind: 'ps', data: GamePayloads['ps'], relay?: boolean): void;
     broadcast(kind: 'shots', data: GamePayloads['shots']): void;
   };
   player: LocalSnapshotSource & {
@@ -29,10 +28,9 @@ export interface NetworkSyncPorts {
   idle(dt: number): void;
   clock(dt: number, frameAt: number): void;
   remove(id: string): void;
+  drop(id: string): void;
   migrate(): Promise<unknown>;
   feed(text: string): void;
-  broadcastLobby(): void;
-  sendScores(): void;
 }
 /** Advances replicas and replicates local state; no renderer, lobby UI or session state access. */
 export class NetworkSync {
@@ -62,30 +60,17 @@ export class NetworkSync {
     this.ports.clock(clockElapsed, frameAt ?? nowMs);
   }
   private removeSilentPeers() {
-    const { transport, opponents, now, migrate, remove, feed, broadcastLobby, sendScores } =
-      this.ports;
+    const { transport, opponents, now, migrate, remove, drop, feed } = this.ports;
     for (const [id, opponent] of opponents()) {
       if (!opponent.lastSeen || now() - opponent.lastSeen <= 9000) continue;
       if (!transport.isHost && id === transport.hostId) {
         void migrate();
         break;
       }
-      const name = opponent.name;
-      remove(id);
-      feed(name + ' lost connection');
-      if (transport.isHost) {
-        const connection = transport.conns.get(id);
-        if (connection) {
-          try {
-            connection.close();
-          } catch {
-            /* The transport may have closed it first. */
-          }
-          transport.conns.delete(id);
-        }
-        transport.send('leave', { id });
-        broadcastLobby();
-        sendScores();
+      if (transport.isHost) drop(id);
+      else {
+        remove(id);
+        feed(opponent.name + ' lost connection');
       }
     }
   }

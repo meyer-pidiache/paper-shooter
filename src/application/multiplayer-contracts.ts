@@ -30,10 +30,13 @@ export interface MultiplayerTransport extends LobbyTransport {
   readonly isHost: boolean;
   readonly hostId: string | null;
   readonly aliasCode?: string | null;
+  readonly rejoinKey?: string | null;
   readonly conns: Map<string, { close(): void }>;
   hostName: string;
-  onPeerJoin: ((id: string, metadata: unknown) => void) | null;
-  onPeerLeave: ((id: string) => void) | null;
+  onPeerJoin: ((id: string, metadata: unknown, previous?: string) => void) | null;
+  onPeerLeave: ((id: string, reason?: string) => void) | null;
+  onPeerResume: ((token: string) => string | undefined) | null;
+  dropPeer(id: string, reason: string): boolean;
   onDisconnect: (() => void) | null;
   on<K extends keyof GamePayloads>(
     kind: K,
