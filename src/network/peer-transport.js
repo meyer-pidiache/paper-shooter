@@ -6,6 +6,7 @@ import { MAX_PLAYERS } from '../domain/match.js';
 import { isGamePayload } from './game-messages.js';
 import { LobbyDiscovery, PUBLIC_SLOT_COUNT } from './lobby-discovery.js';
 import { LobbyQuery } from './lobby-query.js';
+import { browserRejoinCredentials, newRejoinSecret } from './rejoin-credentials.js';
 
 // Peer-to-peer networking over WebRTC, using the public PeerJS signalling service.
 // The host player's browser is authoritative. A small same-origin endpoint obtains temporary
@@ -29,18 +30,33 @@ const defaults = networkConfig(
 );
 const ice = createIceClient(defaults);
 
+function closeConnection(conn) {
+  try {
+    conn.close();
+  } catch {
+    /* The channel may already be closed. */
+  }
+}
+
+function closeAfterNotice(conn) {
+  setTimeout(() => closeConnection(conn), 500);
+}
+
 export class Net {
   constructor({
     PeerClass = Peer,
     options = () => ice.peerOptions(),
     namespace = defaults.namespace,
     validatePayload = isGamePayload,
+    rejoinCredentials = browserRejoinCredentials(),
   } = {}) {
     this.PeerClass = PeerClass;
     this.validatePayload = validatePayload;
     this.generation = 0;
     this.options = options;
     this.prefix = namespace;
+    this.rejoinCredentials = rejoinCredentials;
+    this.rejoinKey = null;
     this.peer = null;
     this.conns = new Map();
     this.isHost = false;
@@ -51,6 +67,7 @@ export class Net {
     this.handlers = new Map();
     this.connected = false;
     this.onPeerJoin = null;
+    this.onPeerResume = null;
     this.onPeerLeave = null;
     this.onDisconnect = null;
     this.onAlias = null;
@@ -136,21 +153,32 @@ export class Net {
     conn.on('close', () => this._drop(conn.peer, conn));
     conn.on('error', () => this._drop(conn.peer, conn));
   }
-  _drop(pid, connection) {
-    if (this.leaving || !this.conns.has(pid) || this.conns.get(pid) !== connection) return;
+  _detach(pid) {
     this.conns.delete(pid);
     this.pingSamples.delete(pid);
     for (const [key, pending] of this.pendingPings)
       if (pending.peerId === pid) this.pendingPings.delete(key);
+  }
+  _drop(pid, connection, reason) {
+    if (this.leaving || this.conns.get(pid) !== connection) return;
+    this._detach(pid);
     if (this.isHost) {
-      if (this.onPeerLeave) this.onPeerLeave(pid);
-      this.broadcast('leave', { id: pid });
+      this.send('leave', { id: pid });
+      if (reason) this.onPeerLeave?.(pid, reason);
+      else this.onPeerLeave?.(pid);
       if (!this.conns.size) this._stopPingPolling();
     } else if (pid === this.hostId) {
       this.connected = false;
       this._stopPingPolling();
       if (this.onDisconnect) this.onDisconnect();
     }
+  }
+  dropPeer(id, reason) {
+    const connection = this.conns.get(id);
+    if (!connection) return false;
+    this._drop(id, connection, reason);
+    closeConnection(connection);
+    return true;
   }
   _now() {
     return globalThis.performance?.now?.() ?? Date.now();
@@ -229,6 +257,12 @@ export class Net {
   }
   _route(msg, from) {
     if (!this._validMessage(msg)) return;
+    if (msg.t === 'rejoin-token') {
+      if (!this.isHost && from === this.hostId && msg.from === this.authorityId)
+        this.rejoinCredentials.save(this.code, { hostId: this.authorityId, ...msg.d });
+      return;
+    }
+    if (msg.t === 'stay') return;
     const sender = this.isHost ? from : msg.from || from;
     // clients can address each other; the host forwards those
     if (this.isHost && msg.to && msg.to !== this.id) {
@@ -303,6 +337,7 @@ export class Net {
     this.id = this.peer.id;
     this.hostId = this.id;
     this.authorityId = this.id;
+    this.rejoinKey = newRejoinSecret();
     this.connected = true;
     this.accepting = true;
     this.peer.on('connection', (conn) => this._incoming(conn));
@@ -310,59 +345,72 @@ export class Net {
     this._startPingPolling();
     return this.code;
   }
-  // someone knocking: a quick-play probe is told how full we are and only seated once it says it is staying
+  _lobbyOffer() {
+    return {
+      hostId: this.id,
+      code: this.aliasCode || this.code,
+      isPublic: this.isPublic,
+      players: this.conns.size + 1,
+      max: this.maxPlayers,
+      inMatch: !!this.inMatch,
+      hostName: this.hostName,
+    };
+  }
+  _refuse(conn) {
+    const reason = this.accepting ? 'that lobby is full' : 'that lobby is closed';
+    conn.send({ t: 'refused', d: { ...this._lobbyOffer(), reason } });
+    closeAfterNotice(conn);
+  }
+  _sendWelcome(conn, details = this._lobbyOffer()) {
+    conn.send({ t: 'welcome', d: details, from: this.id });
+  }
+  _seat(conn, { reply, token }) {
+    if (!conn.open || this.conns.has(conn.peer)) return;
+    const previous = token && this.onPeerResume?.(token);
+    const old = previous && this.conns.get(previous);
+    if (!this.accepting || (this._full() && !old)) {
+      this._refuse(conn);
+      return;
+    }
+    if (old) {
+      // Notify the old client before closing so it does not elect itself as a new host.
+      this.sendTo(previous, 'kick', { reason: 'you rejoined from another connection' });
+      this._detach(previous);
+      closeAfterNotice(old);
+    }
+    if (reply) this._sendWelcome(conn);
+    this.conns.set(conn.peer, conn);
+    this._wire(conn);
+    this._startPingPolling();
+    this.onPeerJoin?.(conn.peer, conn.metadata || {}, previous || undefined);
+  }
+  _full() {
+    return this.conns.size >= this.maxPlayers - 1;
+  }
+  // Discovery and score recovery claim a seat only after the guest selects this channel.
   _incoming(conn) {
+    const generation = this.generation;
     conn.on('open', () => {
-      // a full lobby still says who it is, so the lobby list can show it
-      if (!this.accepting || this.conns.size >= this.maxPlayers - 1) {
-        conn.send({
-          t: 'refused',
-          d: {
-            reason: this.accepting ? 'that lobby is full' : 'that lobby is closed',
-            code: this.aliasCode || this.code,
-            players: this.conns.size + 1,
-            max: this.maxPlayers,
-            inMatch: !!this.inMatch,
-            hostName: this.hostName,
-          },
-        });
-        setTimeout(() => {
-          try {
-            conn.close();
-          } catch (e) {
-            /* ignore */
-          }
-        }, 600);
+      if (generation !== this.generation) {
+        closeConnection(conn);
         return;
       }
-      const seat = () => {
-        if (this.conns.has(conn.peer)) return;
-        this.conns.set(conn.peer, conn);
-        this._wire(conn);
-        this._startPingPolling();
-        if (this.onPeerJoin) this.onPeerJoin(conn.peer, conn.metadata || {});
-      };
-      const welcome = {
-        hostId: this.id,
-        code: this.aliasCode || this.code,
-        isPublic: this.isPublic,
-        players: this.conns.size + 1,
-        max: this.maxPlayers,
-        inMatch: !!this.inMatch,
-        hostName: this.hostName,
-      };
-      if (conn.metadata && conn.metadata.probe) {
-        conn.send({ t: 'welcome', d: welcome, from: this.id });
+      const resume = conn.metadata?.resume === true;
+      if (!this.accepting || (this._full() && !resume)) {
+        this._refuse(conn);
+      } else if (resume || conn.metadata?.probe) {
         const onData = (msg) => {
-          if (this._validMessage(msg) && msg.t === 'stay') {
-            conn.off('data', onData);
-            seat();
-          }
+          if (!this._validMessage(msg) || msg.t !== 'stay') return;
+          conn.off('data', onData);
+          if (generation === this.generation)
+            this._seat(conn, { reply: resume, token: msg.d?.token });
         };
         conn.on('data', onData);
+        const offer = this._lobbyOffer();
+        if (resume || conn.metadata?.rejoin === true) offer.rejoinKey = this.rejoinKey;
+        this._sendWelcome(conn, offer);
       } else {
-        conn.send({ t: 'welcome', d: welcome, from: this.id });
-        seat();
+        this._seat(conn, { reply: true });
       }
     });
   }
@@ -397,6 +445,7 @@ export class Net {
       .toUpperCase();
     if (!code) throw new Error('enter a lobby code');
     this.peer = await this._newPeer(null);
+    const generation = this.generation;
     this.id = this.peer.id;
     this._keepAlive(this.peer);
     // a lobby that changed hosts lives on a generation code; the plain code still finds it
@@ -405,20 +454,34 @@ export class Net {
       code,
       ...['-1', '-2', '-3'].map((suf) => base + suf).filter((c) => c !== code),
     ].map((c) => this.prefix + c);
-    try {
-      await new LobbyQuery(this.peer, ids, meta, {
+    const query = (targets, metadata, rejoinToken) =>
+      new LobbyQuery(this.peer, targets, metadata, {
         mode: 'first',
         timeout: JOIN_TIMEOUT,
         gather: 0,
         signal: this.sessionAbort.signal,
+        rejoinToken,
         adopt: (offer) => {
           this.code = lobbyCode(offer.details.code, offer.hostId.slice(this.prefix.length));
           this._adopt(offer.hostId, offer.connection, offer.details);
           this._startPingPolling();
         },
       }).run();
+    try {
+      const credential = !meta.prev && this.rejoinCredentials.get(code);
+      if (credential && ids.includes(credential.hostId)) {
+        try {
+          await query([credential.hostId], { ...meta, resume: true }, (key) =>
+            key === credential.key ? credential.token : undefined,
+          );
+          return this.code;
+        } catch (error) {
+          if (generation !== this.generation) throw error;
+        }
+      }
+      await query(ids, meta, undefined);
     } catch (error) {
-      this.leave();
+      if (generation === this.generation) this.leave();
       throw error;
     }
     return this.code;
@@ -433,13 +496,20 @@ export class Net {
     this.isHost = false;
     try {
       await this.discovery.join(
-        meta,
+        { ...meta, rejoin: true },
         (peer, offer) => {
           this.peer = peer;
           this.id = peer.id;
           this.code = lobbyCode(offer.details.code, offer.hostId.slice(this.prefix.length));
           this._keepAlive(peer);
           this._adopt(offer.hostId, offer.connection, offer.details);
+          const credential = this.rejoinCredentials.get(this.code);
+          if (
+            credential &&
+            credential.hostId === offer.hostId &&
+            credential.key === offer.details.rejoinKey
+          )
+            return credential.token;
         },
         onStatus,
       );
@@ -508,10 +578,12 @@ export class Net {
     this.peer = null;
     this.connected = false;
     this.isHost = false;
+    this.inMatch = false;
     this.id = null;
     this.code = null;
     this.hostId = null;
     this.authorityId = null;
+    this.rejoinKey = null;
     this.leaving = false;
   }
 

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { Net, makeCode } from '../../src/network/peer-transport.js';
 import { isWireMessage } from '../../src/network/protocol.js';
+import { RejoinCredentials } from '../../src/network/rejoin-credentials.js';
 import { flushMessages, peerNetwork } from '../support/peer-network.js';
 
 const clients = [];
@@ -27,6 +28,42 @@ function setup() {
 }
 
 describe('PeerJS lobby transport', () => {
+  it('accepts credentials only from the host and withholds them from a replacement lobby', async () => {
+    const { Peer } = setup();
+    const make = (rejoinCredentials = new RejoinCredentials(null)) => {
+      const net = new Net({
+        PeerClass: Peer,
+        options: async () => ({}),
+        namespace: 'rejoin-',
+        rejoinCredentials,
+      });
+      clients.push(net);
+      return net;
+    };
+    const host = make();
+    const guest = make();
+    const other = make();
+    const code = 'PUB0';
+    await host.host({ code, isPublic: true });
+    await guest.join(code);
+    await other.join(code);
+    const credential = { key: host.rejoinKey, token: 'a'.repeat(32) };
+    host.sendTo(guest.id, 'rejoin-token', credential);
+    other.broadcast('rejoin-token', { ...credential, token: 'b'.repeat(32) });
+    await flushMessages();
+    expect(guest.rejoinCredentials.get(code)).toMatchObject(credential);
+    expect(other.rejoinCredentials.get(code)).toBeUndefined();
+
+    guest.leave();
+    host.leave();
+    const newHost = make();
+    await newHost.host({ code, isPublic: true });
+    newHost.onPeerResume = vi.fn();
+    await guest.join(code);
+    expect(newHost.onPeerResume).not.toHaveBeenCalled();
+    expect(guest.active).toBe(true);
+  });
+
   it('drops malformed payloads before dispatch or forwarding to another peer', async () => {
     const { Peer } = setup();
     const make = () => {

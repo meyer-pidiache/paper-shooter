@@ -69,6 +69,7 @@ export class SessionController {
     game.over = winner;
     game.overT = 0;
     game.state = 'over';
+    this.ports.clearRejoins();
   }
   screenClick() {
     const { game, screen } = this.ports;
@@ -178,6 +179,7 @@ export class SessionController {
     [...lobby.players.keys()].forEach((id, index) => {
       spawns[id] = order[index % order.length];
     });
+    this.ports.prepareRejoins();
     transport.send('start', {
       spawns,
       map: lobby.map || screen.mapKey,

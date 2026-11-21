@@ -30,6 +30,7 @@ export class LobbyConnection {
     const { remoteIds, removeRemote, lobby, scores, session } = this.ports;
     for (const id of [...remoteIds()]) removeRemote(id);
     lobby.players.clear();
+    lobby.migrationPeers = undefined;
     scores.clear();
     lobby.status = reason;
     session.returnOnline();
@@ -53,6 +54,7 @@ export class LobbyConnection {
     lobby.map = local.mapKey;
     lobby.duration = FFA_TIME;
     lobby.players.clear();
+    lobby.migrationPeers = undefined;
     lobby.players.set(transport.id, { name: local.myName });
     lobby.hostId = transport.id;
     lobby.status = '';

@@ -10,7 +10,6 @@ function fixture() {
     active: true,
     isHost: true,
     hostId: 'host',
-    conns: new Map<string, { close(): void }>(),
     leave: record('leave'),
     send: record('send'),
     broadcast: record('broadcast'),
@@ -45,12 +44,14 @@ function fixture() {
       events.push(['remove', id]);
       peers.delete(id);
     }),
+    drop: vi.fn((id) => {
+      events.push(['drop', id]);
+      peers.delete(id);
+    }),
     migrate: vi.fn(async () => {
       events.push(['migrate']);
     }),
     feed: record('feed'),
-    broadcastLobby: record('lobby'),
-    sendScores: record('scores'),
   };
   return { ports, transport, peers, events, owner: new NetworkSync(ports) };
 }
@@ -79,34 +80,24 @@ it('orders idle, replicas, snapshots, queued shots and clock, retaining exact sn
     true,
   );
 });
-it('retires a silent guest in order, tolerates a closed channel and suppresses stale cleanup during migration', () => {
-  const { owner, ports, peers, transport, events } = fixture();
+it('delegates silent guest retirement to the host and suppresses stale cleanup during migration', () => {
+  const { owner, ports, peers, events } = fixture();
   const peer = peers.get('guest');
   if (!peer) throw new Error('missing guest');
   peer.lastSeen = 1;
-  const close = vi.fn(() => {
-    events.push(['close']);
-    throw new Error('already closed');
-  });
-  transport.conns.set('guest', { close });
   ports.migrating = () => true;
   owner.update(0.1);
-  expect(ports.remove).not.toHaveBeenCalled();
+  expect(ports.drop).not.toHaveBeenCalled();
   ports.migrating = () => false;
   events.length = 0;
   owner.update(0.1);
   expect(events).toEqual([
     ['idle', 0.1],
     ['replica', 0.1, 10.001],
-    ['remove', 'guest'],
-    ['feed', 'paper lost connection'],
-    ['close'],
-    ['send', 'leave', { id: 'guest' }],
-    ['lobby'],
-    ['scores'],
+    ['drop', 'guest'],
     ['clock', 0.1, 10001],
   ]);
-  expect(transport.conns.size).toBe(0);
+  expect(ports.remove).not.toHaveBeenCalled();
 });
 it('requests host recovery once and retains the captured update remainder after recovery retires the transport', () => {
   const { owner, ports, peers, transport, events } = fixture();

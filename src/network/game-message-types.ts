@@ -11,6 +11,7 @@ export interface LobbyOffer {
   max: number;
   inMatch: boolean;
   hostName: string;
+  rejoinKey?: string;
 }
 export interface LobbyRoster {
   players: Array<{ id: string; name: string }>;
@@ -51,7 +52,8 @@ export type EmptyPayload = Record<string, never> | undefined;
 export interface GamePayloads {
   welcome: LobbyOffer;
   refused: { reason: string } & Partial<LobbyOffer>;
-  stay: EmptyPayload;
+  stay: { token?: string } | undefined;
+  'rejoin-token': { key: string; token: string };
   lobby: LobbyRoster;
   leave: { id: string };
   start: MatchStart;

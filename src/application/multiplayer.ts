@@ -63,7 +63,14 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     session,
     presentation: connectionPresentation,
   });
-  const leaveOnline = (reason = '') => connection.leaveOnline(reason);
+  const cancelPending = () => {
+    roster.clearRejoins();
+    connection.cancelPending();
+  };
+  const leaveOnline = (reason = '') => {
+    roster.clearRejoins();
+    connection.leaveOnline(reason);
+  };
   const migrateHost = () => connection.migrateHost();
   const combatFeedback = new NetworkCombatFeedback({
     player,
@@ -109,6 +116,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
   });
   function makeRemote(id: string, name: string) {
     const rp = new RemotePlayer(remoteServices, id, name, 0, INK.RED);
+    rp.lastSeen = performance.now();
     rp.onDamage = (t, amount, fromPos) => {
       if (!ports.canHurt(t) || !t.alive) return;
       hud.hitmarker(false, false);
@@ -136,14 +144,15 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     roster.broadcast();
   }
 
-  net.onPeerLeave = (id) => roster.peerLeave(id);
+  net.onPeerLeave = (id, reason) => roster.peerLeave(id, reason);
   net.onDisconnect = () => {
     if (lobby.order && lobby.order.some((id) => id !== lobby.hostId)) void migrateHost();
     else if (game.state !== 'over') leaveOnline('the host left the lobby');
   };
   net.on('refused', (d) => leaveOnline(d.reason));
   net.hostName = ports.local.myName;
-  net.onPeerJoin = (id, metadata) => roster.join(id, metadata);
+  net.onPeerJoin = (id, metadata, previous) => roster.join(id, metadata, previous);
+  net.onPeerResume = (token) => roster.resumePeer(token);
   net.onHost('lobby', (data) => roster.receive(data));
   net.onHost('leave', (data) => roster.leave(data.id));
   net.onHost('start', (d) => {
@@ -274,23 +283,28 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     idle: (dt) => idle.update(dt),
     clock: (dt, frameAt) => clock.update(dt, frameAt),
     remove: removeRemote,
+    drop: (id) => {
+      if (!net.dropPeer(id, 'lost connection')) roster.peerLeave(id, 'lost connection');
+    },
     migrate: migrateHost,
     feed: (text) => hud.kill(text, 0),
-    broadcastLobby,
-    sendScores,
   });
   net.onHost('clock', (data) => clock.receive(data));
   net.onHost('kick', (data) => idle.kicked(data.reason));
   function dispose() {
     net.onPeerJoin = null;
     net.onPeerLeave = null;
+    net.onPeerResume = null;
     net.onDisconnect = null;
+    roster.clearRejoins();
     connection.dispose();
   }
 
   return {
-    cancelPending: () => connection.cancelPending(),
+    cancelPending,
     dispose,
+    beginMatch: () => roster.beginMatch(),
+    clearRejoins: () => roster.clearRejoins(),
     addRemote,
     removeRemote,
     lobbyRows,

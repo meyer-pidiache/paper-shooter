@@ -15,7 +15,7 @@ export interface LobbyListing {
   full: boolean;
 }
 type Status = (message: string) => void;
-type Adopt = (peer: DiscoveryPeerPort, offer: WelcomeOffer) => void;
+type Adopt = (peer: DiscoveryPeerPort, offer: WelcomeOffer) => string | undefined;
 
 function publicIds(prefix: string): string[] {
   return Array.from({ length: PUBLIC_SLOT_COUNT }, (_, slot) =>
@@ -118,9 +118,9 @@ export class LobbyDiscovery {
           onOffer: (count) =>
             onStatus?.(`found ${count} open ${count === 1 ? 'lobby' : 'lobbies'}…`),
           adopt: (offer) => {
-            adopt(endpoint, offer);
+            const token = adopt(endpoint, offer);
             transferred = true;
-            offer.connection.send({ t: 'stay' });
+            offer.connection.send({ t: 'stay', d: token ? { token } : undefined });
           },
         },
       ).run();

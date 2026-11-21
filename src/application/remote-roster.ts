@@ -3,6 +3,7 @@ import { FFA_TIME, type GamePhase, type Score } from '../domain/match.js';
 import type { GamePayloads } from '../network/game-message-types.js';
 import { isRecord } from '../shared/ice.js';
 import type { LobbyState } from './lobby-contracts.js';
+import { MatchRejoins } from './match-rejoins.js';
 export interface RosterPeer {
   name: string;
   dispose(): void;
@@ -16,7 +17,8 @@ export interface RosterPorts<Peer extends RosterPeer> {
     readonly code: string | null;
     readonly aliasCode?: string | null;
     send(kind: 'lobby', data: GamePayloads['lobby']): void;
-    sendTo(id: string, kind: 'start', data: GamePayloads['start']): void;
+    sendTo<K extends 'start' | 'rejoin-token'>(id: string, kind: K, data: GamePayloads[K]): void;
+    readonly rejoinKey?: string | null;
   };
   createPeer(id: string, name: string): Peer;
   map(): MapKey;
@@ -32,7 +34,37 @@ export interface RosterPorts<Peer extends RosterPeer> {
 }
 /** Owns replica membership and roster reconciliation, not actor damage or host election. */
 export class RemoteRoster<Peer extends RosterPeer> {
+  private readonly rejoins = new MatchRejoins();
+
   constructor(private readonly ports: RosterPorts<Peer>) {}
+
+  beginMatch() {
+    const { lobby, transport } = this.ports;
+    this.clearRejoins();
+    for (const id of lobby.players.keys()) if (id !== transport.id) this.offerRejoin(id);
+  }
+
+  clearRejoins() {
+    this.rejoins.clear();
+  }
+
+  private activeMatch() {
+    const phase = this.ports.phase();
+    return phase === 'play' || phase === 'dying';
+  }
+
+  resumePeer(token: string) {
+    if (this.activeMatch()) return this.rejoins.previousId(token);
+  }
+
+  private offerRejoin(id: string) {
+    const { transport } = this.ports;
+    if (transport.rejoinKey)
+      transport.sendTo(id, 'rejoin-token', {
+        key: transport.rejoinKey,
+        token: this.rejoins.track(id),
+      });
+  }
   add(id: string, name: string): Peer {
     const existing = this.ports.peers.get(id);
     if (existing) {
@@ -52,6 +84,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
     }
     lobby.players.delete(id);
     scores.delete(id);
+    if (lobby.order) lobby.order = lobby.order.filter((peerId) => peerId !== id);
   }
   rows() {
     return [...this.ports.lobby.players].map(([id, player]) => ({ id, name: player.name }));
@@ -70,36 +103,40 @@ export class RemoteRoster<Peer extends RosterPeer> {
       });
     render();
   }
-  peerLeave(id: string) {
-    const { lobby, inMatch, feed, sendScores } = this.ports;
+  peerLeave(id: string, reason = 'left') {
+    const { lobby, inMatch, feed, scores, sendScores } = this.ports;
     const name = lobby.players.get(id)?.name;
+    if (this.activeMatch()) this.rejoins.disconnect(id, scores.get(id));
+    lobby.migrationPeers?.delete(id);
     this.remove(id);
     this.broadcast();
     if (inMatch()) {
-      feed((name || 'someone') + ' left');
+      feed((name || 'someone') + ' ' + reason);
       sendScores();
     }
   }
-  join(id: string, metadata: unknown) {
-    const {
-      lobby,
-      scores,
-      phase,
-      transport,
-      map,
-      brokenIds,
-      farthestSpawnIndex,
-      sendScores,
-      feed,
-    } = this.ports;
+  join(id: string, metadata: unknown, previous?: string) {
+    const { lobby, scores, transport, map, brokenIds, farthestSpawnIndex, sendScores, feed } =
+      this.ports;
     const meta = isRecord(metadata) ? metadata : {};
     const name = typeof meta.name === 'string' ? meta.name.slice(0, 14) : 'paper';
-    if (typeof meta.prev === 'string' && meta.prev && meta.prev !== id) this.replace(meta.prev, id);
+    if (previous) {
+      const score = this.rejoins.restore(previous, id, scores.get(previous));
+      this.remove(previous);
+      if (score) scores.set(id, { ...score, name });
+    } else if (
+      typeof meta.prev === 'string' &&
+      meta.prev !== id &&
+      lobby.migrationPeers?.delete(meta.prev)
+    ) {
+      this.replace(meta.prev, id);
+    }
     lobby.players.set(id, { name });
     this.add(id, name);
     this.broadcast();
-    if (phase() === 'play' || phase() === 'dying') {
+    if (this.activeMatch()) {
       if (!scores.has(id)) scores.set(id, { name, kills: 0, deaths: 0 });
+      if (!previous) this.offerRejoin(id);
       transport.sendTo(id, 'start', {
         late: true,
         duration: lobby.duration ?? FFA_TIME,
@@ -109,7 +146,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
         broken: brokenIds(),
       });
       sendScores();
-      feed(name + ' joined');
+      feed(name + (previous ? ' rejoined' : ' joined'));
     }
   }
   receive(data: GamePayloads['lobby']) {
@@ -142,15 +179,9 @@ export class RemoteRoster<Peer extends RosterPeer> {
     render();
   }
   private replace(previous: string, id: string) {
-    const { scores, peers, lobby } = this.ports;
+    const { scores } = this.ports;
     const score = scores.get(previous);
-    if (score) {
-      scores.delete(previous);
-      scores.set(id, score);
-    }
-    peers.get(previous)?.dispose();
-    peers.delete(previous);
-    lobby.players.delete(previous);
-    if (lobby.order) lobby.order = lobby.order.filter((peer) => peer !== previous);
+    this.remove(previous);
+    if (score) scores.set(id, score);
   }
 }

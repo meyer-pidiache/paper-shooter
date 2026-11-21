@@ -81,6 +81,8 @@ export interface SessionPorts {
   spawnSpots(): readonly Vector3[];
   arenaSpawn(): Vector3;
   sendScores(): void;
+  prepareRejoins(): void;
+  clearRejoins(): void;
   refreshScores(): void;
   respawnLocal(): void;
 }

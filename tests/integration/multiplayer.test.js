@@ -4,21 +4,27 @@ import { Vector3 } from 'three';
 import { applicationFixture } from '../support/application.js';
 import { flushMessages, peerNetwork } from '../support/peer-network.js';
 import { Net } from '../../src/network/peer-transport.js';
+import {
+  browserRejoinCredentials,
+  RejoinCredentials,
+} from '../../src/network/rejoin-credentials.js';
 
 const fixtures = [];
 afterEach(() => {
   for (const fixture of fixtures) fixture.app.dispose();
   fixtures.length = 0;
+  localStorage.removeItem('paper_match_rejoins');
   vi.clearAllTimers();
   vi.useRealTimers();
 });
 function clients() {
   const { Peer } = peerNetwork();
-  return (map = 'district') => {
+  return (map = 'district', rejoinCredentials = new RejoinCredentials(null)) => {
     const net = new Net({
       PeerClass: Peer,
       options: async () => ({}),
       namespace: 'application-test-',
+      rejoinCredentials,
     });
     const fixture = applicationFixture(map, { net });
     fixtures.push(fixture);
@@ -27,6 +33,104 @@ function clients() {
 }
 
 describe('complete multiplayer sessions through an in-memory signaling boundary', () => {
+  it(
+    'restores a reload in a full match and replaces the old connection for everyone',
+    { timeout: 15_000 },
+    async () => {
+      vi.useFakeTimers();
+      const make = clients();
+      const host = make();
+      const guest = make('district', browserRejoinCredentials());
+      const observer = make();
+      host.net.maxPlayers = 3;
+      await host.app.multiplayer.createLobby(false);
+      const code = host.net.code;
+      await guest.app.multiplayer.joinLobby(code);
+      await observer.app.multiplayer.joinLobby(code);
+      host.app.session.hostStart();
+      await flushMessages();
+
+      const previous = guest.net.id;
+      host.app.match.tallyDeath(host.net.id, previous);
+      host.app.match.tallyDeath(previous, host.net.id);
+      host.app.match.tallyDeath(previous, observer.net.id);
+      await flushMessages();
+      const score = { name: 'player', kills: 1, deaths: 2 };
+      expect(guest.scores.get(previous)).toEqual(score);
+      expect(observer.net.rejoinCredentials.get(code).token).not.toBe(
+        guest.net.rejoinCredentials.get(code).token,
+      );
+
+      const reloaded = make('district', browserRejoinCredentials());
+      await reloaded.app.multiplayer.joinLobby(code);
+      await flushMessages();
+      const id = reloaded.net.id;
+      expect(reloaded.game.state).toBe('play');
+      expect(host.net.peerIds).toEqual([observer.net.id, id]);
+      expect(guest.net.active).toBe(false);
+      for (const peer of [host, reloaded, observer]) {
+        expect(peer.lobby.players.has(previous)).toBe(false);
+        expect(peer.scores.has(previous)).toBe(false);
+        expect(peer.scores.get(id)).toEqual(score);
+        expect(peer.scores.size).toBe(3);
+      }
+
+      // An untrusted name or a previous peer ID cannot claim this live score.
+      host.net.maxPlayers = 4;
+      const other = make();
+      await other.net.join(code, { name: 'player', prev: id });
+      await flushMessages();
+      expect(host.scores.get(other.net.id)).toEqual({ name: 'player', kills: 0, deaths: 0 });
+      expect(host.scores.get(id)).toEqual(score);
+    },
+  );
+
+  it(
+    'restores scores after a timeout via public quick play and clears them at match end',
+    { timeout: 15_000 },
+    async () => {
+      vi.useFakeTimers();
+      await vi.advanceTimersByTimeAsync(1);
+      const make = clients();
+      const host = make();
+      const credentials = new RejoinCredentials(null);
+      const guest = make('district', credentials);
+      await host.app.multiplayer.createLobby(true);
+      const code = host.net.code;
+      await guest.app.multiplayer.joinLobby(code);
+      host.app.session.hostStart();
+      await flushMessages();
+      host.app.match.tallyDeath(host.net.id, guest.net.id);
+      host.app.match.tallyDeath(guest.net.id, host.net.id);
+
+      const timedOut = guest.net.id;
+      guest.net.onDisconnect = null;
+      await vi.advanceTimersByTimeAsync(9001);
+      host.app.multiplayer.netUpdate(0);
+      expect(host.net.peerIds).not.toContain(timedOut);
+      expect(host.scores.has(timedOut)).toBe(false);
+
+      const rejoined = make('district', credentials);
+      const joining = rejoined.app.multiplayer.quickPlay();
+      await vi.advanceTimersByTimeAsync(1600);
+      await joining;
+      await flushMessages();
+      expect(rejoined.scores.get(rejoined.net.id)).toMatchObject({ kills: 1, deaths: 1 });
+
+      const previous = rejoined.net.id;
+      rejoined.net.leave();
+      expect(host.scores.has(previous)).toBe(false);
+      host.scores.get(host.net.id).kills = 20;
+      host.app.match.checkWin();
+      host.app.session.updateResults(20, () => {});
+      expect(host.game.state).toBe('lobby');
+      host.app.session.hostStart();
+      await rejoined.app.multiplayer.joinLobby(code);
+      await flushMessages();
+      expect(rejoined.scores.get(rejoined.net.id)).toMatchObject({ kills: 0, deaths: 0 });
+    },
+  );
+
   // Two complete clients rebuild real maps during the scenario; covered CI runs exceeded 5s.
   // Keep the fake-clock/in-memory protocol checks bounded without changing other test limits.
   it(

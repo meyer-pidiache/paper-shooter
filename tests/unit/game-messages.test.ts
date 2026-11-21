@@ -15,6 +15,7 @@ const valid: GamePayloads = {
   welcome: offer,
   refused: { reason: 'full', ...offer },
   stay: undefined,
+  'rejoin-token': { key: 'a'.repeat(32), token: 'b'.repeat(32) },
   lobby: {
     players: [{ id: 'host', name: 'paper' }],
     hostId: 'host',
@@ -90,6 +91,8 @@ describe('gameplay wire contracts', () => {
       ['feed', { text: 'x'.repeat(513) }],
       ['score', [{ id: 'host', name: 'paper', kills: -1, deaths: 0 }]],
       ['cut', { extra: true }],
+      ['stay', { token: 'short' }],
+      ['rejoin-token', { key: 'a'.repeat(32), token: null }],
     ];
     for (const [t, d] of packets) expect(decodeGameMessage({ t, d }), String(t)).toBeNull();
   });

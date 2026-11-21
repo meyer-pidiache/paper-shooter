@@ -78,7 +78,9 @@ export class HostMigration {
     if (score) scores.set(newId, score);
     lobby.hostId = newId;
     lobby.code = code;
-    lobby.order = [newId, ...roster.filter((id) => id !== myId)];
+    const followers = roster.filter((id) => id !== myId);
+    lobby.order = [newId, ...followers];
+    lobby.migrationPeers = new Set(followers);
     transport.accepting = true;
     // Preserve the original clock update before requesting alias ownership.
     session.takeClockAuthority();

@@ -14,6 +14,7 @@ interface Attempt {
   hostId: string;
   connection: ConnectionPort;
   done: boolean;
+  challenged?: boolean;
   data: (value: unknown) => void;
   closed: () => void;
 }
@@ -23,6 +24,7 @@ export type QueryOptions = Selection & {
   gather: number;
   signal?: AbortSignal;
   onOffer?: (count: number) => void;
+  rejoinToken?: (key: string) => string | undefined;
 };
 
 export class LobbyQueryError extends Error {
@@ -146,6 +148,13 @@ export class LobbyQuery {
     if (message.t === 'refused' && this.options.mode !== 'all') {
       this.lastError = new Error(message.d.reason);
       this.fail(attempt);
+      return;
+    }
+    if (message.t === 'welcome' && message.d.rejoinKey && this.options.rejoinToken) {
+      if (attempt.challenged) return;
+      attempt.challenged = true;
+      const token = this.options.rejoinToken(message.d.rejoinKey);
+      attempt.connection.send({ t: 'stay', d: token ? { token } : undefined });
       return;
     }
     attempt.done = true;
