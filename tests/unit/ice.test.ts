@@ -41,7 +41,6 @@ describe('provider-independent ICE configuration', () => {
   it('isolates Paper lobbies from upstream and local development and allows self-hosted signaling', () => {
     for (const hostname of ['localhost', '127.0.0.1', '[::1]'])
       expect(networkConfig({}, hostname).namespace).toBe('papershooter-dev-');
-    expect(networkConfig({}, 'game.example').namespace).toBe('papershooter-');
     const configured = networkConfig(
       {
         VITE_LOBBY_NAMESPACE: 'my-game-',
@@ -63,6 +62,18 @@ describe('provider-independent ICE configuration', () => {
     expect(() =>
       networkConfig({ VITE_PEER_HOST: 'signal', VITE_PEER_PORT: '-1' }, 'localhost'),
     ).toThrow();
+  });
+  it('derives stable lobby namespaces from deployed hostnames and allows explicit sharing', () => {
+    const namespace = (host: string) => networkConfig({}, host).namespace;
+    const production = namespace('shooter.didaskalia.cc.cd');
+    expect(namespace('SHOOTER.DIDASKALIA.CC.CD.')).toBe(production);
+    expect(namespace('paper-copy.vercel.app')).not.toBe(production);
+    expect(namespace('a-b.example')).not.toBe(namespace('a.b-example'));
+    expect(namespace(`${'long-label.'.repeat(20)}vercel.app`)).toMatch(/^[a-zA-Z0-9_-]{1,64}$/);
+    const shared = { VITE_LOBBY_NAMESPACE: 'intentional-shared-' };
+    expect(networkConfig(shared, 'game.example').namespace).toBe(
+      networkConfig(shared, 'alias.example').namespace,
+    );
   });
   it('locates static ICE configuration under the asset base and preserves explicit endpoints', () => {
     expect(networkConfig({}, 'game.example').iceConfigUrl).toBe('/ice-servers.json');

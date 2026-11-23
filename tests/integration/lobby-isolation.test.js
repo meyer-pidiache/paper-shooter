@@ -68,6 +68,27 @@ describe('independent games sharing a signaling service', () => {
     expect(doodleHost.conns.size).toBe(0);
   });
 
+  it('keeps two deployed copies of Paper in separate lobbies by default', async () => {
+    vi.useFakeTimers();
+    const { client } = setup();
+    const current = client();
+    const copyNamespace = networkConfig({}, 'paper-copy.vercel.app').namespace;
+    const copy = client(copyNamespace);
+    const guest = client(copyNamespace);
+    current.hostName = 'Current site';
+    copy.hostName = 'Vercel copy';
+    expect(await current.host({ isPublic: true })).toBe('PUB0');
+    expect(await copy.host({ isPublic: true })).toBe('PUB0');
+
+    const browsing = guest.listLobbies();
+    await vi.runAllTimersAsync();
+    expect(await browsing).toMatchObject([{ code: 'PUB0', hostName: 'Vercel copy' }]);
+    await copy.host({ code: 'ABCDE' });
+    await expect(client().join('ABCDE')).rejects.toThrow('no lobby');
+    await guest.join('ABCDE');
+    expect(guest.hostId).toBe(copy.id);
+  });
+
   it('uses an explicit deployment namespace for both discovery and hosting', async () => {
     vi.useFakeTimers();
     const { client } = setup();

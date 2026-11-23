@@ -3,11 +3,19 @@ import { credentialEndpoint, parseStunUrls } from '../shared/ice';
 
 export type NetworkEnvironment = Record<string, string | boolean | undefined>;
 
+function defaultLobbyNamespace(hostname: string): string {
+  const host = hostname.toLowerCase().replace(/\.$/, '');
+  if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(host)) return 'papershooter-dev-';
+  // FNV-1a produces a short PeerJS-safe prefix from the complete hostname.
+  let hash = 0xcbf29ce484222325n;
+  for (const char of host) {
+    hash = BigInt.asUintN(64, (hash ^ BigInt(char.charCodeAt(0))) * 0x100000001b3n);
+  }
+  return `paper-host-${hash.toString(16).padStart(16, '0')}-`;
+}
+
 export function networkConfig(env: NetworkEnvironment, hostname: string) {
-  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(hostname);
-  const namespace = String(
-    env.VITE_LOBBY_NAMESPACE || (local ? 'papershooter-dev-' : 'papershooter-'),
-  );
+  const namespace = String(env.VITE_LOBBY_NAMESPACE || defaultLobbyNamespace(hostname));
   if (!/^[a-zA-Z0-9_-]{1,64}$/.test(namespace)) throw new TypeError('Invalid lobby namespace');
   const peer: PeerOptions = { debug: 0 };
   if (env.VITE_PEER_HOST) {

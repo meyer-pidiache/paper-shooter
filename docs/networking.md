@@ -22,35 +22,32 @@ that routing constraint. See [ADR 0002](adr/0002-networking-and-credentials.md).
 Vite reads these at development/build time. Rebuild when they change. A deployed static host can
 also replace `ice-servers.json` without rebuilding.
 
-| Variable                    | Default                                 | Meaning                                                                     |
-| --------------------------- | --------------------------------------- | --------------------------------------------------------------------------- |
-| `VITE_STUN_SERVERS`         | Unset                                   | Comma-separated public STUN URLs; an explicitly empty value disables STUN   |
-| `VITE_ICE_CONFIG_URL`       | `ice-servers.json` under Vite's base    | Optional JSON source when no STUN override is set                           |
-| `VITE_TURN_CREDENTIALS_URL` | Unset                                   | Same-origin path or HTTPS URL for expiring TURN credentials                 |
-| `VITE_PEER_HOST`            | Unset                                   | Use PeerJS Cloud; set a hostname to use another PeerServer                  |
-| `VITE_PEER_PORT`            | 443, or 80 for insecure local signaling | Signaling port when a host is configured                                    |
-| `VITE_PEER_PATH`            | `/`                                     | Signaling service path                                                      |
-| `VITE_PEER_SECURE`          | `true`                                  | Use secure signaling; `false` is for an explicitly configured local server  |
-| `VITE_LOBBY_NAMESPACE`      | `papershooter-` / `papershooter-dev-`   | Separate public slots, discovery, quick play and private codes by namespace |
+| Variable                    | Default                                     | Meaning                                                                     |
+| --------------------------- | ------------------------------------------- | --------------------------------------------------------------------------- |
+| `VITE_STUN_SERVERS`         | Unset                                       | Comma-separated public STUN URLs; an explicitly empty value disables STUN   |
+| `VITE_ICE_CONFIG_URL`       | `ice-servers.json` under Vite's base        | Optional JSON source when no STUN override is set                           |
+| `VITE_TURN_CREDENTIALS_URL` | Unset                                       | Same-origin path or HTTPS URL for expiring TURN credentials                 |
+| `VITE_PEER_HOST`            | Unset                                       | Use PeerJS Cloud; set a hostname to use another PeerServer                  |
+| `VITE_PEER_PORT`            | 443, or 80 for insecure local signaling     | Signaling port when a host is configured                                    |
+| `VITE_PEER_PATH`            | `/`                                         | Signaling service path                                                      |
+| `VITE_PEER_SECURE`          | `true`                                      | Use secure signaling; `false` is for an explicitly configured local server  |
+| `VITE_LOBBY_NAMESPACE`      | Derived from the hostname on deployed sites | Separate public slots, discovery, quick play and private codes by namespace |
 
 The checked-in `public/ice-servers.json` is an editable deployment default, not a host list embedded
 in transport code. Its contract is `{ "iceServers": [{ "urls": ["stun:host:3478"] }] }`. Any valid
 STUN host can be supplied. The client retains all valid TURN URLs/ports/transports returned by its
 credential endpoint; it does not filter by provider hostname.
 
-Localhost defaults to `papershooter-dev-`; deployed clients default to `papershooter-`. Neither
-shares the upstream `doodledev-` or `doodledistrict-` discovery namespace. Sharing PeerServer Cloud
-does not provide automatic isolation by website origin: lobby ids on that service are shared.
-Hosts claim ids such as `papershooter-PUB0`, and browsing, quick play and manual joins use the same
-configured prefix. No fallback probes the upstream namespace. Clients using the previous namespace
-must reload the updated site and create a new lobby; old and new clients no longer find each other.
+PeerServer Cloud shares its peer IDs across websites. The game derives a stable prefix from the
+browser hostname so copies on different domains discover their own rooms. Localhost uses
+`papershooter-dev-`. Hosting, browsing, Quick Play, manual joins and migration aliases all use
+the same prefix. When an existing site switches from the former shared default, players need to
+reload the site and create new lobbies.
 
-For an independently operated deployment, set `VITE_LOBBY_NAMESPACE=didaskalia-papershooter-v1-`
-before building. Give preview environments a different value, such as `didaskalia-papershooter-preview-`.
-The default is product-wide, not automatically derived from the domain, so intentional domain aliases
-can share lobbies. A namespace is public discovery separation, not authentication or an access-control
-boundary. A self-hosted PeerServer provides an independently operated signaling service, but private
-room authorization still needs its own application policy. See [ADR 0029](adr/0029-independent-lobby-namespaces.md).
+To share lobbies across a custom domain and its deployment URL, set the same explicit
+`VITE_LOBBY_NAMESPACE` on both builds. Use a separate value for previews when overriding the
+default. The namespace controls discovery. Site access and private room authorization require
+their own controls. See [ADR 0029](adr/0029-independent-lobby-namespaces.md).
 
 Saved browser preferences still migrate from `doodle_*` to `paper_*` without deleting old values;
 local preference migration does not require sharing a network lobby namespace.

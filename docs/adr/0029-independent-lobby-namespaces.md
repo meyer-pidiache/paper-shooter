@@ -12,15 +12,14 @@ games queried the same rooms; a different website, STUN server or TURN provider 
 
 ## Decision
 
-Use `papershooter-` for deployed clients and `papershooter-dev-` on local hosts. Keep
-`VITE_LOBBY_NAMESPACE` as a public build-time override. Hosts, public browsing, quick play, manual
-joins and migration aliases already use the same configured prefix; retain that single ownership.
-Do not probe or fall back to Doodle namespaces.
+The first isolation change gave deployed Paper clients a product-wide prefix. Copies of Paper
+still shared rooms with each other, so deployed clients now derive the default from the browser
+hostname. Local hosts use `papershooter-dev-`. A fixed hostname keeps lobby identity stable
+across builds. Hosts, browsing, Quick Play, manual joins and migration aliases use the same prefix.
 
-Recommend an operator-specific namespace such as `didaskalia-papershooter-v1-` for independent
-deployments and another namespace for previews. Do not derive it automatically from the hostname:
-operators may intentionally use several domains for the same game. Retain local preference
-migration, which has no bearing on network room identity.
+Keep `VITE_LOBBY_NAMESPACE` as a public build-time override for operators who use several URLs
+for the same game. GitHub Pages can provide a repository-specific override to separate project
+sites sharing one hostname.
 
 ## Alternatives and consequences
 
@@ -40,8 +39,8 @@ Integration tests run the real transport and lobby discovery against one simulat
 service shared by Paper and Doodle clients. Before the fix, public slot allocation collided and a
 Paper private-code join reached a Doodle host. The corrected defaults allow both games to claim
 `PUB0` independently, list and quick-join only their own lobbies, and reuse private codes without
-cross-joining. A separate case verifies explicit preview namespaces. Unit tests cover all supported
-local hostnames and custom signaling options. No production lobbies are probed by these tests.
+cross-joining. The suite also verifies two deployed Paper copies and explicit namespaces. Unit
+tests cover stable hostname normalization, local hosts and custom signaling options.
 
 ## Evidence
 

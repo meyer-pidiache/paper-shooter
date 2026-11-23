@@ -76,12 +76,10 @@ credential requests return 503 and play uses available direct/STUN routes. An ex
 `VITE_TURN_CREDENTIALS_URL` disables credential requests. Changing private/provider/STUN environment
 values requires container recreation; changing browser `VITE_*` variables requires rebuilding.
 
-Preserve the existing private `.env` values when upgrading. Set a deployment-specific
-`VITE_LOBBY_NAMESPACE`, for example `didaskalia-papershooter-v1-`, before building; use a different
-value for previews. The Paper defaults now isolate discovery from upstream Doodle clients even when
-both use PeerServer Cloud. Existing clients must reload and open new lobbies after this change.
-Changing only the container runtime environment cannot update a namespace already bundled into
-browser JavaScript. See [networking](networking.md) for discovery and signaling boundaries.
+Preserve the existing private `.env` values when upgrading. Lobby discovery is scoped to the
+browser hostname by default. Set a public `VITE_LOBBY_NAMESPACE` before building if you want
+several URLs to share the same lobbies. A change to the namespace takes effect after rebuilding
+and reloading clients. See [networking](networking.md) for discovery and signaling boundaries.
 
 The multi-stage build pins base image digests, installs the locked dependencies once, compiles the
 frontend/server and copies only runtime artifacts. The `app` target runs as `node`, drops
@@ -115,11 +113,15 @@ that one base distribution improves gameplay performance.
    `pnpm build:client` command and `dist/` output path. The basic setup uses the bundled
    STUN configuration and requires no TURN-provider credentials.
 
-Before sharing the deployment for multiplayer, set a unique public `VITE_LOBBY_NAMESPACE` in
-project settings and redeploy. Use a different value for previews. For optional TURN, configure the
-private runtime variables from [networking](networking.md#private-runtime-configuration) in the Vercel
-project, set the public `VITE_TURN_CREDENTIALS_URL=/api/turn-credentials`, and redeploy. The
-`api/turn-credentials.ts` function issues temporary credentials.
+For multiplayer, each hostname uses its own lobby namespace by default. Use a stable production
+URL for invites. If a custom domain and a Vercel URL should share lobbies, set a unique public
+`VITE_LOBBY_NAMESPACE` for that production project and redeploy. Leave previews on their own
+namespace.
+
+For optional TURN, configure the private runtime variables from
+[networking](networking.md#private-runtime-configuration) in the Vercel project, set the public
+`VITE_TURN_CREDENTIALS_URL=/api/turn-credentials`, and redeploy. The `api/turn-credentials.ts`
+function issues temporary credentials.
 
 PeerServer signaling runs separately and browsers connect to WebRTC directly. Apply an edge rate
 limit if the credential route is enabled, since each serverless instance has its own limiter.
