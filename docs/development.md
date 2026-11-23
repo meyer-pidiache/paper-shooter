@@ -38,6 +38,39 @@ receive that prefix. See [networking](networking.md).
 | `pnpm test:e2e`                         | Test the compiled frontend in Chromium; run `pnpm build:client` first  |
 | `pnpm audit --prod`                     | Query known production dependency advisories                           |
 
+## Vitest workers
+
+Vitest chooses the default worker count. Set `VITEST_MAX_WORKERS` to cap concurrency for a single
+run, including the Vitest step inside `pnpm check`.
+
+```bash
+VITEST_MAX_WORKERS=2 pnpm test
+VITEST_MAX_WORKERS=2 pnpm test:coverage
+VITEST_MAX_WORKERS=2 pnpm check
+```
+
+### Benchmark
+
+Measured at `b1e092d` on 2026-11-23 with Node 22.23.1, pnpm 12.18.0, and Vitest 5.1.0.
+The development host had two Neoverse-N1 CPUs available to Node and 10.64 GiB of memory.
+The [GitHub Actions benchmark](https://github.com/meyer-pidiache/paper-shooter/actions/runs/45241147555)
+used four-vCPU Ubuntu x86-64 runners with 15.61 GiB and a mix of Intel Xeon and AMD EPYC hardware.
+Each cell lists two wall-clock times in seconds. The first repetition ran default, 2, 3, and 4
+in that order, and the second reversed the order. The default runs left the override unset.
+
+| Workers | Local tests   | Local coverage                          | CI tests    | CI coverage |
+| ------- | ------------- | --------------------------------------- | ----------- | ----------- |
+| Default | 117.8 / 112.4 | 204.1 / 192.4                           | 43.2 / 33.8 | 71.4 / 68.5 |
+| 2       | 83.5 / 82.1   | 154.2 / 139.2                           | 45.4 / 37.6 | 77.0 / 77.3 |
+| 3       | 85.7 / 82.8   | 139.6 (2 timeouts) / 129.0 (1 timeout)  | 41.3 / 33.8 | 68.4 / 68.3 |
+| 4       | 88.6 / 85.4   | 132.1 (3 timeouts) / 131.3 (3 timeouts) | 39.4 / 34.8 | 65.2 / 68.0 |
+
+The first local repetition overlapped with lower-priority browser smoke checks. Three and four
+workers also timed out with coverage in the second repetition, which ran without those checks.
+Two workers completed both local coverage runs and had the shortest local test runs. All 16 CI
+runs passed. The shared configuration keeps Vitest's default so each environment can choose its
+own limit. On the measured two-vCPU host, use `VITEST_MAX_WORKERS=2` for full coverage runs.
+
 ## Development in Docker
 
 ```bash
