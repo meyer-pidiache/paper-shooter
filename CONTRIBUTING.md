@@ -6,8 +6,8 @@ Use Node 22.23.1 (`.nvmrc`), pnpm 12.18.0 (`packageManager`) and Git. Docker Com
 Python and copied library distributions are no longer required.
 
 ```bash
-git clone https://github.com/meyer-pidiache/papershooter.git
-cd papershooter
+git clone https://github.com/meyer-pidiache/paper-shooter.git
+cd paper-shooter
 corepack enable
 pnpm install --frozen-lockfile
 git config core.hooksPath .githooks
@@ -27,16 +27,32 @@ Never commit `.env`, provider API tokens, signing secrets or permanent TURN cred
 frontend configuration receives the `VITE_` prefix. The optional server reads private values at
 runtime. [Networking](docs/networking.md) explains signaling, direct connections and relay adapters.
 
+## Issues
+
+Use a short title that describes the problem or outcome, such as “Public lobbies disappear after
+refresh.” The bug and feature forms add `bug` or `enhancement`. Use a blank issue for other work and
+apply a relevant label such as `documentation`.
+
+During triage, use `priority: high` for a regression or major blocker in a core flow and
+`priority: low` for minor fixes or polish. Issues without a priority label have normal priority.
+Use `status: in progress` while work is active and `status: blocked` when a dependency or decision
+prevents progress. Apply at most one priority and one status label. Use the issue's open or closed
+state and the linked PR to track closure and review.
+
 ## Trunk and rebase workflow
 
 `main` is the deployable trunk. Use short-lived branches and focused Conventional Commits. Large
 migrations can use an explicitly agreed integration branch with independently reviewable commits;
 this architectural refactor uses that exception at the maintainer's request.
 
+Use the same type prefixes as [commit subjects](#commits-and-hooks). Use
+`<type>/<issue-number>` for one issue and join multiple issue numbers with hyphens. Use a short
+slug when there is no issue. Examples include `fix/36`, `feat/21-33-39`, and `docs/update-controls`.
+
 ```bash
 git switch main
 git pull --ff-only origin main
-git switch -c feat/short-description
+git switch -c fix/36
 ```
 
 Before updating the pull request:
@@ -51,6 +67,9 @@ pnpm format:check
 If a published feature branch was rebased, update it with `git push --force-with-lease`. Never
 force-push `main`. Open a pull request against `main` and use GitHub's **Rebase and merge** to keep
 history linear. Preserve original authorship when porting upstream work; do not push to upstream.
+
+In the PR description, list issues under **Related issues**. Give each issue its own line and use
+`Closes #123` for work the merge completes or `Related to #123` for context or partial work.
 
 ## Commits and hooks
 

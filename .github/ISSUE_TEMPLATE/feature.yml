@@ -1,0 +1,18 @@
+name: Feature request
+description: Suggest an improvement to Paper Shooter.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe what the player is trying to do and what gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior
+      description: Describe what should happen in the game.
+    validations:
+      required: true
