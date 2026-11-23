@@ -64,6 +64,28 @@ describe('provider-independent ICE configuration', () => {
       networkConfig({ VITE_PEER_HOST: 'signal', VITE_PEER_PORT: '-1' }, 'localhost'),
     ).toThrow();
   });
+  it('locates static ICE configuration under the asset base and preserves explicit endpoints', () => {
+    expect(networkConfig({}, 'game.example').iceConfigUrl).toBe('/ice-servers.json');
+    expect(networkConfig({ BASE_URL: '/renamed-game/' }, 'owner.github.io').iceConfigUrl).toBe(
+      '/renamed-game/ice-servers.json',
+    );
+    expect(networkConfig({ BASE_URL: './' }, 'game.example').iceConfigUrl).toBe(
+      './ice-servers.json',
+    );
+    expect(
+      networkConfig(
+        {
+          BASE_URL: '/renamed-game/',
+          VITE_ICE_CONFIG_URL: '/api/ice-servers',
+          VITE_TURN_CREDENTIALS_URL: 'https://relay.example/api/turn-credentials',
+        },
+        'owner.github.io',
+      ),
+    ).toMatchObject({
+      iceConfigUrl: '/api/ice-servers',
+      turnCredentialsUrl: 'https://relay.example/api/turn-credentials',
+    });
+  });
   it('coalesces requests and renews expiring credentials from any provider', async () => {
     let now = 0;
     const fetcher = vi

@@ -28,10 +28,12 @@ Open http://127.0.0.1:5173. Development reloads game code and styles through Vit
 `pnpm build:client` produces `dist/` for any static HTTPS host. Solo and STUN-only multiplayer
 need no project API; temporary TURN credentials can use the optional Node/Vercel adapter.
 
-For Docker-based deployment, configure `.env.example` and use `docker compose up --build -d`.
-See [deployment](docs/deployment.md) for static hosting, Vercel, nonroot container targets and the
-migration from the previous two-container deployment. [Development](docs/development.md) also
-covers the optional container environment.
+## Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmeyer-pidiache%2Fpaper-shooter&env=ENABLE_EXPERIMENTAL_COREPACK&envDefaults=%7B%22ENABLE_EXPERIMENTAL_COREPACK%22%3A%221%22%7D)
+
+For a GitHub fork, follow the [GitHub Pages setup](docs/deployment.md#github-pages). For static
+hosts and VPS/Compose, see the [deployment guide](docs/deployment.md).
 
 ## Modes
 

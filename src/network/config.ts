@@ -24,7 +24,9 @@ export function networkConfig(env: NetworkEnvironment, hostname: string) {
     peer,
     stunServers:
       env.VITE_STUN_SERVERS === undefined ? null : parseStunUrls(String(env.VITE_STUN_SERVERS)),
-    iceConfigUrl: credentialEndpoint(String(env.VITE_ICE_CONFIG_URL || '/ice-servers.json')),
+    iceConfigUrl: env.VITE_ICE_CONFIG_URL
+      ? credentialEndpoint(String(env.VITE_ICE_CONFIG_URL))
+      : `${String(env.BASE_URL || '/')}ice-servers.json`,
     turnCredentialsUrl: env.VITE_TURN_CREDENTIALS_URL
       ? credentialEndpoint(String(env.VITE_TURN_CREDENTIALS_URL))
       : null,

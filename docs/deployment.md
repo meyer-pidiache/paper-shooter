@@ -7,6 +7,7 @@ Cloudflare TURN is a separate optional credential provider.
 | Option                    | Artifact                                     | Runtime                                                   | Credential API               |
 | ------------------------- | -------------------------------------------- | --------------------------------------------------------- | ---------------------------- |
 | Any static HTTPS host/CDN | `dist/`                                      | Static host only                                          | External endpoint, or none   |
+| GitHub Pages              | `dist/`                                      | GitHub Actions and Pages                                  | External endpoint, or none   |
 | Vercel                    | `dist/` and optional `api/*.ts` functions    | CDN, optional Node functions                              | Included adapters if enabled |
 | VPS without containers    | `dist/`, optionally `dist-server/server.mjs` | Existing web server, optionally Node                      | Same origin or separate      |
 | VPS Compose               | Docker `app` target                          | One nonroot Node container serving files and optional API | Same origin                  |
@@ -28,6 +29,33 @@ frontend origin on that API. Do not put a provider token in a build variable.
 Hash-named assets can use immutable long caching. HTML and ICE configuration should revalidate;
 credentials must never be cached by a CDN. `vite preview` is a local preview tool, not a production
 server. An existing nginx/Caddy/static hosting service can serve this artifact with no new container.
+
+## GitHub Pages
+
+1. Fork this repository or copy it into a repository with GitHub Pages available. In **Settings →
+   Pages → Build and deployment**, choose **GitHub Actions** as the source.
+2. In **Actions**, enable workflows if GitHub prompts you to. Open **Publish GitHub Pages →
+   Run workflow** and select your default branch.
+3. Open the Pages URL shown by the deployment job. Run the workflow again after changes you want
+   to publish.
+
+The workflow reads the site's base path from Pages and passes it to Vite, so a project site such as
+`https://owner.github.io/renamed-repo/` loads its bundles and `ice-servers.json` under
+`/renamed-repo/`. A user site or custom domain at the root uses `/`. Configure a custom domain in
+**Settings → Pages** before publishing to it.
+
+Pages serves the static frontend and its STUN configuration. Multiplayer uses PeerServer Cloud for
+signaling by default, and player traffic follows the WebRTC routes available on their networks.
+The workflow derives the lobby namespace from the owner and repository name. Set
+`VITE_LOBBY_NAMESPACE` as an Actions repository variable if you want to share lobbies deliberately
+or keep the same namespace after renaming the repository.
+
+For networks that need a relay, set the Actions repository variable `VITE_TURN_CREDENTIALS_URL` to
+your external HTTPS credentials endpoint. Allow the Pages site's origin on that service, such as
+`ALLOWED_ORIGINS=https://owner.github.io` for the Paper Shooter adapter. Use the domain and scheme
+without the project subpath. Keep provider secrets on the credential server.
+
+See [custom Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
 ## Existing VPS / Compose workflow
 
@@ -78,17 +106,35 @@ that one base distribution improves gameplay performance.
 
 ## Vercel
 
-Import the repository with `vercel.json`: pnpm frozen install, `pnpm build:client`, output `dist/`.
-The root `api/ice-servers.ts` and `api/turn-credentials.ts` adapters use the same tested HTTP handler.
-For static/STUN-only play, leave `VITE_TURN_CREDENTIALS_URL` unset and provider `none`; those function
-routes are unused. To enable TURN, configure the private runtime variables and set the public
-`VITE_TURN_CREDENTIALS_URL=/api/turn-credentials`, then redeploy.
+1. Click **Deploy with Vercel** in the [README](../README.md#deploy), sign in and authorize access
+   to the Git account where Vercel will create the repository.
+2. Choose where to create the project and cloned repository. The button prefills
+   `ENABLE_EXPERIMENTAL_COREPACK=1` so Corepack can use the pinned pnpm version (12.18.0).
+   Select Node 22.x at 22.23.1 or newer, or a newer supported Node version.
+3. Deploy and open the generated HTTPS URL. `vercel.json` supplies the locked installation,
+   `pnpm build:client` command and `dist/` output path. The basic setup uses the bundled
+   STUN configuration and requires no TURN-provider credentials.
 
-There is no persistent WebSocket server in those functions: PeerServer signaling and WebRTC are
-external/browser connections. Select a supported Node runtime in project settings, and apply an
-edge rate limit if the credential route is enabled. A serverless instance's in-memory limiter is
-not shared with other instances. This repository supplies configuration/adapters; production Vercel
-deployment and real provider credentials need verification in the owning account.
+Before sharing the deployment for multiplayer, set a unique public `VITE_LOBBY_NAMESPACE` in
+project settings and redeploy. Use a different value for previews. For optional TURN, configure the
+private runtime variables from [networking](networking.md#private-runtime-configuration) in the Vercel
+project, set the public `VITE_TURN_CREDENTIALS_URL=/api/turn-credentials`, and redeploy. The
+`api/turn-credentials.ts` function issues temporary credentials.
+
+PeerServer signaling runs separately and browsers connect to WebRTC directly. Apply an edge rate
+limit if the credential route is enabled, since each serverless instance has its own limiter.
+See [Vercel's deploy button guide](https://vercel.com/docs/deploy-button).
+
+## Verify a deployment
+
+1. Open the published HTTPS URL, choose **Paper Mexico**, and start solo. Check that the map and
+   first wave load.
+2. On the published URL, open **Play Online** from two browser profiles, create a private lobby
+   in one, then join by code from the other. Confirm both see the same roster. If the connection
+   fails on the target networks, check signaling and relay configuration separately from hosting.
+3. In the browser's Network tab, check that the client assets and ICE JSON load from the published
+   base path. If TURN is enabled, also check the credential request returns a successful JSON
+   response from the configured endpoint.
 
 ## Native Node option
 

@@ -25,7 +25,7 @@ also replace `ice-servers.json` without rebuilding.
 | Variable                    | Default                                 | Meaning                                                                     |
 | --------------------------- | --------------------------------------- | --------------------------------------------------------------------------- |
 | `VITE_STUN_SERVERS`         | Unset                                   | Comma-separated public STUN URLs; an explicitly empty value disables STUN   |
-| `VITE_ICE_CONFIG_URL`       | `/ice-servers.json`                     | Optional JSON source when no STUN override is set                           |
+| `VITE_ICE_CONFIG_URL`       | `ice-servers.json` under Vite's base    | Optional JSON source when no STUN override is set                           |
 | `VITE_TURN_CREDENTIALS_URL` | Unset                                   | Same-origin path or HTTPS URL for expiring TURN credentials                 |
 | `VITE_PEER_HOST`            | Unset                                   | Use PeerJS Cloud; set a hostname to use another PeerServer                  |
 | `VITE_PEER_PORT`            | 443, or 80 for insecure local signaling | Signaling port when a host is configured                                    |
