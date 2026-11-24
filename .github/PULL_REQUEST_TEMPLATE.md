@@ -1,3 +1,5 @@
+<!-- Use a short descriptive title. Apply an existing label such as bug, enhancement, or documentation. -->
+
 ## What changed
 
 Describe the user-visible change and its purpose.

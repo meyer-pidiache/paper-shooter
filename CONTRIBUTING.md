@@ -68,7 +68,9 @@ If a published feature branch was rebased, update it with `git push --force-with
 force-push `main`. Open a pull request against `main` and use GitHub's **Rebase and merge** to keep
 history linear. Preserve original authorship when porting upstream work; do not push to upstream.
 
-In the PR description, list issues under **Related issues**. Give each issue its own line and use
+Give the PR a short title that describes the outcome and use the relevant issue labels, such as
+`bug`, `enhancement`, or `documentation`, to classify the change. In the PR description, list
+issues under **Related issues**. Give each issue its own line and use
 `Closes #123` for work the merge completes or `Related to #123` for context or partial work.
 
 ## Commits and hooks
@@ -83,9 +85,9 @@ test(player): preserve the recorded movement trace
 ```
 
 The enabled hooks check staged whitespace and Conventional Commit subjects and run `pnpm check`
-before commits/pushes. CI retains the existing Conventional Commit PR-title check and runs type,
-import-boundary, lint, formatting, unit/integration, build, Chromium and container checks. The
-SonarCloud workflow generates LCOV before scanning; same-repository PRs require the configured
+before commits/pushes. CI runs type, import-boundary, lint, formatting, unit/integration, build,
+Chromium and container checks. The SonarCloud workflow generates LCOV before scanning.
+Same-repository PRs require the configured
 `SONAR_TOKEN` repository secret. External fork PRs skip that secret-bearing analysis.
 
 See [security scanning](docs/security-scanning.md) for workflow details and limitations.
