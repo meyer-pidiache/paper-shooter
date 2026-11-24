@@ -15,6 +15,7 @@ export interface MovementWorld extends RaycastPort {
 export interface MovementEnvironment {
   world: MovementWorld;
   spawnPoint(): Vector3;
+  wrapArena?(body: Body): boolean;
 }
 export interface MovementGrapple {
   readonly mode: 'idle' | 'fly' | 'on';

@@ -1,5 +1,7 @@
 import { Vector3 } from 'three';
 import { angleLerp, clamp } from '../../engine/math.js';
+// Arena wraps skip most of the map between snapshots. Never blend across that distance.
+const SNAP_DISTANCE = 32;
 export interface RemoteSnapshotPose {
   p: Vector3;
   yaw: number;
@@ -35,6 +37,12 @@ export class RemoteInterpolation {
       pitch: snapshot[4],
       t: now,
     };
+    if (
+      Math.hypot(this.after.p.x - this.before.p.x, this.after.p.z - this.before.p.z) > SNAP_DISTANCE
+    ) {
+      this.before = null;
+      this.body.pos.copy(this.after.p);
+    }
     return this.after;
   }
   clearPrevious() {

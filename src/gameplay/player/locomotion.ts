@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import { clamp, damp } from '../../engine/math.js';
 import type { Body } from '../../engine/physics.js';
 import { acceleratePlanar } from '../../domain/locomotion.js';
+import { FALL_HEIGHT } from './arena-wrap.js';
 import { Jumps } from './jumps.js';
 import type {
   MotionFrame,
@@ -188,7 +189,16 @@ export class Locomotion {
     const speed = b.vel.length();
     if (speed > 48) b.vel.multiplyScalar(48 / speed);
     world.moveBody(b, dt);
-    if (b.pos.y < -12 || Math.abs(b.pos.x) > 95 || Math.abs(b.pos.z) > 95) {
+    if (b.pos.y >= FALL_HEIGHT && this.environment.wrapArena?.(b)) {
+      this.grapple.detach(false);
+      b.vel.y = 0;
+      b.onGround = this.lastGround = true;
+      b.hitWall = b.hitCeiling = b.noSnap = false;
+      b.wallNormal.set(0, 0, 0);
+      b.landVel = 0;
+      return;
+    }
+    if (b.pos.y < FALL_HEIGHT || Math.abs(b.pos.x) > 95 || Math.abs(b.pos.z) > 95) {
       this.grapple.detach(false);
       b.pos.copy(this.environment.spawnPoint());
       b.vel.set(0, 0, 0);

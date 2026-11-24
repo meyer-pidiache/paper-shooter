@@ -1,5 +1,6 @@
 import { FOCUS_SCALE } from '../domain/focus.js';
 import type { GamePhase } from '../domain/match.js';
+import { outsideArena } from '../gameplay/player/arena-wrap.js';
 import type { LoopPorts } from './loop-contracts.js';
 
 /** Owns variable frame integration and scheduler lifetime, with scoped simulation and view ports. */
@@ -110,15 +111,8 @@ export class GameLoop {
     if (input.anyInput) audio.resume();
   }
   private enforceBounds() {
-    const bounds = this.ports.bounds();
     const point = this.ports.player.body.pos;
-    if (
-      point.x < bounds.minX - 8 ||
-      point.x > bounds.maxX + 8 ||
-      point.z < bounds.minZ - 8 ||
-      point.z > bounds.maxZ + 8 ||
-      point.y > 150
-    )
+    if (point.y > 150 || (!this.ports.online() && outsideArena(point, this.ports.bounds())))
       point.y = -100;
   }
   private combo(dt: number) {

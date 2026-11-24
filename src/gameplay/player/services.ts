@@ -1,6 +1,6 @@
-import type { Scene, PerspectiveCamera, Vector3 } from 'three';
+import type { Scene, PerspectiveCamera } from 'three';
 import type { SceneResourcePort } from '../../engine/ports.js';
-import type { MovementInput, MovementWorld } from './movement-contracts.js';
+import type { MovementEnvironment, MovementInput } from './movement-contracts.js';
 import type { GrappleWorldPort, GrappleQueries } from './grapple-contracts.js';
 import type { PlayerFeedbackPorts } from './feedback-contracts.js';
 import type { GunServices, BladeServices } from '../weapons/services.js';
@@ -18,12 +18,11 @@ export interface PlayerPresentation extends PlayerFeedbackPorts {
   effects: PlayerFeedbackPorts['effects'] & { sampleShake(dt: number): number };
 }
 export interface PlayerServices {
-  environment: {
+  environment: MovementEnvironment & {
     scene: Scene;
     camera: PerspectiveCamera;
     resources: SceneResourcePort;
-    world: MovementWorld & GrappleWorldPort;
-    spawnPoint(): Vector3;
+    world: GrappleWorldPort;
   };
   input: PlayerInput;
   feedback: PlayerPresentation;

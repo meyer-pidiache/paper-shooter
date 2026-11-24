@@ -24,6 +24,38 @@ function host() {
   return fixture;
 }
 
+it('wraps a fast mid-match player without resetting health, immunity or scores', () => {
+  const { frame, player, game, state, scores } = host();
+  const { maxX, minX } = state.level.bounds;
+  player.body.pos.set(maxX + 7.8, -1, 17);
+  player.body.vel.set(40, 0, 0);
+  player.body.onGround = false;
+  player.center.copy(player.body.pos);
+  player.grapple.state = 'on';
+  player.grapple.anchor.set(maxX + 17, 12, 17);
+  player.grapple.len = 30;
+  player.hp = 61;
+  player.regenRate = 0;
+  player.shieldT = 0;
+  scores.get('local').kills = 3;
+  frame();
+  expect(player.body.pos.x).toBeCloseTo(minX + 5);
+  expect(player.body.vel.x).toBeGreaterThan(0);
+  expect(player.grapple.state).toBe('idle');
+  expect(player.hp).toBe(61);
+  expect(player.shieldT).toBe(0);
+  expect(scores.get('local')).toMatchObject({ kills: 3, deaths: 0 });
+  frame(1 / 60, 8);
+  expect(player.body.pos.x).toBeGreaterThan(minX + 5);
+  expect(player.body.pos.x).toBeLessThan(0);
+  expect(game.state).toBe('play');
+
+  player.body.pos.y = -13;
+  frame();
+  expect(player.hp).toBe(41);
+  expect(scores.get('local').kills).toBe(2);
+});
+
 it('selects among the safest three visible-opponent spawns and includes the local player for late joins', () => {
   const { app, state, player } = host();
   const spots = [0, 10, 20, 30].map((x) => new Vector3(x, 0, 0));

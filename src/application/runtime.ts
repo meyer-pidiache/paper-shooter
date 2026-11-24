@@ -28,6 +28,7 @@ import { Hitscan } from '../gameplay/weapons/hitscan.js';
 import { MeleeImpacts } from '../gameplay/weapons/melee-impacts.js';
 import { EnemyManager } from '../gameplay/enemies.js';
 import { Player } from '../gameplay/player.js';
+import { wrapArenaPlayer } from '../gameplay/player/arena-wrap.js';
 import { Net } from '../network/peer-transport.js';
 import { HUD } from '../presentation/hud.js';
 import { Sfx } from '../presentation/audio.js';
@@ -174,6 +175,8 @@ export function createRuntime(options: ApplicationOptions, actions: CombatAction
     input,
     hitstop: (duration, scale) => game.hitstop(duration, scale),
   };
+  const remote = new Map<string, RemotePlayer>();
+  const online = () => game.mode === 'ffa';
   const player: Player = new Player({
     environment: {
       scene: R.scene,
@@ -181,6 +184,17 @@ export function createRuntime(options: ApplicationOptions, actions: CombatAction
       resources,
       world,
       spawnPoint: () => state.level.playerStart,
+      wrapArena: (body) => {
+        if (!online()) return false;
+        const { bounds, arenaSpawns, spawns } = state.level;
+        return wrapArenaPlayer(
+          body,
+          world,
+          bounds,
+          arenaSpawns.length ? arenaSpawns : spawns,
+          remote.values(),
+        );
+      },
     },
     input,
     feedback: {
@@ -222,7 +236,6 @@ export function createRuntime(options: ApplicationOptions, actions: CombatAction
     },
   });
   userSettings.applyInitial();
-  const remote = new Map<string, RemotePlayer>();
   const lobby: LobbyState = {
     players: new Map(),
     hostId: null,
@@ -232,7 +245,6 @@ export function createRuntime(options: ApplicationOptions, actions: CombatAction
     map: null,
   };
   const scores = new Map<string, Score>();
-  const online = () => game.mode === 'ffa';
   const inMatch = () => ['play', 'dying', 'over'].includes(game.state);
   const shotQueue: number[] = [];
   const targets = () => [player, ...remote.values()];

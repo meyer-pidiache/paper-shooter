@@ -135,7 +135,7 @@ export class Player {
     this.locomotion = new Locomotion(
       this.body,
       { center: this.center, right: this.right },
-      { world: environment.world, spawnPoint: environment.spawnPoint },
+      environment,
       this.grappleSystem,
       makeMovementFeedback(feedback, { center: this.center, right: this.right }, this.view, () => {
         this.takeDamage(20, null);
