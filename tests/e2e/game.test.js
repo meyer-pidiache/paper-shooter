@@ -141,6 +141,35 @@ test('online actions can be explored independently with the keyboard', async ({ 
   await expect(page.getByRole('heading', { name: 'PAPER SHOOTER' })).toBeVisible();
 });
 
+test('the compact online leaderboard fits above the kill feed and Tab shows all players', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.goto('/');
+  await page.evaluate(() => {
+    const app = window.__game;
+    app.net.id = 'local';
+    for (let i = 1; i <= 6; i++) app.lobby.players.set('peer-' + i, { name: 'Player ' + i });
+    app.lobby.players.set('local', { name: 'Paper' });
+    app.input.pointerLocked = true;
+    app.startMatch(false, 0);
+    app.hud.kill('Player 1 erased Player 2', 0);
+    app.hud.setTimer('0:08', true);
+  });
+  const leaders = page.locator('#pvpscore');
+  await expect(leaders.locator('.row')).toHaveCount(5);
+  await expect(leaders.locator('.row.me')).toContainText('7.');
+  await expect(leaders).toContainText('Hold Tab for full scoreboard');
+  const scoreBox = await leaders.boundingBox();
+  const feedBox = await page.locator('#killfeed').boundingBox();
+  expect(feedBox.y).toBeGreaterThanOrEqual(scoreBox.y + scoreBox.height);
+  await page.keyboard.down('Tab');
+  await expect(page.locator('#board')).toContainText('Player 6');
+  await expect(page.locator('#board')).toBeVisible();
+  await page.keyboard.up('Tab');
+  await expect(page.locator('#board')).toBeHidden();
+});
+
 test('filled controls stay legible in both themes and Nerd Stats sit under the score', async ({
   page,
 }) => {

@@ -79,6 +79,33 @@ it('selects among the safest three visible-opponent spawns and includes the loca
   expect(app.match.spawnSpots()).toBe(state.level.spawns);
 });
 
+it('shows five scores and a live binding hint only when the compact board omits players', () => {
+  const { app, hud, scores, userSettings } = host();
+  const leaders = document.querySelector('#pvpscore');
+  const rows = () => [...leaders.querySelectorAll('.rank')].map((row) => row.textContent);
+  const hint = () => leaders.querySelector('.scoreboard-hint')?.textContent;
+  scores.clear();
+  for (let index = 0; index < 4; index++)
+    scores.set('opponent' + index, { name: 'player' + index, kills: 10 - index, deaths: 0 });
+  scores.set('local', { name: 'paper', kills: 1, deaths: 0 });
+  app.match.refreshScoreHud();
+  expect(rows()).toEqual(['1.', '2.', '3.', '4.', '5.']);
+  expect(hint()).toBeUndefined();
+
+  scores.set('other', { name: 'other', kills: 2, deaths: 0 });
+  app.match.refreshScoreHud();
+  expect(rows()).toEqual(['1.', '2.', '3.', '4.', '6.']);
+  expect(leaders.querySelector('.me .name').textContent).toBe('paper (you)');
+  expect(app.match.boardHTML()).toContain('other');
+  expect(hint()).toBe('Hold Tab for full scoreboard');
+  expect(userSettings.setBinding('score', 'key', 'KeyJ')).toBeNull();
+  expect(hint()).toBe('Hold J for full scoreboard');
+  hud.setDevice(true);
+  expect(hint()).toBe('Press Create for full scoreboard');
+  hud.setDevice(false);
+  expect(hint()).toBe('Hold J for full scoreboard');
+});
+
 it('reports death before scoring and preserves headshot, suicide and respawn feedback', () => {
   const { app, player, game, net, scores, hud } = host();
   const events = [];
@@ -126,7 +153,7 @@ it('reports death before scoring and preserves headshot, suicide and respawn fee
   });
 });
 
-it('rejects malformed scores, escapes presentation and retains local rank outside the leaders', () => {
+it('rejects malformed scores, escapes player names and announces the winner', () => {
   const { app, net, scores, hud, state, game } = host();
   const rows = [
     { id: 'one', name: '<one>', kills: 7, deaths: 1 },
@@ -149,7 +176,7 @@ it('rejects malformed scores, escapes presentation and retains local rank outsid
   const scoreHud = vi.spyOn(hud, 'setPvpScore');
   app.match.refreshScoreHud();
   expect(scoreHud.mock.lastCall[0]).toContain('&lt;local&gt; (you)');
-  expect(scoreHud.mock.lastCall[0]).not.toContain('five');
+  expect(scoreHud.mock.lastCall[0]).toContain('five');
   app.match.applyScores([{ id: 'bad', name: 'bad', kills: -1, deaths: 0 }]);
   expect(scores.size).toBe(5);
   state.matchLeft = 59.1;

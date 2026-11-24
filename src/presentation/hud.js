@@ -127,6 +127,7 @@ export class HUD {
     if (pad === this._pad) return;
     this._pad = pad;
     this.root.classList.toggle('pad', pad);
+    this.updateScoreboardHint();
     if (this.onDevice) this.onDevice(pad);
   }
   key(action) {
@@ -233,10 +234,26 @@ export class HUD {
   }
   setPvpScore(html) {
     const on = !!html;
-    this.el.pvpscore.hidden = !on;
-    if (on) this.el.pvpscore.innerHTML = html;
+    const { pvpscore, killfeed, screen } = this.el;
+    pvpscore.hidden = !on;
+    if (on) {
+      pvpscore.innerHTML = html;
+      this.updateScoreboardHint();
+      if (killfeed.parentElement !== pvpscore.parentElement) pvpscore.after(killfeed);
+    } else if (killfeed.parentElement !== this.root) {
+      screen.before(killfeed);
+    }
     this.el.wave.parentElement.hidden = on;
     this.el.left.parentElement.hidden = on;
+  }
+  updateScoreboardHint() {
+    const hint = this.el.pvpscore.querySelector('.scoreboard-hint');
+    if (!hint) return;
+    const label = this.key('score');
+    hint.textContent =
+      label === 'unassigned'
+        ? 'Set a scoreboard key'
+        : `${this._pad ? 'Press' : 'Hold'} ${label} for full scoreboard`;
   }
   setWave(n, left) {
     this.el.wave.textContent = n;

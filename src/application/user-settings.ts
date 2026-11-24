@@ -31,6 +31,7 @@ export interface UserSettingsPorts {
   transport: { hostName: string; setNerdStatsEnabled?(enabled: boolean): void };
   setAppearance?(appearance: 'light' | 'dark'): void;
   setNerdStatsVisible?(visible: boolean): void;
+  onBindingsChanged?(): void;
 }
 /** Owns persisted user edits and adapter synchronization; no screen or DOM access. */
 export class UserSettings {
@@ -87,29 +88,25 @@ export class UserSettings {
     return this.ports.input.keyLabel?.(action) ?? action;
   }
   setBinding(action: KeyBindingAction, device: BindingDevice, value: string | number) {
-    const { input, state, preferences } = this.ports;
-    const conflict = input.updateBinding?.(action, device, value) ?? null;
-    if (!conflict && input.getKeyBindings) {
-      state.keyBindings = input.getKeyBindings();
-      preferences.write('keyBindings', JSON.stringify(state.keyBindings));
-    }
+    const conflict = this.ports.input.updateBinding?.(action, device, value) ?? null;
+    if (!conflict) this.saveBindings();
     return conflict;
   }
   clearBinding(action: KeyBindingAction, device: BindingDevice) {
-    const { input, state, preferences } = this.ports;
-    input.clearBinding?.(action, device);
-    if (input.getKeyBindings) {
-      state.keyBindings = input.getKeyBindings();
-      preferences.write('keyBindings', JSON.stringify(state.keyBindings));
-    }
+    this.ports.input.clearBinding?.(action, device);
+    this.saveBindings();
   }
   resetKeyBindings() {
+    this.ports.input.resetKeyBindings?.();
+    this.saveBindings();
+  }
+  private saveBindings() {
     const { input, state, preferences } = this.ports;
-    input.resetKeyBindings?.();
     if (input.getKeyBindings) {
       state.keyBindings = input.getKeyBindings();
       preferences.write('keyBindings', JSON.stringify(state.keyBindings));
     }
+    this.ports.onBindingsChanged?.();
   }
   releasePointerLock() {
     this.ports.input.exitLock?.();

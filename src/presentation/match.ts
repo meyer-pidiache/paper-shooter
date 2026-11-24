@@ -8,18 +8,22 @@ export interface MatchView {
   remaining: number;
   lobbyCode: string;
 }
+const COMPACT_LIMIT = 5;
+
 export function matchLeaders(view: MatchView): string {
   const { rows, localId } = view;
-  const top = rows.slice(0, 3);
   const myIndex = rows.findIndex(([id]) => id === localId);
-  if (myIndex >= 3) top.push(rows[myIndex]);
+  const top = rows.slice(0, COMPACT_LIMIT);
+  if (myIndex >= COMPACT_LIMIT) top[COMPACT_LIMIT - 1] = rows[myIndex];
   return (
     top
       .map(
-        ([id, score]) =>
-          `<div class="row${id === localId ? ' me' : ''}"><span class="rank">${rows.findIndex(([key]) => key === id) + 1}.</span><span>${esc(score.name)}${id === localId ? ' (you)' : ''}</span><b>${esc(score.kills)}</b></div>`,
+        ([id, score], index) =>
+          `<div class="row${id === localId ? ' me' : ''}"><span class="rank">${(id === localId ? myIndex : index) + 1}.</span><span class="name">${esc(score.name)}${id === localId ? ' (you)' : ''}</span><b>${esc(score.kills)}</b></div>`,
       )
-      .join('') + `<div class="target">first to ${FFA_TARGET}</div>`
+      .join('') +
+    `<div class="target">first to ${FFA_TARGET}</div>` +
+    (rows.length > top.length ? '<div class="scoreboard-hint"></div>' : '')
   );
 }
 export function matchBoard(view: MatchView, title: string): string {

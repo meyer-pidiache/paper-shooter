@@ -45,7 +45,6 @@ export interface SessionHud {
   setBoard(html: string | null): void;
   enableResultsReturn(): void;
   message(title: string, detail: string, duration: number): void;
-  tip(html: string, duration: number): void;
   key(action: string): string;
 }
 export interface SessionPresentation {

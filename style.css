@@ -334,6 +334,14 @@ canvas#c {
   text-align: right;
   font-size: 27px;
 }
+.hud-tr .killfeed {
+  position: static;
+  margin-top: 10px;
+  max-inline-size: min(45vw, 360px);
+  font-size: clamp(16px, 2.6vw, 23px);
+  overflow-wrap: anywhere;
+  mix-blend-mode: normal;
+}
 .killfeed div {
   animation: kf 1.7s ease-out forwards;
 }
@@ -1513,7 +1521,8 @@ canvas#c {
 
 /* live mini leaderboard in the corner during online play */
 .pvpscore {
-  font-size: 20px;
+  max-inline-size: min(45vw, 360px);
+  font-size: clamp(16px, 2.6vw, 20px);
   line-height: 1.2;
   text-align: right;
 }
@@ -1521,6 +1530,11 @@ canvas#c {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+.pvpscore .row .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pvpscore .row b {
   min-width: 28px;
@@ -1532,7 +1546,8 @@ canvas#c {
 .pvpscore .row .rank {
   opacity: 0.6;
 }
-.pvpscore .target {
+.pvpscore .target,
+.pvpscore .scoreboard-hint {
   font-size: 15px;
   opacity: 0.65;
   margin-top: 2px;

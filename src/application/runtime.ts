@@ -226,6 +226,7 @@ export function createRuntime(options: ApplicationOptions, actions: CombatAction
     audio,
     player,
     transport: net,
+    onBindingsChanged: () => hud.updateScoreboardHint?.(),
     setAppearance: (appearance) => {
       if (typeof document !== 'undefined') document.documentElement.dataset.theme = appearance;
       R.setDarkMode?.(appearance === 'dark');

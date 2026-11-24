@@ -63,6 +63,7 @@ export type ApplicationHud = PlayerPresentation['hud'] &
     el: { board: { readonly hidden: boolean } };
     onScreenChange?: (() => void) | null;
     setNerdStatsVisible?(visible: boolean): void;
+    updateScoreboardHint?(): void;
   };
 export type ApplicationAudio = PlayerPresentation['audio'] &
   CombatPorts['audio'] &

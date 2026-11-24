@@ -232,7 +232,6 @@ export class SessionController {
         : 'first to ' + FFA_TARGET + ' · ' + duration / 60 + ' minutes · everyone is fair game',
       3,
     );
-    hud.tip(`hold <b>${hud.key('score')}</b> for the scoreboard`, 5);
     this.prompt = setTimeout(() => {
       this.prompt = null;
       const { input, presentation } = this.ports;
