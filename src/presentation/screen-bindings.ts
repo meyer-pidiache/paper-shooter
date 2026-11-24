@@ -26,6 +26,8 @@ interface SettingsBinding {
 }
 /** Browser event adapter; routing, map authority, progress and network policy belong to commands. */
 class ScreenBindings {
+  private refreshAfterUnlock: (() => void) | null = null;
+
   constructor(
     private readonly panel: HTMLElement,
     private readonly settings: SettingsBinding,
@@ -128,10 +130,18 @@ class ScreenBindings {
   private wireBrowsing(box: HTMLElement) {
     const browse = box.querySelector<HTMLDetailsElement>('#browseFlow');
     const refresh = box.querySelector<HTMLButtonElement>('#refreshBtn');
-    browse?.addEventListener('toggle', () => {
-      if (browse.open && refresh && !refresh.disabled && browse.isConnected) this.actions.refresh();
-    });
-    refresh?.addEventListener('click', () => this.actions.refresh());
+    if (browse && refresh) {
+      const refreshIfOpen = () => {
+        if (browse.open && browse.isConnected && !refresh.disabled) this.actions.refresh();
+      };
+      browse.addEventListener('toggle', () => {
+        this.refreshAfterUnlock = null;
+        if (!browse.open || !browse.isConnected) return;
+        if (refresh.disabled) this.refreshAfterUnlock = refreshIfOpen;
+        else refreshIfOpen();
+      });
+      refresh.addEventListener('click', () => this.actions.refresh());
+    }
     box.querySelector('#lobbyRows')?.addEventListener('click', (event) => {
       const button =
         event.target instanceof Element
@@ -149,9 +159,18 @@ class ScreenBindings {
       this.actions.mainMenu();
     });
   }
-  lockButtons(box: ParentNode) {
+  private lockButtons(box: ParentNode) {
     for (const button of box.querySelectorAll<HTMLButtonElement>('button'))
       if (button.id !== 'backBtn') button.disabled = true;
+  }
+  unlockButtons() {
+    const box = this.panel.querySelector('#online');
+    if (box)
+      for (const button of box.querySelectorAll<HTMLButtonElement>('button'))
+        if (button.getAttribute('aria-disabled') !== 'true') button.disabled = false;
+    const refresh = this.refreshAfterUnlock;
+    this.refreshAfterUnlock = null;
+    refresh?.();
   }
 }
 
@@ -164,6 +183,8 @@ interface ScreenHud {
 }
 /** Presents browser screens without owning navigation, records, roster or browse transactions. */
 export class BrowserScreens {
+  private bindings: ScreenBindings | null = null;
+
   constructor(
     private readonly hud: ScreenHud,
     private readonly settings: SettingsBinding & { html(): string },
@@ -175,6 +196,7 @@ export class BrowserScreens {
     return this.hud.key('confirm');
   }
   show(html: string) {
+    this.bindings = null;
     this.hud.showScreen(html);
   }
   gameplay(visible: boolean) {
@@ -182,6 +204,7 @@ export class BrowserScreens {
   }
   bind(mode: ScreenBindingMode, actions: ScreenEvents) {
     const bindings = new ScreenBindings(this.hud.el.panel, this.settings, actions);
+    this.bindings = bindings;
     switch (mode) {
       case 'main':
         bindings.main();
@@ -212,9 +235,6 @@ export class BrowserScreens {
     if (rows) rows.innerHTML = html;
   }
   unlockButtons() {
-    const box = this.hud.el.panel.querySelector('#online');
-    if (box)
-      for (const button of box.querySelectorAll<HTMLButtonElement>('button'))
-        if (button.getAttribute('aria-disabled') !== 'true') button.disabled = false;
+    this.bindings?.unlockButtons();
   }
 }

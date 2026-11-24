@@ -288,4 +288,38 @@ describe('composed application without the GPU transport', () => {
     expect(lookup).toHaveBeenCalledTimes(2);
     expect(document.querySelector('#lobbyRows').textContent).toContain('No public lobbies found.');
   });
+
+  it.each([true, false])(
+    'resumes the skipped lookup after failed Quick Play only if Browse stays open (%s)',
+    async (staysOpen) => {
+      fixture = applicationFixture();
+      const { net } = fixture;
+      let rejectJoin;
+      vi.spyOn(net, 'quickJoin').mockReturnValue(
+        new Promise((_, reject) => {
+          rejectJoin = reject;
+        }),
+      );
+      const lookup = vi.spyOn(net, 'listLobbies').mockResolvedValue([]);
+      document.querySelector('#onlineBtn').click();
+      document.querySelector('#quickBtn').click();
+      const browse = document.querySelector('#browseFlow');
+      const refresh = document.querySelector('#refreshBtn');
+      expect(refresh.disabled).toBe(true);
+      browse.open = true;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(lookup).not.toHaveBeenCalled();
+
+      if (!staysOpen) browse.open = false;
+      rejectJoin(new Error('signalling timed out'));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(refresh.disabled).toBe(false);
+      expect(document.querySelector('#status').textContent).toContain('matchmaking server');
+      expect(lookup).toHaveBeenCalledTimes(staysOpen ? 1 : 0);
+      if (staysOpen)
+        expect(document.querySelector('#lobbyRows').textContent).toContain(
+          'No public lobbies found.',
+        );
+    },
+  );
 });
