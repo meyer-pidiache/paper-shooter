@@ -9,7 +9,6 @@ export interface ScreenViewPort {
   show(html: string): void;
   gameplay(visible: boolean): void;
   bind(mode: ScreenBindingMode, actions: ScreenEvents): void;
-  hasLobbyList(): boolean;
   status(message: string): void;
   rows(html: string): void;
   unlockButtons(): void;

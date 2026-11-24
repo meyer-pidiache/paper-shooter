@@ -69,9 +69,8 @@ export function lobbyHTML(view: LobbyScreenView) {
 
 export function lobbyListHTML(view: LobbyListView) {
   if (view.busy) return '<div class="hint">Searching for public lobbies…</div>';
-  if (!view.rows) return '<div class="hint">press refresh to look for open lobbies</div>';
-  if (!view.rows.length)
-    return '<div class="hint">No public lobbies found. You can refresh or hit QUICK PLAY to find or open a lobby.</div>';
+  if (!view.rows) return '';
+  if (!view.rows.length) return '<div class="hint">No public lobbies found.</div>';
   return view.rows
     .map(
       (l) =>

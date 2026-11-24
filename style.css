@@ -1334,9 +1334,6 @@ canvas#c {
   align-items: flex-start;
   text-align: left;
 }
-.online-flow .lobbylist {
-  margin-top: 8px;
-}
 .online .sub {
   font-size: 19px;
   opacity: 0.75;
@@ -1575,7 +1572,7 @@ canvas#c {
   align-items: center;
   width: 100%;
   max-width: 560px;
-  margin-top: 4px;
+  margin: 8px auto 0;
   padding-top: 8px;
   border-top: 1.5px dashed color-mix(in srgb, var(--ink) 35%, transparent);
 }

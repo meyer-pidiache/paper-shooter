@@ -126,7 +126,12 @@ class ScreenBindings {
     box.querySelector('#backBtn')?.addEventListener('click', () => this.actions.back());
   }
   private wireBrowsing(box: HTMLElement) {
-    box.querySelector('#refreshBtn')?.addEventListener('click', () => this.actions.refresh());
+    const browse = box.querySelector<HTMLDetailsElement>('#browseFlow');
+    const refresh = box.querySelector<HTMLButtonElement>('#refreshBtn');
+    browse?.addEventListener('toggle', () => {
+      if (browse.open && refresh && !refresh.disabled && browse.isConnected) this.actions.refresh();
+    });
+    refresh?.addEventListener('click', () => this.actions.refresh());
     box.querySelector('#lobbyRows')?.addEventListener('click', (event) => {
       const button =
         event.target instanceof Element
@@ -197,9 +202,6 @@ export class BrowserScreens {
         bindings.wireMenuBtn();
         break;
     }
-  }
-  hasLobbyList() {
-    return this.hud.el.panel.querySelector('#refreshBtn') !== null;
   }
   status(message: string) {
     const status = this.hud.el.panel.querySelector('#status');

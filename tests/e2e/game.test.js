@@ -131,6 +131,12 @@ test('online actions can be explored independently with the keyboard', async ({ 
   await page.getByText('BROWSE PUBLIC GAMES', { exact: true }).press('Enter');
   await expect(page.getByRole('button', { name: 'REFRESH' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Lobby code' })).toBeHidden();
+  for (const width of [360, 1440]) {
+    await page.setViewportSize({ width, height: 640 });
+    const flow = await page.locator('#browseFlow').boundingBox();
+    const content = await page.locator('#lobbylist').boundingBox();
+    expect(Math.abs(flow.x + flow.width / 2 - (content.x + content.width / 2))).toBeLessThan(1);
+  }
   await page.getByRole('button', { name: 'BACK' }).press('Enter');
   await expect(page.getByRole('heading', { name: 'PAPER SHOOTER' })).toBeVisible();
 });

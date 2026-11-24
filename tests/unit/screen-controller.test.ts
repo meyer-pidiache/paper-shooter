@@ -23,7 +23,6 @@ it('runs navigation, read models, browse and progress against ports without a br
     bind: (_mode, commands) => {
       events = commands;
     },
-    hasLobbyList: () => false,
     status: vi.fn(),
     rows: vi.fn(),
     unlockButtons: vi.fn(),
@@ -75,7 +74,7 @@ it('runs navigation, read models, browse and progress against ports without a br
   expect(view.show).toHaveBeenLastCalledWith(expect.stringContaining('value="&lt;paper&gt;"'));
   await screens.refreshLobbies();
   expect(listLobbies).toHaveBeenCalledWith({ name: '<paper>' });
-  expect(view.rows).toHaveBeenLastCalledWith(expect.stringContaining('hit QUICK PLAY'));
+  expect(view.rows).toHaveBeenLastCalledWith(expect.stringContaining('No public lobbies found.'));
   screens.showDead();
   expect(write).toHaveBeenCalledWith('best', '40');
   expect(game.state).toBe('dead');

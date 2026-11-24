@@ -41,6 +41,12 @@ it('preserves menu, browsing, host/follower lobby, pause, death and prompt prese
   lobby.status = '<status>';
   lobby.rejoinCode = 'REJ01';
   document.querySelector('#onlineBtn').click();
+  document.querySelector('#browseFlow').open = true;
+  await vi.waitFor(() =>
+    expect(document.querySelector('#lobbyRows').textContent).toContain(
+      'Searching for public lobbies',
+    ),
+  );
   capture('online-busy');
   resolve([
     { code: 'FULL1', hostName: '<full>', players: 10, max: 10, inMatch: true, full: true },

@@ -138,8 +138,6 @@ export class ScreenController {
   private bindOnline(mode: 'online' | 'onlinePause' = 'online') {
     const { view } = this.ports;
     view.bind(mode, this.events);
-    if (view.hasLobbyList() && !this.browser.view.rows && !this.browser.view.busy)
-      void this.refreshLobbies();
   }
   showStart() {
     const { view, game, navigation } = this.ports;

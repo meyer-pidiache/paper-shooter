@@ -98,7 +98,9 @@ describe('screens and network failure feedback', () => {
     expect(document.querySelector('#browseFlow').open).toBe(false);
     document.querySelector('#browseFlow').open = true;
     await flushMessages();
-    expect(document.querySelector('#lobbyRows').textContent).toContain('<img src=x>');
+    await vi.waitFor(() =>
+      expect(document.querySelector('#lobbyRows').textContent).toContain('<img src=x>'),
+    );
     expect(document.querySelector('#lobbyRows img')).toBeNull();
     document.querySelector('#joinFlow').open = true;
     document.querySelector('#joinBtn').click();

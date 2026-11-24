@@ -267,23 +267,25 @@ describe('composed application without the GPU transport', () => {
     expect(net.active).toBe(false);
   });
 
-  it('shows a failed lobby lookup and allows a subsequent refresh', async () => {
+  it('looks up public lobbies on first open and retries when the section reopens', async () => {
     fixture = applicationFixture();
-    const { app, net } = fixture;
-    vi.spyOn(net, 'listLobbies')
+    const lookup = vi
+      .spyOn(fixture.net, 'listLobbies')
       .mockRejectedValueOnce(new Error('signalling timed out'))
       .mockResolvedValue([]);
     document.querySelector('#onlineBtn').click();
-    await Promise.resolve();
+    expect(lookup).not.toHaveBeenCalled();
+    const browse = document.querySelector('#browseFlow');
+    browse.open = true;
+    await vi.advanceTimersByTimeAsync(0);
     expect(document.querySelector('#lobbyRows').textContent).toContain(
       'Could not load public lobbies',
     );
-    document.querySelector('#backBtn').click();
-    document.querySelector('#onlineBtn').click();
-    expect(document.querySelector('#lobbyRows').textContent).toContain(
-      'Press Refresh to try again',
-    );
-    await app.screens.refreshLobbies();
-    expect(document.querySelector('#lobbyRows').textContent).toContain('QUICK PLAY');
+    browse.open = false;
+    await vi.advanceTimersByTimeAsync(0);
+    browse.open = true;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(lookup).toHaveBeenCalledTimes(2);
+    expect(document.querySelector('#lobbyRows').textContent).toContain('No public lobbies found.');
   });
 });
