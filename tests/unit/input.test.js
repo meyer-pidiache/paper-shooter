@@ -96,10 +96,15 @@ describe('browser input adapter', () => {
     input.exitLock();
     input.pointerLocked = true;
     input.invertY = true;
+    input.usingGamepad = true;
+    input.onDeviceChange = vi.fn();
     const move = new MouseEvent('mousemove');
     Object.defineProperties(move, { movementX: { value: 20 }, movementY: { value: 10 } });
     document.dispatchEvent(move);
+    expect(input.usingGamepad).toBe(false);
+    expect(input.onDeviceChange).toHaveBeenCalledExactlyOnceWith(false);
     document.dispatchEvent(new MouseEvent('mousedown', { button: 0 }));
+    expect(input.onDeviceChange).toHaveBeenCalledOnce();
     document.dispatchEvent(new WheelEvent('wheel', { deltaY: 1 }));
     input.update(1 / 60);
     expect(input.look.x).toBeLessThan(0);

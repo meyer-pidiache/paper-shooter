@@ -68,10 +68,7 @@ export class Input {
       const a = this.keyMap[e.code];
       this.pressedCodes.add(e.code);
       this._syncKeys();
-      if (a) {
-        if (this.usingGamepad && this.onDeviceChange) this.onDeviceChange(false);
-        this.usingGamepad = false;
-      }
+      if (a) this._setUsingGamepad(false);
       if (
         ['Space', 'ArrowUp', 'ArrowDown'].includes(e.code) ||
         (e.code === 'Tab' && this.pointerLocked)
@@ -108,14 +105,13 @@ export class Input {
       if (Math.abs(dy) > 400) dy = 0;
       this.mx += dx;
       this.my += dy;
-      this.usingGamepad = false;
+      this._setUsingGamepad(false);
       this.lastActive = performance.now();
     });
     this._listen(document, 'mousedown', (e) => {
       this.pressedMouseButtons.add(e.button);
       this._syncMouseButtons();
-      if (this.usingGamepad && this.onDeviceChange) this.onDeviceChange(false);
-      this.usingGamepad = false;
+      this._setUsingGamepad(false);
       this.anyInput = true;
       this.lastActive = performance.now();
       if (e.button === 1 || e.button === 3 || e.button === 4) e.preventDefault();
@@ -145,6 +141,11 @@ export class Input {
   _listen(target, event, handler, options) {
     target.addEventListener(event, handler, options);
     this.listeners.push(() => target.removeEventListener(event, handler, options));
+  }
+  _setUsingGamepad(usingGamepad) {
+    if (this.usingGamepad === usingGamepad) return;
+    this.usingGamepad = usingGamepad;
+    this.onDeviceChange?.(usingGamepad);
   }
   _mapBindings() {
     this.keyMap = {};
@@ -315,8 +316,7 @@ export class Input {
         }
       }
       if (padActive) {
-        if (!this.usingGamepad && this.onDeviceChange) this.onDeviceChange(true);
-        this.usingGamepad = true;
+        this._setUsingGamepad(true);
         this.anyInput = true;
         this.lastActive = performance.now();
       }
