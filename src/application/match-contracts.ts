@@ -4,6 +4,7 @@ import type { PlayerHitReceipt } from '../gameplay/player/services.js';
 import type { GamePayloads } from '../network/game-message-types.js';
 import type { Winner } from './session-contracts.js';
 import type { KillFeedEntry } from '../presentation/kill-feed.js';
+import type { MapKey } from '../domain/maps.js';
 
 export interface MatchOpponent {
   readonly alive: boolean;
@@ -23,6 +24,7 @@ export interface MatchPlayer {
 export interface MatchTransport {
   readonly id: string | null;
   readonly isHost: boolean;
+  readonly active: boolean;
   send<K extends 'score' | 'end'>(kind: K, data: GamePayloads[K]): void;
   broadcast(kind: 'pdead', data: GamePayloads['pdead']): void;
 }
@@ -51,13 +53,15 @@ export interface MatchPorts {
   transport: MatchTransport;
   scores: Map<string, Score>;
   hud: MatchHud;
+  bindMapVote(onVote: (map: MapKey) => void): void;
   spawnFeedback(point: Vector3): void;
   exitLock(): void;
   endFocus(): void;
   session: {
     playerDied(): void;
     playerRespawned(): void;
-    finishMatch(winner: Winner): void;
+    finishMatch(winner: Winner, voteId?: number): void;
+    castMapVote(map: MapKey): void;
     returnFromResults(): void;
   };
 }

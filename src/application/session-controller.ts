@@ -2,10 +2,11 @@ import { FFA_TARGET, FFA_TIME, RESPAWN } from '../domain/match.js';
 import type { Winner } from '../domain/match.js';
 import type { SessionPorts } from './session-contracts.js';
 import { DeathProgress } from './death-progress.js';
+import { RematchVoting } from './rematch-voting.js';
+import { MAP_VOTE_SECONDS } from '../domain/map-vote.js';
 import type { GamePhase } from '../domain/match.js';
 
 const RESULTS_READ_TIME = 5;
-const RESULTS_AUTO_RETURN = 20;
 const RESULTS_GUEST_TIMEOUT = 25;
 
 /** Owns run/session transitions; input, screens and network request commands through composition. */
@@ -14,7 +15,9 @@ export class SessionController {
   private resultsInputArmed = false;
   private prompt: ReturnType<typeof setTimeout> | null = null;
   private readonly death: DeathProgress;
+  readonly mapVote: RematchVoting;
   constructor(private readonly ports: SessionPorts) {
+    this.mapVote = new RematchVoting(ports);
     this.death = new DeathProgress({
       state: ports.game,
       input: ports.input,
@@ -61,11 +64,12 @@ export class SessionController {
   updateDeath(phase: GamePhase, dt: number) {
     this.death.update(phase, dt);
   }
-  finishMatch(winner: Winner) {
+  finishMatch(winner: Winner, voteId?: number) {
     const { game } = this.ports;
     if (game.state === 'over') return;
     this.resultsDestination = null;
     this.resultsInputArmed = false;
+    this.mapVote.start(voteId);
     game.over = winner;
     game.overT = 0;
     game.state = 'over';
@@ -93,26 +97,33 @@ export class SessionController {
   returnFromResults() {
     const { game, transport } = this.ports;
     if (game.state !== 'over' || game.overT < RESULTS_READ_TIME || !transport.isHost) return;
+    if (!this.mapVote.close()) return;
     transport.send('backtolobby', {});
     this.toLobbyScreen();
   }
   updateResults(elapsed: number, leaveDisconnected: () => void) {
     const { game, transport, input, hud } = this.ports;
     if (game.state !== 'over') return;
+    const previous = game.overT;
     game.overT += elapsed;
+    this.mapVote.update(previous);
     if (game.overT < RESULTS_READ_TIME) return;
     if (this.resultsDestination === 'online') {
       this.returnOnline();
       return;
     }
     if (transport.isHost) {
+      if (this.mapVote.active) {
+        this.returnFromResults();
+        return;
+      }
       hud.enableResultsReturn();
       if (!input.down('jump') && !input.down('confirm')) this.resultsInputArmed = true;
       const controllerReturn =
         input.usingGamepad &&
         this.resultsInputArmed &&
         (input.pressed('jump') || input.pressed('confirm'));
-      if (controllerReturn || game.overT >= RESULTS_AUTO_RETURN) this.returnFromResults();
+      if (controllerReturn || game.overT >= MAP_VOTE_SECONDS) this.returnFromResults();
     } else if (this.resultsDestination === 'lobby' || game.overT >= RESULTS_GUEST_TIMEOUT) {
       if (transport.active) this.toLobbyScreen();
       else leaveDisconnected();
@@ -189,6 +200,7 @@ export class SessionController {
     sendScores();
   }
   startMatch(late: boolean, spawnIndex?: number) {
+    this.mapVote.clear();
     const {
       transport,
       game,
@@ -278,6 +290,7 @@ export class SessionController {
   }
   toLobbyScreen() {
     this.cancelPrompt();
+    this.mapVote.clear();
     const { transport, remote, setArena, game, hud, screen, presentation } = this.ports;
     transport.inMatch = false;
     for (const actor of remote()) actor.lastSeen = performance.now();
@@ -304,7 +317,10 @@ export class SessionController {
   recoverHost(wasInMatch: boolean) {
     const { game, refreshScores, transport } = this.ports;
     transport.inMatch = wasInMatch;
-    if (game.state === 'over') return;
+    if (game.state === 'over') {
+      this.mapVote.finishAfterMigration();
+      return;
+    }
     if (wasInMatch) {
       if (game.state !== 'play' && game.state !== 'dying') game.state = 'play';
       refreshScores();
@@ -323,6 +339,7 @@ export class SessionController {
       return;
     }
     this.resultsDestination = null;
+    this.mapVote.clear();
     hud.setBoard(null);
     if (game.state !== 'start') {
       game.state = 'start';

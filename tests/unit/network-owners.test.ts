@@ -79,7 +79,7 @@ function clockFixture() {
   };
   return { ports, events, now, owner: new MatchClock(ports) };
 }
-it('owns clock reporting cadence and sends the fallback host result after the final timer projection', () => {
+it('owns clock reporting cadence and delivers the fallback result after the final timer projection', () => {
   const { ports, owner, events } = clockFixture();
   owner.update(0.5);
   expect(events).toEqual([
@@ -93,12 +93,11 @@ it('owns clock reporting cadence and sends the fallback host result after the fi
   owner.update(0.5);
   expect(events).toEqual([
     ['timer', '0:00'],
-    ['end', { id: 'me', name: 'paper' }],
     ['result', { id: 'me', name: 'paper' }],
   ]);
   expect(ports.game.matchT).toBe(1);
   owner.update(3);
-  expect(events).toHaveLength(3);
+  expect(events).toHaveLength(2);
 });
 it('applies received clocks only on followers and gives no expiry authority to a follower', () => {
   const { ports, owner, now } = clockFixture();
@@ -148,12 +147,12 @@ it('waits for a hosting identity before claiming an expired clock during recover
   ports.sortedScores = () => [['previous-player', { name: 'paper', kills: 3, deaths: 0 }]];
   owner.update(0.1);
   expect(ports.game.over).toBeNull();
-  expect(events).not.toContainEqual(['end', { id: 'previous-player', name: 'paper' }]);
+  expect(events).not.toContainEqual(['result', { id: 'previous-player', name: 'paper' }]);
   ports.transport = { ...ports.transport, id: 'new-host' };
   ports.sortedScores = () => [['new-host', { name: 'paper', kills: 3, deaths: 0 }]];
   owner.update(0);
   expect(events.slice(-2)).toEqual([
-    ['end', { id: 'new-host', name: 'paper' }],
+    ['timer', '0:00'],
     ['result', { id: 'new-host', name: 'paper' }],
   ]);
 });

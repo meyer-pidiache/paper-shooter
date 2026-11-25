@@ -1,6 +1,7 @@
 import type { MatchDuration, ScoreRow } from '../domain/match.js';
 import type { MapKey } from '../domain/maps.js';
 import type { PickupKind } from '../domain/pickups.js';
+import type { MapBallot } from '../domain/map-vote.js';
 
 export type WireVector = [number, number, number];
 export interface LobbyOffer {
@@ -20,6 +21,7 @@ export interface LobbyRoster {
   map?: MapKey;
   shown?: string;
   duration?: MatchDuration;
+  mapLocked?: boolean;
 }
 export interface ClockState {
   left: number;
@@ -58,7 +60,9 @@ export interface GamePayloads {
   leave: { id: string };
   start: MatchStart;
   startreq: EmptyPayload;
-  end: { id: string; name: string };
+  end: { id: string; name: string; voteId?: number };
+  mapvote: { voteId: number; map: MapKey };
+  mapvotes: { voteId: number; ballots: MapBallot[] };
   backtolobby: EmptyPayload;
   pickup: { id: number; kind: PickupKind; pos: WireVector };
   taken: { id: number };

@@ -26,6 +26,7 @@ function ragdollOverkill(hit: Pick<PlayerHitReceipt, 'crit' | 'amount' | 'src'> 
 }
 /** Match rules and ordered reports; session owns phases and presentation owns HTML. */
 export class MatchController {
+  private voteSequence = 0;
   constructor(private readonly ports: MatchPorts) {}
   howWord(source?: string) {
     return source ? (HOW.get(source) ?? null) : null;
@@ -147,21 +148,23 @@ export class MatchController {
     let winner: Winner | null = null;
     for (const [id, score] of scores)
       if (score.kills >= FFA_TARGET) winner = { id, name: score.name };
-    if (winner) {
-      transport.send('end', winner);
-      this.endMatch(winner);
-    }
+    if (winner) this.endMatch(winner);
   }
-  endMatch(winner: Winner) {
+  endMatch(winner: Winner, voteId?: number) {
     if (this.ports.finished()) return;
-    const { session, endFocus, exitLock, hud } = this.ports;
-    session.finishMatch(winner);
+    const { session, endFocus, exitLock, hud, transport } = this.ports;
+    if (transport.isHost) {
+      if (transport.active) voteId = ++this.voteSequence;
+      transport.send('end', voteId === undefined ? winner : { ...winner, voteId });
+    }
+    session.finishMatch(winner, voteId);
     endFocus();
     exitLock();
     hud.setBoard(null);
     hud.setGameplayVisible(false);
     hud.setTimer('');
-    hud.showScreen(matchResults(this.view(), winner));
-    hud.bindResultsReturn(() => session.returnFromResults());
+    hud.showScreen(matchResults(this.view(), winner, voteId !== undefined));
+    if (voteId === undefined) hud.bindResultsReturn(() => session.returnFromResults());
+    else this.ports.bindMapVote((map) => session.castMapVote(map));
   }
 }

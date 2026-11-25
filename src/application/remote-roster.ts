@@ -98,6 +98,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
         hostId: id,
         isPublic: lobby.isPublic,
         map: lobby.map || map(),
+        mapLocked: lobby.mapLocked,
         shown: transport.aliasCode || transport.code || undefined,
         duration: lobby.duration ?? FFA_TIME,
       });
@@ -156,6 +157,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
     lobby.code = transport.code || '';
     lobby.shown = data.shown || transport.code;
     if (data.map) lobby.map = knownMap(data.map);
+    lobby.mapLocked = data.mapLocked === true;
     lobby.duration = data.duration ?? FFA_TIME;
     lobby.order = data.players.map((player) => player.id);
     lobby.players.clear();

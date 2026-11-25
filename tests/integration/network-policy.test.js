@@ -89,12 +89,12 @@ it('delays host-directed idle connection closure until the kick has been sent', 
 it('starts the host clock when another player joins, keeps three-tick snapshots and flushes shots', () => {
   const { app, game, state, send, broadcast, shotQueue } = setup();
   app.multiplayer.netUpdate(0.5);
-  expect(state.matchLeft).toBe(600);
-  expect(send).toHaveBeenCalledWith('clock', { left: 600, on: false });
+  expect(state.matchLeft).toBe(300);
+  expect(send).toHaveBeenCalledWith('clock', { left: 300, on: false });
   app.multiplayer.addRemote('other', 'paper');
   app.multiplayer.netUpdate(0.5);
   expect(game.clockStarted).toBe(true);
-  expect(state.matchLeft).toBe(599.5);
+  expect(state.matchLeft).toBe(299.5);
   shotQueue.push(1, 2, 3, 4, 5, 6);
   app.multiplayer.netUpdate(0.5);
   const snapshot = send.mock.calls.find(([type]) => type === 'ps');
@@ -102,7 +102,7 @@ it('starts the host clock when another player joins, keeps three-tick snapshots 
   expect(snapshot[2]).toBe(true);
   expect(broadcast).toHaveBeenCalledWith('shots', { k: 'rifle', e: [1, 2, 3, 4, 5, 6] });
   expect(shotQueue).toHaveLength(0);
-  expect(state.matchLeft).toBe(599);
+  expect(state.matchLeft).toBe(299);
 });
 it('follows the received clock flag without taking client result authority', () => {
   const { app, game, state, send } = setup(false);
@@ -123,7 +123,7 @@ it('uses ranked scores for a host clock-expiry result and removes silent peers',
   state.matchLeft = 0.1;
   app.multiplayer.netUpdate(0.2);
   expect(game.state).toBe('over');
-  expect(send).toHaveBeenCalledWith('end', { id: 'other', name: 'winner' });
+  expect(send).toHaveBeenCalledWith('end', { id: 'other', name: 'winner', voteId: 1 });
   game.state = 'play';
   game.over = null;
   const remote = app.multiplayer.addRemote('silent', 'silent');

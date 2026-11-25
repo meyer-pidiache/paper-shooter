@@ -24,7 +24,7 @@ export interface ScreenPorts {
   };
   lobby: Pick<
     LobbyState,
-    'map' | 'hostId' | 'isPublic' | 'status' | 'rejoinCode' | 'shown' | 'duration'
+    'map' | 'mapLocked' | 'hostId' | 'isPublic' | 'status' | 'rejoinCode' | 'shown' | 'duration'
   >;
   transport: {
     readonly id: string | null;

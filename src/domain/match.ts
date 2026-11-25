@@ -2,8 +2,8 @@ import { isRecord } from '../shared/ice.js';
 
 export const MAX_PLAYERS = 10;
 export const FFA_TARGET = 20;
-export const FFA_TIME = 600;
-export const FFA_DURATIONS = [180, 300, FFA_TIME, 900] as const;
+export const FFA_TIME = 300;
+export const FFA_DURATIONS = [180, FFA_TIME, 600, 900] as const;
 export type MatchDuration = (typeof FFA_DURATIONS)[number];
 
 export function isMatchDuration(value: unknown): value is MatchDuration {

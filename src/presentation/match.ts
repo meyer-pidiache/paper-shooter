@@ -2,6 +2,7 @@ import { FFA_TARGET, formatClock } from '../domain/match.js';
 import type { Score, Winner } from '../domain/match.js';
 import { escapeHtml as esc } from './html.js';
 import type { KillFeedEntry } from './kill-feed.js';
+import { mapVoteHTML } from './map-vote.js';
 
 export interface MatchView {
   localId: string | null;
@@ -38,9 +39,12 @@ export function scoreRows(rows: MatchView['rows'], localId: MatchView['localId']
     )
     .join('');
 }
-export function matchResults(view: MatchView, winner: Winner): string {
+export function matchResults(view: MatchView, winner: Winner, voting: boolean): string {
   const title = winner.id === view.localId ? 'YOU WIN' : (winner.name || 'someone') + ' WINS';
-  return `<h1>${esc(title)}</h1><div class="scoreboard">${scoreRows(view.rows, view.localId)}</div><div class="online"><button type="button" id="resultsReturn" hidden disabled>BACK TO LOBBY</button></div><div class="hint">Returning to the lobby automatically</div>`;
+  const next = voting
+    ? mapVoteHTML()
+    : '<div class="online"><button type="button" id="resultsReturn" hidden disabled>BACK TO LOBBY</button></div><div class="hint">Returning to the lobby automatically</div>';
+  return `<h1>${esc(title)}</h1><div class="scoreboard">${scoreRows(view.rows, view.localId)}</div>${next}`;
 }
 
 export function localDeathNotice(

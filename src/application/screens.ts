@@ -81,7 +81,7 @@ export class ScreenController {
   }
   private pickLobbyMap(map: MapKey) {
     const { transport, lobby, actions } = this.ports;
-    if (!transport.isHost || this.ports.game.state !== 'lobby') return;
+    if (!transport.isHost || this.ports.game.state !== 'lobby' || lobby.mapLocked) return;
     lobby.map = map;
     actions.broadcastLobby();
   }
@@ -129,6 +129,7 @@ export class ScreenController {
         ? transport.aliasCode || transport.code
         : lobby.shown || transport.code || '',
       mapKey: lobby.map || profile.mapKey,
+      mapLocked: lobby.mapLocked,
       duration: lobby.duration,
       maxPlayers: transport.maxPlayers,
       isPublic: lobby.isPublic,

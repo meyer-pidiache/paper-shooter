@@ -36,6 +36,7 @@ export interface LobbyScreenView {
   hostId: string | null;
   maxPlayers: number;
   mapKey: MapKey;
+  mapLocked?: boolean;
   duration?: MatchDuration;
   isPublic: boolean;
   status: string;

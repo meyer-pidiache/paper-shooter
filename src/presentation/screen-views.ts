@@ -1,4 +1,4 @@
-import { LEVELS } from '../domain/maps.js';
+import { LEVELS, mapName } from '../domain/maps.js';
 import type { MapKey } from '../domain/maps.js';
 import { FFA_DURATIONS, FFA_TARGET, FFA_TIME } from '../domain/match.js';
 import { escapeHtml as esc } from './html.js';
@@ -57,7 +57,7 @@ export function lobbyHTML(view: LobbyScreenView) {
   return `<h1>LOBBY</h1><h2>free for all · first to ${FFA_TARGET} · ${n}/${view.maxPlayers} players</h2>
     <div class="online" id="online">
       <div class="row"><span>code</span><span class="code">${esc(String(view.code).replace(/-\d+$/, ''))}</span></div>
-      ${mapHTML(view.mapKey, host)}
+      ${view.mapLocked ? `<div class="row">Next map · <b>${mapName(view.mapKey)}</b></div>` : mapHTML(view.mapKey, host)}
       <div class="row duration">
         ${host ? `<label for="matchDuration">Time limit</label><select id="matchDuration">${FFA_DURATIONS.map((seconds) => `<option value="${seconds}" ${seconds === (view.duration ?? FFA_TIME) ? 'selected' : ''}>${seconds / 60} minutes</option>`).join('')}</select>` : `<span>Time limit · ${(view.duration ?? FFA_TIME) / 60} minutes</span>`}
       </div>

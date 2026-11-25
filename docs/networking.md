@@ -105,10 +105,15 @@ forwarding or handshake adoption. Snapshots have 11 or 14 finite values; vectors
 Roster sizes follow `MAX_PLAYERS`; tracer batches, strings, spawn/breakable indices, clock values
 and damage are bounded. These are input-safety contracts, not authentication or anti-cheat rules.
 
-The host chooses the time limit in the lobby from 3, 5, 10 and 15 minutes. Ten minutes is the
+The host chooses the time limit in the lobby from 3, 5, 10 and 15 minutes. Five minutes is the
 default for new rooms. Lobby and start packets include the selected duration, and late-join start
 packets carry the host's current clock state. Followers continue to project the last host clock
 state between updates. An elected replacement host continues from its current projection.
+
+The results screen gives match participants up to 20 seconds to vote for the next map. The host
+counts one vote per player using the connection's identity. Among tied maps, the final scoreboard
+rank of the highest-ranked voter decides the result. With no votes, the current map stays selected.
+The lobby shows the winning map when players return for the next match.
 
 ## Optional multiplayer ping
 

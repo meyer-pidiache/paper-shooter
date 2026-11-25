@@ -53,6 +53,7 @@ export class LobbyConnection {
     if (!transport.id) throw new Error('host identity missing after successful connection');
     lobby.isPublic = isPublic;
     lobby.map = local.mapKey;
+    lobby.mapLocked = false;
     lobby.duration = FFA_TIME;
     lobby.players.clear();
     lobby.migrationPeers = undefined;

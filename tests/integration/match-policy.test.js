@@ -197,7 +197,7 @@ it('rejects malformed scores, escapes player names and announces the winner', ()
   expect(game.over).toBeNull();
   net.isHost = true;
   app.match.checkWin();
-  expect(end).toHaveBeenLastCalledWith('end', { id: 'local', name: '<local>' });
+  expect(end).toHaveBeenLastCalledWith('end', { id: 'local', name: '<local>', voteId: 1 });
   expect(game).toMatchObject({ state: 'over', overT: 0, over: { id: 'local', name: '<local>' } });
   expect(hud.el.panel.textContent).toContain('YOU WIN');
   expect(hud.el.board.hidden).toBe(true);

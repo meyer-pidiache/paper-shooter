@@ -6,7 +6,7 @@ export interface MatchClockPorts {
   transport: {
     readonly isHost: boolean;
     readonly id: string | null;
-    send<K extends 'clock' | 'end'>(kind: K, data: GamePayloads[K]): void;
+    send(kind: 'clock', data: GamePayloads['clock']): void;
   };
   now(): number;
   inMatch(): boolean;
@@ -67,7 +67,6 @@ export class MatchClock {
     const winner: Winner = first
       ? { id: first[0], name: first[1].name }
       : { id, name: localName() };
-    transport.send('end', winner);
     end(winner);
   }
 }

@@ -27,6 +27,8 @@ const valid: GamePayloads = {
   start: { spawns: { host: 0 }, map: 'district' },
   startreq: {},
   end: { id: 'host', name: 'paper' },
+  mapvote: { voteId: 1, map: 'district' },
+  mapvotes: { voteId: 1, ballots: [{ id: 'guest', map: 'mexico' }] },
   backtolobby: {},
   pickup: { id: 1, kind: 'health', pos: [1, 2, 3] },
   taken: { id: 1 },
@@ -56,6 +58,19 @@ describe('gameplay wire contracts', () => {
     expect(isGamePayload('pdead', {})).toBe(true);
     expect(isGamePayload('ps', [0, 1, 0, 0, 0, 0, 192, 100, 0, 0, 0, 2, 3, 4])).toBe(true);
     expect(isGamePayload('refused', { reason: 'closed' })).toBe(true);
+  });
+  it('rejects invalid map ballots and duplicated voter IDs', () => {
+    expect(isGamePayload('mapvote', { voteId: 1, map: 'unknown' })).toBe(false);
+    expect(isGamePayload('mapvote', { voteId: -1, map: 'district' })).toBe(false);
+    expect(
+      isGamePayload('mapvotes', {
+        voteId: 1,
+        ballots: [
+          { id: 'guest', map: 'district' },
+          { id: 'guest', map: 'mexico' },
+        ],
+      }),
+    ).toBe(false);
   });
   it('rejects invalid envelopes, unrecognized kinds and non-record payloads', () => {
     for (const value of [

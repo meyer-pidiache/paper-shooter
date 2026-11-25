@@ -146,7 +146,8 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       await flushMessages();
       expect(host.lobby.players.size).toBe(2);
       expect(guest.lobby.players.size).toBe(2);
-      expect(host.lobby.duration).toBe(600);
+      expect(host.lobby.duration).toBe(300);
+      expect(guest.lobby.duration).toBe(300);
       const duration = host.hud.el.panel.querySelector('#matchDuration');
       duration.value = '900';
       duration.dispatchEvent(new Event('change'));
@@ -253,15 +254,29 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       host.app.session.screenClick();
       host.app.session.returnFromResults();
       expect(host.game.state).toBe('over');
-      expect(host.hud.el.panel.querySelector('#resultsReturn').disabled).toBe(true);
+      const hostChoice = host.hud.el.panel.querySelector('[data-vote-map="district"]');
+      const guestChoice = guest.hud.el.panel.querySelector('[data-vote-map="mexico"]');
+      hostChoice.click();
+      guestChoice.click();
+      // A ballot from an earlier match must have no effect.
+      guest.net.send('mapvote', { voteId: 0, map: 'district' });
+      await flushMessages();
+      expect(hostChoice.getAttribute('aria-pressed')).toBe('true');
+      expect(guestChoice.getAttribute('aria-pressed')).toBe('true');
+      expect(hostChoice.textContent).toContain('1 vote');
+      expect(guestChoice.textContent).toContain('1 vote');
       host.app.session.updateResults(5, () => {});
       host.app.session.screenClick();
       expect(host.game.state).toBe('over');
-      host.hud.el.panel.querySelector('#resultsReturn').click();
+      host.app.session.updateResults(15, () => {});
       await flushMessages();
       expect(guest.game.state).toBe('over');
       guest.app.session.updateResults(5, () => {});
       expect(guest.game.state).toBe('lobby');
+      expect(host.lobby).toMatchObject({ map: 'district', mapLocked: true });
+      expect(guest.lobby).toMatchObject({ map: 'district', mapLocked: true });
+      expect(host.hud.el.panel.textContent).toContain('Next map · PAPER DISTRICT');
+      expect(host.hud.el.panel.querySelector('[data-map]')).toBeNull();
       await guest.app.multiplayer.leaveOnline('done');
       expect(guest.game.state).toBe('start');
     },

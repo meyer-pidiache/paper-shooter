@@ -95,7 +95,9 @@ export interface MultiplayerActions {
   startMatch(late: boolean, spawn?: number): void;
   breakProp(prop: Breakable, direction: Vector3 | null, local: boolean, quiet?: boolean): void;
   hostStart(): void;
-  endMatch(winner: Winner): void;
+  endMatch(winner: Winner, voteId?: number): void;
+  receiveMapVote(data: GamePayloads['mapvote'], sender: string): void;
+  receiveMapVotes(data: GamePayloads['mapvotes']): void;
   requestLobbyReturn(): void;
   spawnPickup(kind: 'ammo' | 'health', point: Vector3, id: number): void;
   removePickup(pickup: Pickup): void;

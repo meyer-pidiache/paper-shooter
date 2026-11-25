@@ -14,6 +14,7 @@ import { INK } from '../shared/ink.js';
 import { presentPickup } from '../presentation/pickups.js';
 import { ScreenController } from './screens.js';
 import { BrowserScreens } from '../presentation/screen-bindings.js';
+import { MapVoteView } from '../presentation/map-vote.js';
 import { createMultiplayer } from './multiplayer.js';
 import { createControls } from './controls.js';
 import { createLoop } from './frame-composition.js';
@@ -24,6 +25,7 @@ export function createApplication(options: ApplicationOptions) {
     spawnPickup: (...args) => pickups.spawnPickup(...args),
   });
   const audio = runtime.audio;
+  const mapVoteView = new MapVoteView(runtime.hud.el.panel);
   const debug: ApplicationDebug = {
     ...runtime,
     get level() {
@@ -131,6 +133,7 @@ export function createApplication(options: ApplicationOptions) {
     transport: runtime.net,
     scores: runtime.scores,
     hud: runtime.hud,
+    bindMapVote: (onVote) => mapVoteView.bind(onVote),
     spawnFeedback: (point) => {
       runtime.effects.strokeBurst(point, INK.BLUE, 24, 6, { life: 0.5, size: 0.03 });
       audio.spawn(point);
@@ -140,7 +143,8 @@ export function createApplication(options: ApplicationOptions) {
     session: {
       playerDied: () => session.playerDied(),
       playerRespawned: () => session.playerRespawned(),
-      finishMatch: (winner) => session.finishMatch(winner),
+      finishMatch: (winner, voteId) => session.finishMatch(winner, voteId),
+      castMapVote: (map) => session.mapVote.cast(map),
       returnFromResults: () => session.returnFromResults(),
     },
   });
@@ -183,6 +187,8 @@ export function createApplication(options: ApplicationOptions) {
     prepareRejoins: () => multiplayer.beginMatch(),
     clearRejoins: () => multiplayer.clearRejoins(),
     refreshScores: () => match.refreshScoreHud(),
+    broadcastLobby: () => multiplayer.broadcastLobby(),
+    mapVoteView,
     respawnLocal: () => match.respawnLocal(),
   });
   const settingsPanel = new SettingsPanel(runtime.state, runtime.userSettings);
@@ -242,6 +248,8 @@ export function createApplication(options: ApplicationOptions) {
       breakProp: (...args) => combat.breakProp(...args),
       hostStart: (...args) => session.hostStart(...args),
       endMatch: (...args) => match.endMatch(...args),
+      receiveMapVote: (...args) => session.mapVote.receiveBallot(...args),
+      receiveMapVotes: (...args) => session.mapVote.receiveState(...args),
       requestLobbyReturn: () => session.requestLobbyReturn(),
       spawnPickup: (...args) => pickups.spawnPickup(...args),
       removePickup: (...args) => pickups.removePickup(...args),

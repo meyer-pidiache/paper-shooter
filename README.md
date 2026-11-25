@@ -38,7 +38,7 @@ hosts and VPS/Compose, see the [deployment guide](docs/deployment.md).
 ## Modes
 
 - **Solo**: survive the waves. Bosses every fifth wave, checkpoints unlock at wave 5, 10, 15...
-- **Free for all**: up to ten players, first to 20 kills, with a ten minute cap shown on screen that starts once a second player is in. Anyone in the lobby can start. After the death cam a press of any button brings you back with a two second shield; two and a half minutes without input gets you kicked, with a one-click rejoin. Health
+- **Free for all**: up to ten players, first to 20 kills, with a five-minute cap by default that starts once a second player is in. Anyone in the lobby can start. After the match, vote for the next map. After the death cam a press of any button brings you back with a two second shield; two and a half minutes without input gets you kicked, with a one-click rejoin. Health
   regenerates after a few seconds out of combat (not while sprinting), so only ammo drops in.
 
 Multiplayer uses PeerJS for signaling and WebRTC for player connections. Players connect directly

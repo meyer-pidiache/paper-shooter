@@ -42,6 +42,8 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     breakProp,
     hostStart,
     endMatch,
+    receiveMapVote,
+    receiveMapVotes,
     requestLobbyReturn,
     spawnPickup,
     removePickup,
@@ -170,7 +172,9 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
   net.on('startreq', () => {
     if (net.isHost && game.state === 'lobby') hostStart();
   });
-  net.onHost('end', (d) => endMatch(d));
+  net.onHost('end', ({ id, name, voteId }) => endMatch({ id, name }, voteId));
+  net.on('mapvote', receiveMapVote);
+  net.onHost('mapvotes', receiveMapVotes);
   net.onHost('backtolobby', () => {
     if (!net.isHost) requestLobbyReturn();
   });

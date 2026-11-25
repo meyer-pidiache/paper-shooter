@@ -1,6 +1,6 @@
 import type { Vector3 } from 'three';
 import type { EnemyKind } from '../domain/enemies.js';
-import type { MatchStart } from '../network/game-message-types.js';
+import type { GamePayloads, MatchStart } from '../network/game-message-types.js';
 import type { LobbyState } from './lobby-contracts.js';
 import type { MapKey } from '../domain/maps.js';
 import type { Score, Winner, GamePhase } from '../domain/match.js';
@@ -27,7 +27,7 @@ export interface SessionScreen {
 export interface SessionInput extends DeathInput {
   readonly usingGamepad: boolean;
   readonly pointerLocked: boolean;
-  pressed(action: 'pause' | 'jump' | 'confirm'): boolean;
+  pressed(action: 'pause' | 'jump' | 'confirm' | 'prevWeapon' | 'nextWeapon'): boolean;
   down(action: 'pause' | 'jump' | 'confirm'): boolean;
   requestLock(): void;
   exitLock(): void;
@@ -60,6 +60,12 @@ export interface SessionTransport {
   inMatch: boolean;
   send(type: 'backtolobby', data: Record<string, never>): void;
   send(type: 'start', data: MatchStart): void;
+  send<K extends 'mapvote' | 'mapvotes'>(type: K, data: GamePayloads[K]): void;
+}
+export interface MapVotePresentation {
+  update(counts: ReadonlyMap<MapKey, number>, chosen: MapKey | undefined, seconds: number): void;
+  moveFocus(step: number): void;
+  confirm(): void;
 }
 export interface SessionPorts {
   game: SessionGame;
@@ -69,7 +75,7 @@ export interface SessionPorts {
   hud: SessionHud;
   presentation: SessionPresentation;
   transport: SessionTransport;
-  lobby: Pick<LobbyState, 'players' | 'map' | 'duration'>;
+  lobby: Pick<LobbyState, 'players' | 'map' | 'mapLocked' | 'duration'>;
   scores: Map<string, Score>;
   player: { reset(position: Vector3): void; shieldT: number };
   remote: () => Iterable<{ lastSeen: number }>;
@@ -83,6 +89,8 @@ export interface SessionPorts {
   prepareRejoins(): void;
   clearRejoins(): void;
   refreshScores(): void;
+  broadcastLobby(): void;
+  mapVoteView: MapVotePresentation;
   respawnLocal(): void;
 }
 export interface RunGame {

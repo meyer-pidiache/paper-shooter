@@ -7,6 +7,7 @@ export interface LobbyState {
   status: string;
   code: string;
   map: MapKey | null;
+  mapLocked?: boolean;
   duration?: MatchDuration;
   order?: string[];
   gen?: number;

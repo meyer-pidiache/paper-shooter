@@ -69,6 +69,7 @@ const rosterShape = record({
   map: optional(map),
   shown: optional(code),
   duration: optional(isMatchDuration),
+  mapLocked: optional(boolean),
 });
 function roster(value: unknown): boolean {
   if (!rosterShape(value)) return false;
@@ -125,6 +126,12 @@ function shots(value: unknown): boolean {
   return shotsShape(value) && isRecord(value) && Array.isArray(value.e) && value.e.length % 3 === 0;
 }
 const scoreShape = array(record({ name: text(128) }), MAX_PLAYERS);
+const ballot = record({ id, map });
+function uniqueBallots(value: unknown): boolean {
+  if (!elements(value, ballot, MAX_PLAYERS)) return false;
+  const ballots = value as Array<{ id: string }>;
+  return new Set(ballots.map((entry) => entry.id)).size === ballots.length;
+}
 function score(value: unknown): boolean {
   return scoreShape(value) && parseScoreRows(value) !== null;
 }
@@ -144,7 +151,9 @@ const validators: Record<keyof import('./game-message-types.js').GamePayloads, V
   leave: record({ id }),
   start,
   startreq: empty,
-  end: record({ id, name: text(128) }),
+  end: record({ id, name: text(128), voteId: optional(integer) }),
+  mapvote: record({ voteId: integer, map }),
+  mapvotes: record({ voteId: integer, ballots: uniqueBallots }),
   backtolobby: empty,
   pickup: record({
     id: integer,
