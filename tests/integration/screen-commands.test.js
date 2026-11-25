@@ -8,7 +8,7 @@ afterEach(() => {
 });
 function setup() {
   fixture = applicationFixture();
-  vi.spyOn(fixture.net, 'listLobbies').mockResolvedValue([]);
+  vi.spyOn(fixture.net, 'listLobbies').mockResolvedValue({ rows: [], incomplete: false });
   return fixture;
 }
 it('persists menu map selection and requests checkpoint start without bubbling a second command', () => {

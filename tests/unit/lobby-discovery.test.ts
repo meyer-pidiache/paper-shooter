@@ -32,7 +32,10 @@ describe('discovery peer ownership', () => {
     browsePeer.connections.get('test-PUB0')!.emit('data', welcome(3));
     for (const id of browsePeer.connections.keys())
       if (id !== 'test-PUB0') unavailable(browsePeer, id);
-    expect(await browsing).toMatchObject([{ code: 'PUB0', players: 3, full: false }]);
+    expect(await browsing).toMatchObject({
+      rows: [{ code: 'PUB0', players: 3, full: false }],
+      incomplete: false,
+    });
     expect(browsePeer.destroy).toHaveBeenCalledOnce();
     expect([...browsePeer.connections.values()].every((connection) => !connection.open)).toBe(true);
     const peer = new ControlledPeer(),
@@ -78,5 +81,36 @@ describe('discovery peer ownership', () => {
     expect(peer.destroy).toHaveBeenCalledOnce();
     expect([...peer.connections.values()].every((connection) => !connection.open)).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
+  });
+  it('reports answered, unavailable and pending probes separately without exposing host IDs', async () => {
+    const peer = new ControlledPeer();
+    const discovery = new LobbyDiscovery(async () => peer, 'test-');
+    const browsing = discovery.browse({});
+    await flushMessages();
+    peer.connections.get('test-PUB0')!.emit('data', welcome());
+    for (const [id, connection] of peer.connections) {
+      if (id === 'test-PUB0') continue;
+      connection.open = false;
+      if (id !== 'test-PUB1') unavailable(peer, id);
+    }
+    await vi.advanceTimersByTimeAsync(2200);
+    expect(await browsing).toMatchObject({ rows: [{ code: 'PUB0' }], incomplete: true });
+    expect(discovery.diagnostics).toMatchObject({
+      signaling: 'ready',
+      probes: { slots: 64, unavailable: 62, pending: 1, welcomed: 1, refused: 0 },
+    });
+    expect(JSON.stringify(discovery.diagnostics)).not.toContain('PUB');
+  });
+
+  it('only reports a completed empty search when all slots answer or are explicitly unavailable', async () => {
+    const peer = new ControlledPeer();
+    const discovery = new LobbyDiscovery(async () => peer, 'test-');
+    const adopt = vi.fn();
+    const joining = expect(discovery.join({}, adopt)).rejects.toMatchObject({ reason: 'timeout' });
+    await flushMessages();
+    for (const id of peer.connections.keys()) if (id !== 'test-PUB1') unavailable(peer, id);
+    await vi.advanceTimersByTimeAsync(11000);
+    await joining;
+    expect(adopt).not.toHaveBeenCalled();
   });
 });

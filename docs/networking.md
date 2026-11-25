@@ -17,6 +17,17 @@ does not carry gameplay traffic. A VPS/static host with no API can support solo 
 multiplayer; it cannot guarantee connectivity across every network. Node, Go or Rust do not change
 that routing constraint. See [ADR 0002](adr/0002-networking-and-credentials.md).
 
+## Public lobby discovery
+
+A search is incomplete when some probes fail or remain unanswered at the deadline. The browser
+keeps confirmed rows, and Quick Play creates a public lobby only after a completed search finds
+no joinable offer.
+
+After a search or Quick Play attempt, inspect `window.__game.net.getLobbyDiagnostics()` in the
+browser console. The report separates signaling readiness and elapsed time from aggregate ICE,
+data-channel, and lobby-response counts. The report contains no addresses, SDP, tokens or
+credentials.
+
 ## Public frontend configuration
 
 Vite reads these at development/build time. Rebuild when they change. A deployed static host can

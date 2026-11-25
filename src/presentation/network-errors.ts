@@ -9,6 +9,8 @@ export function connectionError(error: unknown): string {
   if (!message) return 'something went wrong';
   if (/networking library/.test(message))
     return 'could not load the networking library · check your connection and reload';
+  if (message === 'public lobby search did not finish')
+    return 'public lobby search incomplete · try Quick Play again or create a game';
   if (/timed out|signalling/.test(message))
     return 'could not reach the matchmaking server · check your connection';
   if (/no lobby with that code/.test(message))

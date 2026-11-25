@@ -11,7 +11,12 @@ export interface LobbyRowView {
 export interface LobbyListView {
   readonly busy: boolean;
   readonly rows: readonly LobbyRowView[] | null;
+  readonly incomplete: boolean;
 }
+export type LobbyBrowseView = {
+  rows: readonly LobbyRowView[];
+  incomplete: boolean;
+};
 export interface MainScreenView {
   mapKey: MapKey;
   best: number;

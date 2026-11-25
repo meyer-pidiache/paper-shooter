@@ -259,7 +259,7 @@ describe('composed application without the GPU transport', () => {
     vi.spyOn(net, 'claimAlias').mockImplementation(() => {
       throw new Error('alias setup failed');
     });
-    vi.spyOn(net, 'listLobbies').mockResolvedValue([]);
+    vi.spyOn(net, 'listLobbies').mockResolvedValue({ rows: [], incomplete: false });
     await app.multiplayer.migrateHost();
     expect(state.screen).toBe('online');
     expect(lobby.status).toContain('could not recover the lobby');
@@ -272,7 +272,7 @@ describe('composed application without the GPU transport', () => {
     const lookup = vi
       .spyOn(fixture.net, 'listLobbies')
       .mockRejectedValueOnce(new Error('signalling timed out'))
-      .mockResolvedValue([]);
+      .mockResolvedValue({ rows: [], incomplete: false });
     document.querySelector('#onlineBtn').click();
     expect(lookup).not.toHaveBeenCalled();
     const browse = document.querySelector('#browseFlow');
@@ -300,7 +300,9 @@ describe('composed application without the GPU transport', () => {
           rejectJoin = reject;
         }),
       );
-      const lookup = vi.spyOn(net, 'listLobbies').mockResolvedValue([]);
+      const lookup = vi
+        .spyOn(net, 'listLobbies')
+        .mockResolvedValue({ rows: [], incomplete: false });
       document.querySelector('#onlineBtn').click();
       document.querySelector('#quickBtn').click();
       const browse = document.querySelector('#browseFlow');

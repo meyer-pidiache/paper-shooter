@@ -71,13 +71,20 @@ export function lobbyHTML(view: LobbyScreenView) {
 export function lobbyListHTML(view: LobbyListView) {
   if (view.busy) return '<div class="hint">Searching for public lobbies…</div>';
   if (!view.rows) return '';
-  if (!view.rows.length) return '<div class="hint">No public lobbies found.</div>';
-  return view.rows
-    .map(
-      (l) =>
-        `<div class="lobbyrow"><span class="code">${esc(l.code)}</span><span>${esc(l.hostName || 'someone')}'s lobby</span><span>${esc(l.players)}/${esc(l.max)}${l.inMatch ? ' · in a match' : ''}</span>${l.full ? '<span class="status">full</span>' : `<button type="button" data-join="${esc(l.code)}">JOIN</button>`}</div>`,
-    )
-    .join('');
+  const status = view.incomplete
+    ? '<div class="hint">Search incomplete. Press Refresh to try again.</div>'
+    : view.rows.length === 0
+      ? '<div class="hint">No public lobbies found.</div>'
+      : '';
+  return (
+    status +
+    view.rows
+      .map(
+        (l) =>
+          `<div class="lobbyrow"><span class="code">${esc(l.code)}</span><span>${esc(l.hostName || 'someone')}'s lobby</span><span>${esc(l.players)}/${esc(l.max)}${l.inMatch ? ' · in a match' : ''}</span>${l.full ? '<span class="status">full</span>' : `<button type="button" data-join="${esc(l.code)}">JOIN</button>`}</div>`,
+      )
+      .join('')
+  );
 }
 
 export function lobbyErrorHTML(message: string) {

@@ -2,7 +2,8 @@ import { FFA_TIME } from '../domain/match.js';
 import type { LobbyConnectionPorts } from './lobby-contracts.js';
 import { SessionTasks } from './session-tasks.js';
 import { HostMigration } from './host-migration.js';
-import { connectionError, errorMessage } from '../presentation/network-errors.js';
+import { connectionError } from '../presentation/network-errors.js';
+import { LobbyQueryError } from '../network/lobby-query.js';
 /** Owns lobby setup/teardown and operation lifetime, without rendering DOM or mutating game phases. */
 export class LobbyConnection {
   private readonly tasks = new SessionTasks();
@@ -93,8 +94,7 @@ export class LobbyConnection {
       return;
     } catch (error) {
       if (!task.current) return;
-      const message = errorMessage(error);
-      if (!/no open public/.test(message)) {
+      if (!(error instanceof LobbyQueryError && error.reason === 'empty')) {
         this.setStatus(connectionError(error));
         presentation.unlockButtons();
         return;

@@ -15,11 +15,17 @@ interface Attempt {
   connection: ConnectionPort;
   done: boolean;
   challenged?: boolean;
+  channelOpened: boolean;
+  iceConnected: boolean;
+  ice?: RTCPeerConnection | null;
+  reportIce: () => void;
+  opened: () => void;
   data: (value: unknown) => void;
   closed: () => void;
 }
-type Selection = { mode: 'all' } | { mode: 'first' | 'best'; adopt: (offer: WelcomeOffer) => void };
-export type QueryOptions = Selection & {
+export type QuerySelection =
+  { mode: 'all' } | { mode: 'first' | 'best'; adopt: (offer: WelcomeOffer) => void };
+export type QueryOptions = QuerySelection & {
   timeout: number;
   gather: number;
   signal?: AbortSignal;
@@ -49,6 +55,10 @@ export class LobbyQuery {
   private attempts: Attempt[] = [];
   private offers: LobbyOffer[] = [];
   private pending: number;
+  private unavailable = 0;
+  private failed = 0;
+  private welcomed = 0;
+  private refused = 0;
   private settled = false;
   private started = false;
   private timer?: ReturnType<typeof setTimeout>;
@@ -66,6 +76,23 @@ export class LobbyQuery {
     this.pending = ids.length;
   }
 
+  get incomplete(): boolean {
+    return this.pending > 0 || this.failed > 0;
+  }
+
+  get diagnostics() {
+    return {
+      slots: this.ids.length,
+      unavailable: this.unavailable,
+      pending: this.pending,
+      failed: this.failed,
+      iceConnected: this.attempts.filter((attempt) => attempt.iceConnected).length,
+      channelsOpened: this.attempts.filter((attempt) => attempt.channelOpened).length,
+      welcomed: this.welcomed,
+      refused: this.refused,
+    };
+  }
+
   run(): Promise<LobbyOffer[]> {
     if (this.started) return Promise.reject(new Error('Lobby queries are single-use'));
     this.started = true;
@@ -78,15 +105,7 @@ export class LobbyQuery {
       }
       this.peer.on('error', this.onPeerError);
       this.options.signal?.addEventListener('abort', this.onAbort, { once: true });
-      this.timer = setTimeout(
-        () =>
-          this.finish(
-            this.offers.length
-              ? undefined
-              : new LobbyQueryError('timeout', 'no answer from that lobby'),
-          ),
-        this.options.timeout,
-      );
+      this.timer = setTimeout(() => this.finish(), this.options.timeout);
       for (const id of this.ids) this.probe(id);
       if (this.pending === 0) this.finish();
     });
@@ -99,7 +118,10 @@ export class LobbyQuery {
     if (!isRecord(error) || error.type !== 'peer-unavailable') return;
     const id = /peer\s+(\S+)/.exec(String(error.message ?? ''))?.[1];
     const attempt = this.attempts.find((candidate) => candidate.hostId === id);
-    if (attempt) this.fail(attempt);
+    if (attempt && !attempt.done && !this.settled) {
+      this.unavailable++;
+      this.complete(attempt);
+    }
   };
 
   private probe(hostId: string): void {
@@ -111,32 +133,50 @@ export class LobbyQuery {
         metadata: this.metadata,
       });
     } catch {
-      this.pending--;
-      return;
+      // A failed connect is inconclusive. Only an explicit unavailable signal proves absence.
     }
     if (!connection) {
       this.pending--;
+      this.failed++;
       return;
     }
     const attempt: Attempt = {
       hostId,
       connection,
       done: false,
+      channelOpened: connection.open,
+      iceConnected: false,
+      ice: connection.peerConnection,
+      reportIce: () => {
+        const state = attempt.ice?.iceConnectionState;
+        if (state === 'connected' || state === 'completed') attempt.iceConnected = true;
+      },
+      opened: () => {
+        attempt.channelOpened = true;
+      },
       data: (value) => this.receive(attempt, value),
       closed: () => {
-        if (this.options.mode !== 'all')
+        if (this.options.mode !== 'all') {
+          const before = this.offers.length;
           this.offers = this.offers.filter((offer) => offer.connection !== connection);
-        this.fail(attempt);
+          if (this.offers.length < before) this.failed++;
+        }
+        if (!attempt.done && !this.settled) {
+          this.failed++;
+          this.complete(attempt);
+        }
       },
     };
     this.attempts.push(attempt);
+    attempt.reportIce();
+    attempt.ice?.addEventListener('iceconnectionstatechange', attempt.reportIce);
+    connection.on('open', attempt.opened);
     connection.on('data', attempt.data);
     connection.on('close', attempt.closed);
     connection.on('error', attempt.closed);
   }
 
-  private fail(attempt: Attempt): void {
-    if (attempt.done || this.settled) return;
+  private complete(attempt: Attempt): void {
     attempt.done = true;
     this.pending--;
     if (this.pending === 0) this.finish();
@@ -146,16 +186,19 @@ export class LobbyQuery {
     if (attempt.done || this.settled) return;
     const message = decodeGameMessage(value);
     if (!message || (message.t !== 'welcome' && message.t !== 'refused')) return;
+    attempt.channelOpened = true;
+    if (message.t === 'welcome') this.welcomed++;
+    else this.refused++;
     if (message.t === 'refused' && this.options.mode !== 'all') {
       this.lastError = new Error(message.d.reason);
-      this.fail(attempt);
+      this.complete(attempt);
       return;
     }
     if (message.t === 'welcome' && this.options.rejoinToken) {
       if (!attempt.challenged) {
         const token = message.d.rejoinKey && this.options.rejoinToken(message.d.rejoinKey);
         if (!token) {
-          this.fail(attempt);
+          this.complete(attempt);
           return;
         }
         attempt.challenged = true;
@@ -194,6 +237,9 @@ export class LobbyQuery {
     this.peer.off('error', this.onPeerError);
     this.options.signal?.removeEventListener('abort', this.onAbort);
     for (const attempt of this.attempts) {
+      attempt.reportIce();
+      attempt.ice?.removeEventListener('iceconnectionstatechange', attempt.reportIce);
+      attempt.connection.off('open', attempt.opened);
       attempt.connection.off('data', attempt.data);
       attempt.connection.off('close', attempt.closed);
       attempt.connection.off('error', attempt.closed);
@@ -214,18 +260,12 @@ export class LobbyQuery {
     }
     for (const attempt of this.attempts)
       if (attempt.connection !== adopted) close(attempt.connection);
-    if (
-      error &&
-      !(
-        error instanceof LobbyQueryError &&
-        error.reason === 'timeout' &&
-        this.options.mode === 'all'
-      )
-    )
-      this.reject(error);
+    if (error) this.reject(error);
     else if (this.options.mode !== 'all' && !adopted)
       this.reject(
-        error ?? new LobbyQueryError('empty', this.lastError?.message ?? 'no lobby with that code'),
+        (this.options.mode === 'best' ? this.incomplete : this.pending > 0 && !this.lastError)
+          ? new LobbyQueryError('timeout', 'no answer from that lobby')
+          : new LobbyQueryError('empty', this.lastError?.message ?? 'no lobby with that code'),
       );
     else this.resolve(this.offers);
   }

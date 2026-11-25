@@ -24,7 +24,7 @@ it.each(['success', 'failure'])(
     const before = rows.innerHTML;
     expect(before).toContain('Searching for public lobbies');
     app.dispose();
-    if (outcome === 'success') resolve([]);
+    if (outcome === 'success') resolve({ rows: [], incomplete: false });
     else reject(new Error('outdated failure'));
     await refreshing;
     expect(rows.innerHTML).toBe(before);

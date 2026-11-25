@@ -539,6 +539,9 @@ export class Net {
     if (this.active) throw new Error('leave the lobby first');
     return this.discovery.browse(meta, onStatus);
   }
+  getLobbyDiagnostics() {
+    return this.discovery.diagnostics;
+  }
   _adopt(hostId, conn, welcome) {
     this.pingSamples.clear();
     this.pendingPings.clear();

@@ -1,10 +1,11 @@
 export interface ConnectionPort {
   readonly peer: string;
   readonly open: boolean;
+  readonly peerConnection?: RTCPeerConnection | null;
   on(event: 'data', listener: (value: unknown) => void): unknown;
-  on(event: 'close' | 'error', listener: () => void): unknown;
+  on(event: 'open' | 'close' | 'error', listener: () => void): unknown;
   off(event: 'data', listener: (value: unknown) => void): unknown;
-  off(event: 'close' | 'error', listener: () => void): unknown;
+  off(event: 'open' | 'close' | 'error', listener: () => void): unknown;
   send(value: unknown): void;
   close(): void;
 }

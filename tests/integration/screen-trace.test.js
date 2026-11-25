@@ -48,10 +48,13 @@ it('preserves menu, browsing, host/follower lobby, pause, death and prompt prese
     ),
   );
   capture('online-busy');
-  resolve([
-    { code: 'FULL1', hostName: '<full>', players: 10, max: 10, inMatch: true, full: true },
-    { code: 'OPEN1', hostName: '', players: 1, max: 10, inMatch: false, full: false },
-  ]);
+  resolve({
+    incomplete: false,
+    rows: [
+      { code: 'FULL1', hostName: '<full>', players: 10, max: 10, inMatch: true, full: true },
+      { code: 'OPEN1', hostName: '', players: 1, max: 10, inMatch: false, full: false },
+    ],
+  });
   await Promise.resolve();
   await Promise.resolve();
   capture('online-list');

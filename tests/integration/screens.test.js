@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applicationFixture } from '../support/application.js';
 import { peerNetwork, flushMessages } from '../support/peer-network.js';
 import { Net } from '../../src/network/peer-transport.js';
+import { LobbyQueryError } from '../../src/network/lobby-query.js';
 
 let fixture;
 afterEach(() => {
@@ -60,7 +61,7 @@ describe('screens and network failure feedback', () => {
     vi.spyOn(net, 'join').mockRejectedValue(new Error('no lobby with that code'));
     vi.spyOn(net, 'quickJoin')
       .mockRejectedValueOnce(new Error('signalling timed out'))
-      .mockRejectedValueOnce(new Error('no open public lobbies'))
+      .mockRejectedValueOnce(new LobbyQueryError('empty', 'no open public lobbies'))
       .mockResolvedValueOnce('PUB0');
     await app.multiplayer.createLobby(false);
     expect(lobby.status).toContain('matchmaking server');
@@ -80,9 +81,12 @@ describe('screens and network failure feedback', () => {
     const net = new Net({ PeerClass: Peer, options: async () => ({}), namespace: 'screen-test-' });
     fixture = applicationFixture('district', { net });
     const { state, values, game } = fixture;
-    vi.spyOn(net, 'listLobbies').mockResolvedValue([
-      { code: 'ABCDE', hostName: '<img src=x>', players: 2, max: 10, inMatch: true, full: true },
-    ]);
+    vi.spyOn(net, 'listLobbies').mockResolvedValue({
+      incomplete: false,
+      rows: [
+        { code: 'ABCDE', hostName: '<img src=x>', players: 2, max: 10, inMatch: true, full: true },
+      ],
+    });
     const invert = document.querySelector('#setInv');
     invert.checked = true;
     invert.dispatchEvent(new Event('change'));

@@ -1,7 +1,7 @@
 import { MAX_PLAYERS } from '../domain/match.js';
 import { lobbyCode, lobbyCount } from './protocol.js';
 import { LobbyQuery, LobbyQueryError } from './lobby-query.js';
-import type { LobbyOffer, WelcomeOffer } from './lobby-query.js';
+import type { LobbyOffer, WelcomeOffer, QueryOptions, QuerySelection } from './lobby-query.js';
 import type { DiscoveryPeerPort } from './peer-ports.js';
 
 export const PUBLIC_SLOT_COUNT = 16;
@@ -13,6 +13,15 @@ export interface LobbyListing {
   inMatch: boolean;
   hostName: string;
   full: boolean;
+}
+export interface LobbyBrowseResult {
+  rows: LobbyListing[];
+  incomplete: boolean;
+}
+interface DiscoveryDiagnostics {
+  signaling: 'ready' | 'failed' | 'cancelled';
+  signalingMs: number;
+  probes: LobbyQuery['diagnostics'] | null;
 }
 type Status = (message: string) => void;
 type Adopt = (peer: DiscoveryPeerPort, offer: WelcomeOffer) => void;
@@ -51,6 +60,8 @@ function destroy(peer?: DiscoveryPeerPort): void {
 /** Owns temporary signaling peers; only an explicit successful adoption transfers one to a session. */
 export class LobbyDiscovery {
   private readonly operations = new Set<AbortController>();
+  private latestOperation?: AbortController;
+  private lastDiagnostics: DiscoveryDiagnostics | null = null;
   constructor(
     private openPeer: () => Promise<DiscoveryPeerPort>,
     private prefix: string,
@@ -59,10 +70,15 @@ export class LobbyDiscovery {
   cancel(): void {
     for (const operation of this.operations) operation.abort();
   }
+  get diagnostics(): DiscoveryDiagnostics | null {
+    return this.lastDiagnostics;
+  }
   private begin(): AbortController {
     this.cancel();
     const operation = new AbortController();
     this.operations.add(operation);
+    this.latestOperation = operation;
+    this.lastDiagnostics = null;
     return operation;
   }
   private async open(operation: AbortController): Promise<DiscoveryPeerPort> {
@@ -74,61 +90,80 @@ export class LobbyDiscovery {
     return peer;
   }
 
-  async browse(metadata: object, onStatus?: Status): Promise<LobbyListing[]> {
-    const operation = this.begin();
-    let peer: DiscoveryPeerPort | undefined;
-    try {
-      peer = await this.open(operation);
-      const offers = await new LobbyQuery(
-        peer,
-        publicIds(this.prefix),
-        { ...metadata, probe: true },
-        {
-          mode: 'all',
-          timeout: 11000,
-          gather: 2200,
-          signal: operation.signal,
-          onOffer: (count) => onStatus?.(`found ${count}…`),
-        },
-      ).run();
-      return listings(offers, this.prefix);
-    } finally {
-      destroy(peer);
-      this.operations.delete(operation);
-    }
+  async browse(metadata: object, onStatus?: Status): Promise<LobbyBrowseResult> {
+    const result = await this.query(metadata, () => ({
+      mode: 'all',
+      gather: 2200,
+      onOffer: (count) => onStatus?.(`found ${count}…`),
+    }));
+    return { rows: listings(result.offers, this.prefix), incomplete: result.incomplete };
   }
 
   async join(metadata: object, adopt: Adopt, onStatus?: Status): Promise<void> {
+    try {
+      await this.query(metadata, (peer, transfer) => {
+        onStatus?.('looking for an open lobby…');
+        return {
+          mode: 'best',
+          gather: 1500,
+          onOffer: (count) =>
+            onStatus?.(`found ${count} open ${count === 1 ? 'lobby' : 'lobbies'}…`),
+          adopt: (offer) => {
+            adopt(peer, offer);
+            transfer();
+            offer.connection.send({ t: 'stay' });
+          },
+        };
+      });
+    } catch (error) {
+      if (error instanceof LobbyQueryError) {
+        if (error.reason === 'empty') throw new LobbyQueryError('empty', 'no open public lobbies');
+        if (error.reason === 'timeout')
+          throw new LobbyQueryError('timeout', 'public lobby search did not finish');
+      }
+      throw error;
+    }
+  }
+
+  private async query(
+    metadata: object,
+    options: (
+      peer: DiscoveryPeerPort,
+      transfer: () => void,
+    ) => Pick<QueryOptions, 'gather' | 'onOffer'> & QuerySelection,
+  ) {
     const operation = this.begin();
+    const started = performance.now();
     let peer: DiscoveryPeerPort | undefined;
+    let query: LobbyQuery | undefined;
+    let signalingMs: number | undefined;
     let transferred = false;
     try {
       peer = await this.open(operation);
-      const endpoint = peer;
-      onStatus?.('looking for an open lobby…');
-      await new LobbyQuery(
+      signalingMs = Math.round(performance.now() - started);
+      query = new LobbyQuery(
         peer,
         publicIds(this.prefix),
         { ...metadata, probe: true },
         {
-          mode: 'best',
           timeout: 11000,
-          gather: 1500,
           signal: operation.signal,
-          onOffer: (count) =>
-            onStatus?.(`found ${count} open ${count === 1 ? 'lobby' : 'lobbies'}…`),
-          adopt: (offer) => {
-            adopt(endpoint, offer);
+          ...options(peer, () => {
             transferred = true;
-            offer.connection.send({ t: 'stay' });
-          },
+          }),
         },
-      ).run();
-    } catch (error) {
-      if (error instanceof LobbyQueryError && error.reason !== 'cancelled')
-        throw new Error('no open public lobbies', { cause: error });
-      throw error;
+      );
+      const offers = await query.run();
+      return { offers, incomplete: query.incomplete };
     } finally {
+      if (this.latestOperation === operation) {
+        this.lastDiagnostics = {
+          signaling:
+            signalingMs !== undefined ? 'ready' : operation.signal.aborted ? 'cancelled' : 'failed',
+          signalingMs: signalingMs ?? Math.round(performance.now() - started),
+          probes: query?.diagnostics ?? null,
+        };
+      }
       if (!transferred) destroy(peer);
       this.operations.delete(operation);
     }

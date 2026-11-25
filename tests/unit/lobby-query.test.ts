@@ -94,7 +94,7 @@ describe('disposable lobby queries', () => {
         {},
         { mode: 'best', timeout: 1000, gather: 100, adopt },
       ).run(),
-    ).rejects.toThrow('closed');
+    ).rejects.toMatchObject({ reason: 'timeout' });
     peer.connections.get('a')!.emit('data', { t: 'welcome', d: null });
     peer.connections.get('a')!.emit('data', welcome());
     peer.connections.get('a')!.close();

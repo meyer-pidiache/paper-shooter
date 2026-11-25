@@ -60,7 +60,7 @@ it('keeps checkbox, keyboard music commands, persistence and newly rendered pane
 it('normalizes name edits, retains the previous name on blank input and synchronizes both actor identities', () => {
   fixture = applicationFixture();
   const { net, state, player, values } = fixture;
-  vi.spyOn(net, 'listLobbies').mockResolvedValue([]);
+  vi.spyOn(net, 'listLobbies').mockResolvedValue({ rows: [], incomplete: false });
   document.querySelector('#onlineBtn').click();
   const name = document.querySelector('#setName');
   name.value = '   abcdefghijklmnopqrstuvwxyz   ';

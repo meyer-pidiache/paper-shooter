@@ -27,7 +27,7 @@ it('runs navigation, read models, browse and progress against ports without a br
     rows: vi.fn(),
     unlockButtons: vi.fn(),
   };
-  const listLobbies = vi.fn(async () => []);
+  const listLobbies = vi.fn(async () => ({ rows: [], incomplete: false }));
   const screens = new ScreenController({
     navigation,
     profile,

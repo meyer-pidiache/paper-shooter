@@ -2,7 +2,7 @@ import type { MapKey } from '../domain/maps.js';
 import type { GamePhase, Score } from '../domain/match.js';
 import type { LobbyState } from './lobby-contracts.js';
 import type { ScreenEvents, ScreenBindingMode } from '../presentation/screen-bindings.js';
-import type { LobbyRowView } from '../presentation/screen-views-types.js';
+import type { LobbyBrowseView } from '../presentation/screen-views-types.js';
 export interface ScreenViewPort {
   settingsHTML(): string;
   confirm(): string;
@@ -33,7 +33,7 @@ export interface ScreenPorts {
     readonly isHost: boolean;
     readonly active: boolean;
     readonly maxPlayers: number;
-    listLobbies(metadata: { name: string }): Promise<readonly LobbyRowView[]>;
+    listLobbies(metadata: { name: string }): Promise<LobbyBrowseView>;
     send(kind: 'startreq', data: Record<string, never>): void;
   };
   records: {

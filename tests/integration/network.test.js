@@ -270,7 +270,7 @@ describe('PeerJS lobby transport', () => {
     expect([host.code, other.code]).toEqual(['PUB0', 'PUB1']);
     const list = guest.listLobbies();
     await vi.runAllTimersAsync();
-    const lobbies = await list;
+    const { rows: lobbies } = await list;
     expect(lobbies.map((lobby) => lobby.code)).toEqual(['PUB0', 'PUB1']);
     expect(host.conns.size).toBe(0);
     const joined = guest.quickJoin({}, vi.fn());

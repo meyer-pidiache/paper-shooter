@@ -170,6 +170,96 @@ test('the compact online leaderboard fits above the kill feed and Tab shows all 
   await expect(page.locator('#board')).toBeHidden();
 });
 
+test('distinguishes empty and incomplete lobby searches and retains full responses', async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto('/');
+  await page.evaluate(() => {
+    const { net } = window.__game;
+    const events = () => {
+      const listeners = new Map();
+      return {
+        on: (type, callback) => listeners.set(type, callback),
+        off: (type) => listeners.delete(type),
+        emit: (type, payload) => listeners.get(type)?.(payload),
+      };
+    };
+    net.testSearch = 'empty';
+    net.host = () => {
+      throw new Error('Quick Play should not create a lobby after a timeout');
+    };
+    net.discovery.openPeer = async () => {
+      const peer = { ...events(), destroy() {} };
+      peer.connect = (id) => {
+        const connection = {
+          ...events(),
+          open: false,
+          send() {},
+          close() {
+            this.open = false;
+            this.emit('close');
+          },
+        };
+        queueMicrotask(() => {
+          if (net.testSearch !== 'empty' && id === net.prefix + 'PUB1') return;
+          if (net.testSearch === 'partial' && id === net.prefix + 'PUB0') {
+            connection.open = true;
+            connection.emit('open');
+            connection.emit('data', {
+              t: 'refused',
+              d: { reason: 'full', code: 'PUB0', hostName: 'Ink', players: 10, max: 10 },
+            });
+            connection.close();
+          } else {
+            peer.emit('error', {
+              type: 'peer-unavailable',
+              message: 'Could not connect to peer ' + id,
+            });
+          }
+        });
+        return connection;
+      };
+      return peer;
+    };
+  });
+  await page.locator('#onlineBtn').click();
+  await page.locator('#browseFlow summary').click();
+  await expect(page.locator('#lobbyRows')).toHaveText('No public lobbies found.');
+
+  await page.evaluate(() => {
+    window.__game.net.testSearch = 'partial';
+  });
+  await page.locator('#refreshBtn').click();
+  await expect(page.locator('#lobbyRows')).toContainText('Searching for public lobbies');
+  await page.clock.fastForward(2300);
+  const rows = page.locator('#lobbyRows');
+  await expect(rows).toContainText('Search incomplete');
+  await expect(rows).toContainText('10/10');
+  await expect(rows).toContainText('full');
+  await expect(rows.getByRole('button', { name: 'JOIN' })).toHaveCount(0);
+
+  await page.evaluate(() => {
+    window.__game.net.testSearch = 'timeout';
+  });
+  await page.locator('#quickBtn').click();
+  await expect(page.locator('#status')).toContainText('looking for an open lobby');
+  await page.clock.fastForward(11100);
+  await expect(page.locator('#status')).toContainText('public lobby search incomplete');
+  const diagnostics = await page.evaluate(() => window.__game.net.getLobbyDiagnostics());
+  expect(diagnostics).toMatchObject({
+    signaling: 'ready',
+    probes: {
+      unavailable: 63,
+      pending: 1,
+      iceConnected: 0,
+      channelsOpened: 0,
+      welcomed: 0,
+      refused: 0,
+    },
+  });
+});
+
 test('filled controls stay legible in both themes and Nerd Stats sit under the score', async ({
   page,
 }) => {

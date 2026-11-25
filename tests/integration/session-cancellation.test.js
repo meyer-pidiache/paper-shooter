@@ -90,7 +90,7 @@ describe('session work cannot outlive leave, replacement or application disposal
     const pending = deferred();
     vi.spyOn(net, 'host').mockReturnValue(pending.promise);
     // Suppress background discovery so this scenario covers the connection transaction only.
-    vi.spyOn(net, 'listLobbies').mockResolvedValue([]);
+    vi.spyOn(net, 'listLobbies').mockResolvedValue({ rows: [], incomplete: false });
     document.querySelector('#onlineBtn').click();
     const opening = app.multiplayer.createLobby(false);
     document.querySelector('#backBtn').click();

@@ -38,8 +38,8 @@ describe('independent games sharing a signaling service', () => {
     const browsing = Promise.all([paperGuest.listLobbies(), doodleGuest.listLobbies()]);
     await vi.runAllTimersAsync();
     const [paperLobbies, doodleLobbies] = await browsing;
-    expect(paperLobbies.map((lobby) => lobby.hostName)).toEqual(['Paper host']);
-    expect(doodleLobbies.map((lobby) => lobby.hostName)).toEqual(['Doodle host']);
+    expect(paperLobbies.rows.map((lobby) => lobby.hostName)).toEqual(['Paper host']);
+    expect(doodleLobbies.rows.map((lobby) => lobby.hostName)).toEqual(['Doodle host']);
     expect(paperHost.conns.size).toBe(0);
     expect(doodleHost.conns.size).toBe(0);
 
@@ -82,7 +82,7 @@ describe('independent games sharing a signaling service', () => {
 
     const browsing = guest.listLobbies();
     await vi.runAllTimersAsync();
-    expect(await browsing).toMatchObject([{ code: 'PUB0', hostName: 'Vercel copy' }]);
+    expect((await browsing).rows).toMatchObject([{ code: 'PUB0', hostName: 'Vercel copy' }]);
     await copy.host({ code: 'ABCDE' });
     await expect(client().join('ABCDE')).rejects.toThrow('no lobby');
     await guest.join('ABCDE');
@@ -105,7 +105,7 @@ describe('independent games sharing a signaling service', () => {
     await preview.host({ isPublic: true });
     const browsing = guest.listLobbies();
     await vi.runAllTimersAsync();
-    expect(await browsing).toMatchObject([{ code: 'PUB0', hostName: 'Preview' }]);
+    expect((await browsing).rows).toMatchObject([{ code: 'PUB0', hostName: 'Preview' }]);
     expect(preview.id).toBe('didaskalia-preview-PUB0');
   });
 });
