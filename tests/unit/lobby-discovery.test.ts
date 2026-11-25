@@ -29,6 +29,7 @@ describe('discovery peer ownership', () => {
     const browser = new LobbyDiscovery(async () => browsePeer, 'test-');
     const browsing = browser.browse({ name: 'paper' });
     await flushMessages();
+    await vi.advanceTimersByTimeAsync(2250);
     browsePeer.connections.get('test-PUB0')!.emit('data', welcome(3));
     for (const id of browsePeer.connections.keys())
       if (id !== 'test-PUB0') unavailable(browsePeer, id);
@@ -42,6 +43,7 @@ describe('discovery peer ownership', () => {
       adopted = vi.fn();
     const joining = new LobbyDiscovery(async () => peer, 'test-').join({}, adopted);
     await flushMessages();
+    await vi.advanceTimersByTimeAsync(2250);
     peer.connections.get('test-PUB0')!.emit('data', welcome());
     for (const id of peer.connections.keys()) if (id !== 'test-PUB0') unavailable(peer, id);
     await joining;
@@ -59,6 +61,7 @@ describe('discovery peer ownership', () => {
       }),
     ).rejects.toThrow('consumer failed');
     await flushMessages();
+    await vi.advanceTimersByTimeAsync(2250);
     peer.connections.get('test-PUB0')!.emit('data', welcome());
     for (const id of peer.connections.keys()) if (id !== 'test-PUB0') unavailable(peer, id);
     await joining;
@@ -87,6 +90,7 @@ describe('discovery peer ownership', () => {
     const discovery = new LobbyDiscovery(async () => peer, 'test-');
     const browsing = discovery.browse({});
     await flushMessages();
+    await vi.advanceTimersByTimeAsync(2250);
     peer.connections.get('test-PUB0')!.emit('data', welcome());
     for (const [id, connection] of peer.connections) {
       if (id === 'test-PUB0') continue;

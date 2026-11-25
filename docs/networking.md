@@ -23,10 +23,25 @@ A search is incomplete when some probes fail or remain unanswered at the deadlin
 keeps confirmed rows, and Quick Play creates a public lobby only after a completed search finds
 no joinable offer.
 
+Public discovery starts up to 16 probes every 750 ms and closes explicitly unavailable probes.
+The offer-gathering window starts after the final batch. If signaling disconnects before a batch,
+discovery can reconnect once within the original search deadline. An unfinished queue is reported
+as incomplete.
+
 After a search or Quick Play attempt, inspect `window.__game.net.getLobbyDiagnostics()` in the
 browser console. The report separates signaling readiness and elapsed time from aggregate ICE,
-data-channel, and lobby-response counts. The report contains no addresses, SDP, tokens or
-credentials.
+data-channel, and lobby-response counts. It also includes queued probes and signaling reconnection
+attempts. The report contains no addresses, SDP, tokens or credentials.
+
+In a Vite development session with real PeerServer signaling, a Chromium host and Firefox 159
+reproduced the original failure. Two of three searches received a signaling answer and candidates
+for the reachable room, then stayed in ICE checking until the timeout. Joining by code worked in
+both cases. In a one-core Firefox comparison, the original burst found the room in two of four
+searches and the staggered batches found it in four of four. Testing an alias in the final batch
+then reproduced a separate signaling disconnect. In an alternating comparison, discovery found
+the alias in zero of three searches without recovery and three of three with one reconnection.
+These measurements were made from one network. Independent-network validation is tracked in
+[#36](https://github.com/meyer-pidiache/paper-shooter/issues/36).
 
 ## Public frontend configuration
 

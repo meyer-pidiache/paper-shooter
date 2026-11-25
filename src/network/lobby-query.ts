@@ -3,6 +3,9 @@ import { decodeGameMessage } from './game-messages.js';
 import type { GamePayloads } from './game-message-types.js';
 import type { ConnectionPort, DiscoveryPeerPort } from './peer-ports.js';
 
+const PUBLIC_PROBE_BATCH_SIZE = 16;
+const PUBLIC_PROBE_BATCH_DELAY_MS = 750;
+
 interface OfferConnection {
   hostId: string;
   connection: ConnectionPort;
@@ -14,6 +17,7 @@ interface Attempt {
   hostId: string;
   connection: ConnectionPort;
   done: boolean;
+  released?: boolean;
   challenged?: boolean;
   channelOpened: boolean;
   iceConnected: boolean;
@@ -55,6 +59,8 @@ export class LobbyQuery {
   private attempts: Attempt[] = [];
   private offers: LobbyOffer[] = [];
   private pending: number;
+  private nextProbe = 0;
+  private signalingReconnects = 0;
   private unavailable = 0;
   private failed = 0;
   private welcomed = 0;
@@ -63,6 +69,7 @@ export class LobbyQuery {
   private started = false;
   private timer?: ReturnType<typeof setTimeout>;
   private gatherTimer?: ReturnType<typeof setTimeout>;
+  private batchTimer?: ReturnType<typeof setTimeout>;
   private lastError: Error | null = null;
   private resolve!: (offers: LobbyOffer[]) => void;
   private reject!: (error: Error) => void;
@@ -85,6 +92,8 @@ export class LobbyQuery {
       slots: this.ids.length,
       unavailable: this.unavailable,
       pending: this.pending,
+      queued: this.ids.length - this.nextProbe,
+      signalingReconnects: this.signalingReconnects,
       failed: this.failed,
       iceConnected: this.attempts.filter((attempt) => attempt.iceConnected).length,
       channelsOpened: this.attempts.filter((attempt) => attempt.channelOpened).length,
@@ -106,9 +115,47 @@ export class LobbyQuery {
       this.peer.on('error', this.onPeerError);
       this.options.signal?.addEventListener('abort', this.onAbort, { once: true });
       this.timer = setTimeout(() => this.finish(), this.options.timeout);
-      for (const id of this.ids) this.probe(id);
-      if (this.pending === 0) this.finish();
+      this.launchBatch();
     });
+  }
+
+  private launchBatch(): void {
+    if (this.settled) return;
+    if (this.options.mode !== 'first' && this.peer.disconnected) {
+      if (!this.peer.reconnect || this.signalingReconnects > 0) {
+        this.finish();
+        return;
+      }
+      this.signalingReconnects++;
+      this.peer.on('open', this.onSignalReopened);
+      try {
+        this.peer.reconnect();
+      } catch {
+        this.finish();
+      }
+      return;
+    }
+    // Public discovery starts 64 PeerJS connections. Spread out ICE setup work.
+    const end =
+      this.options.mode === 'first'
+        ? this.ids.length
+        : Math.min(this.nextProbe + PUBLIC_PROBE_BATCH_SIZE, this.ids.length);
+    while (!this.settled && this.nextProbe < end) this.probe(this.ids[this.nextProbe++]);
+    if (this.settled) return;
+    if (this.pending === 0) this.finish();
+    else if (this.nextProbe < this.ids.length)
+      this.batchTimer = setTimeout(() => this.launchBatch(), PUBLIC_PROBE_BATCH_DELAY_MS);
+    else this.startGather();
+  }
+
+  private onSignalReopened = (): void => {
+    this.peer.off('open', this.onSignalReopened);
+    this.launchBatch();
+  };
+
+  private startGather(): void {
+    if (this.nextProbe === this.ids.length && this.offers.length > 0)
+      this.gatherTimer ??= setTimeout(() => this.finish(), this.options.gather);
   }
 
   private onAbort = (): void => {
@@ -120,7 +167,7 @@ export class LobbyQuery {
     const attempt = this.attempts.find((candidate) => candidate.hostId === id);
     if (attempt && !attempt.done && !this.settled) {
       this.unavailable++;
-      this.complete(attempt);
+      this.complete(attempt, true);
     }
   };
 
@@ -176,9 +223,14 @@ export class LobbyQuery {
     connection.on('error', attempt.closed);
   }
 
-  private complete(attempt: Attempt): void {
+  private complete(attempt: Attempt, release = false): void {
     attempt.done = true;
     this.pending--;
+    if (release) {
+      attempt.released = true;
+      this.stopObserving(attempt);
+      close(attempt.connection);
+    }
     if (this.pending === 0) this.finish();
   }
 
@@ -226,7 +278,16 @@ export class LobbyQuery {
       return;
     }
     if (this.options.mode === 'first' || this.pending === 0) this.finish();
-    else this.gatherTimer ??= setTimeout(() => this.finish(), this.options.gather);
+    else this.startGather();
+  }
+
+  private stopObserving(attempt: Attempt): void {
+    attempt.reportIce();
+    attempt.ice?.removeEventListener('iceconnectionstatechange', attempt.reportIce);
+    attempt.connection.off('open', attempt.opened);
+    attempt.connection.off('data', attempt.data);
+    attempt.connection.off('close', attempt.closed);
+    attempt.connection.off('error', attempt.closed);
   }
 
   private finish(error?: Error): void {
@@ -234,17 +295,14 @@ export class LobbyQuery {
     this.settled = true;
     clearTimeout(this.timer);
     clearTimeout(this.gatherTimer);
+    clearTimeout(this.batchTimer);
     this.peer.off('error', this.onPeerError);
+    this.peer.off('open', this.onSignalReopened);
     this.options.signal?.removeEventListener('abort', this.onAbort);
-    for (const attempt of this.attempts) {
-      attempt.reportIce();
-      attempt.ice?.removeEventListener('iceconnectionstatechange', attempt.reportIce);
-      attempt.connection.off('open', attempt.opened);
-      attempt.connection.off('data', attempt.data);
-      attempt.connection.off('close', attempt.closed);
-      attempt.connection.off('error', attempt.closed);
-    }
-    const winner = this.select();
+    for (const attempt of this.attempts) if (!attempt.released) this.stopObserving(attempt);
+    // PeerJS clears its ID when its signaling socket drops. Quick Play cannot adopt that peer.
+    const signalLost = this.options.mode === 'best' && this.peer.disconnected;
+    const winner = signalLost ? undefined : this.select();
     let adopted: ConnectionPort | undefined;
     try {
       // Install the session handler in this data-event turn so following packets cannot be lost.
@@ -259,11 +317,15 @@ export class LobbyQuery {
           : new Error('could not adopt the lobby', { cause: failure });
     }
     for (const attempt of this.attempts)
-      if (attempt.connection !== adopted) close(attempt.connection);
+      if (!attempt.released && attempt.connection !== adopted) close(attempt.connection);
     if (error) this.reject(error);
     else if (this.options.mode !== 'all' && !adopted)
       this.reject(
-        (this.options.mode === 'best' ? this.incomplete : this.pending > 0 && !this.lastError)
+        (
+          this.options.mode === 'best'
+            ? this.incomplete || signalLost
+            : this.pending > 0 && !this.lastError
+        )
           ? new LobbyQueryError('timeout', 'no answer from that lobby')
           : new LobbyQueryError('empty', this.lastError?.message ?? 'no lobby with that code'),
       );

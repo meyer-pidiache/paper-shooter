@@ -12,11 +12,15 @@ export interface ConnectionPort {
 
 export interface DiscoveryPeerPort {
   readonly id: string;
+  readonly disconnected?: boolean;
+  reconnect?(): void;
   connect(
     id: string,
     options: { reliable: true; serialization: 'json'; metadata: object },
   ): ConnectionPort | undefined;
   on(event: 'error', listener: (value: unknown) => void): unknown;
   off(event: 'error', listener: (value: unknown) => void): unknown;
+  on(event: 'open', listener: () => void): unknown;
+  off(event: 'open', listener: () => void): unknown;
   destroy(): void;
 }

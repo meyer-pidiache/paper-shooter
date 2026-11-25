@@ -125,6 +125,105 @@ describe('disposable lobby queries', () => {
       { hostId: 'a', kind: 'refused', details: { players: 10, max: 10 } },
     ]);
   });
+  it('starts public probes in batches and waits for a later alias before selecting an offer', async () => {
+    const peer = new ControlledPeer();
+    const adopt = vi.fn();
+    const ids = Array.from({ length: 17 }, (_, i) => `slot-${i}`);
+    const query = new LobbyQuery(
+      peer,
+      ids,
+      {},
+      {
+        mode: 'best',
+        timeout: 11000,
+        gather: 100,
+        adopt,
+      },
+    );
+    const result = query.run();
+    expect(peer.connect).toHaveBeenCalledTimes(16);
+    expect(query.diagnostics.queued).toBe(1);
+    peer.connections.get(ids[0])!.emit('data', welcome(1));
+    for (const id of ids.slice(1, 16)) unavailable(peer, id);
+    expect(peer.connections.get(ids[1])!.close).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(749);
+    expect(adopt).not.toHaveBeenCalled();
+    expect(peer.connections.has(ids[16])).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(query.diagnostics.queued).toBe(0);
+    const last = peer.connections.get(ids[16])!;
+    last.emit('data', welcome(4));
+    await result;
+    expect(adopt).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ connection: last }));
+    expect(last.close).not.toHaveBeenCalled();
+    expect(peer.connections.get(ids[1])!.close).toHaveBeenCalledOnce();
+  });
+
+  it('resumes the last scheduled probe when signaling reopens before the deadline', async () => {
+    const peer = Object.assign(new ControlledPeer(), { disconnected: false, reconnect: vi.fn() });
+    const ids = Array.from({ length: 17 }, (_, i) => `slot-${i}`);
+    const query = new LobbyQuery(peer, ids, {}, { mode: 'all', timeout: 11000, gather: 2200 });
+    const result = query.run();
+    for (const id of ids.slice(0, 16)) unavailable(peer, id);
+    peer.disconnected = true;
+    await vi.advanceTimersByTimeAsync(750);
+    expect(peer.reconnect).toHaveBeenCalledOnce();
+    expect(query.diagnostics.queued).toBe(1);
+    peer.disconnected = false;
+    peer.emit('open');
+    peer.connections.get(ids[16])!.emit('data', welcome());
+    expect(await result).toMatchObject([{ hostId: ids[16] }]);
+    expect(query.incomplete).toBe(false);
+    expect(query.diagnostics.signalingReconnects).toBe(1);
+    expect(peer.listenerCount('open')).toBe(0);
+  });
+
+  it('reports an incomplete search if signaling fails to reopen before the original deadline', async () => {
+    const peer = Object.assign(new ControlledPeer(), { disconnected: false, reconnect: vi.fn() });
+    const ids = Array.from({ length: 17 }, (_, i) => `slot-${i}`);
+    const adopt = vi.fn();
+    const query = new LobbyQuery(
+      peer,
+      ids,
+      {},
+      { mode: 'best', timeout: 11000, gather: 1500, adopt },
+    );
+    const result = expect(query.run()).rejects.toMatchObject({ reason: 'timeout' });
+    peer.connections.get(ids[0])!.emit('data', welcome());
+    for (const id of ids.slice(1, 16)) unavailable(peer, id);
+    peer.disconnected = true;
+    await vi.advanceTimersByTimeAsync(11000);
+    await result;
+    expect(peer.reconnect).toHaveBeenCalledOnce();
+    expect(adopt).not.toHaveBeenCalled();
+    expect(query.diagnostics).toMatchObject({ pending: 1, queued: 1, signalingReconnects: 1 });
+    expect(peer.listenerCount('open')).toBe(0);
+  });
+
+  it('cancels scheduled public batches together with the active probes', async () => {
+    const peer = new ControlledPeer();
+    const controller = new AbortController();
+    const ids = Array.from({ length: 17 }, (_, i) => `slot-${i}`);
+    const result = expect(
+      new LobbyQuery(
+        peer,
+        ids,
+        {},
+        {
+          mode: 'all',
+          timeout: 11000,
+          gather: 2200,
+          signal: controller.signal,
+        },
+      ).run(),
+    ).rejects.toMatchObject({ reason: 'cancelled' });
+    controller.abort();
+    await result;
+    await vi.advanceTimersByTimeAsync(11000);
+    expect(peer.connect).toHaveBeenCalledTimes(16);
+    expect([...peer.connections.values()].every((connection) => !connection.open)).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it('finishes unavailable peers immediately and unanswered peers at the deadline', async () => {
     const peer = new ControlledPeer();
     const failed = expect(

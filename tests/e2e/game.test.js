@@ -232,6 +232,7 @@ test('distinguishes empty and incomplete lobby searches and retains full respons
   });
   await page.locator('#refreshBtn').click();
   await expect(page.locator('#lobbyRows')).toContainText('Searching for public lobbies');
+  for (let batch = 0; batch < 3; batch++) await page.clock.fastForward(750);
   await page.clock.fastForward(2300);
   const rows = page.locator('#lobbyRows');
   await expect(rows).toContainText('Search incomplete');
@@ -244,6 +245,7 @@ test('distinguishes empty and incomplete lobby searches and retains full respons
   });
   await page.locator('#quickBtn').click();
   await expect(page.locator('#status')).toContainText('looking for an open lobby');
+  for (let batch = 0; batch < 3; batch++) await page.clock.fastForward(750);
   await page.clock.fastForward(11100);
   await expect(page.locator('#status')).toContainText('public lobby search incomplete');
   const diagnostics = await page.evaluate(() => window.__game.net.getLobbyDiagnostics());

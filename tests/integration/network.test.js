@@ -99,7 +99,9 @@ describe('PeerJS lobby transport', () => {
       key: host.rejoinKey,
       token: 'b'.repeat(32),
     });
-    await expect(outsider.quickJoin()).rejects.toThrow('no open public');
+    const noOpenLobby = expect(outsider.quickJoin()).rejects.toThrow('no open public');
+    await vi.advanceTimersByTimeAsync(2300);
+    await noOpenLobby;
     expect(host.peerIds).toEqual([previous]);
 
     const reloaded = make(credentials);
