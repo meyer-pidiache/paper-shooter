@@ -5,7 +5,13 @@ import type { WireVector } from '../network/game-message-types.js';
 import type { PlayerHitReceipt } from '../gameplay/player/services.js';
 import type { Winner } from './session-contracts.js';
 import type { MatchPorts } from './match-contracts.js';
-import { matchBoard, matchLeaders, matchResults, localDeathNotice } from '../presentation/match.js';
+import {
+  matchBoard,
+  matchLeaders,
+  matchResults,
+  localDeathNotice,
+  scoreRows,
+} from '../presentation/match.js';
 
 const HOW: ReadonlyMap<string, string> = new Map([
   ['rifle', 'rifle'],
@@ -126,7 +132,9 @@ export class MatchController {
   refreshScoreHud() {
     const { online, hud, boardVisible } = this.ports;
     if (!online()) return;
-    hud.setPvpScore(matchLeaders(this.view()));
+    const view = this.view();
+    hud.setPvpScore(matchLeaders(view));
+    hud.setPauseScores(scoreRows(view.rows, view.localId));
     hud.setModifier('');
     if (boardVisible()) hud.setBoard(this.boardHTML());
   }

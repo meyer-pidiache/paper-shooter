@@ -29,6 +29,7 @@ export interface MatchHud {
   kill(message: string, points: number): void;
   tip(message: string, duration: number): void;
   setPvpScore(html: string): void;
+  setPauseScores(html: string): void;
   setModifier(html: string): void;
   setBoard(html: string | null): void;
   setGameplayVisible(visible: boolean): void;

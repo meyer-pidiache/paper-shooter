@@ -2,6 +2,7 @@ import { LEVELS } from '../domain/maps.js';
 import type { MapKey } from '../domain/maps.js';
 import { FFA_DURATIONS, FFA_TARGET, FFA_TIME } from '../domain/match.js';
 import { escapeHtml as esc } from './html.js';
+import { scoreRows } from './match.js';
 import type {
   MainScreenView,
   OnlineScreenView,
@@ -91,14 +92,7 @@ const fullscreenButton =
   '<button type="button" class="alt" data-fullscreen>TOGGLE FULLSCREEN</button>';
 
 export function pauseOnlineHTML(view: PauseScreenView, settings: string, confirm: string) {
-  return `<h1>MENU</h1><h2>free for all · lobby ${esc(view.code.replace(/-\d+$/, ''))}</h2><div class="scoreboard">${view.scores
-    .map(
-      ([id, s]) =>
-        `<div class="${id === view.localId ? 'me' : ''}"><span>${esc(s.name)}</span><span>${esc(s.kills)} K · ${esc(s.deaths)} D</span></div>`,
-    )
-    .join(
-      '',
-    )}</div>${settings}<div class="online" id="online"><div class="row"><button type="button" class="alt" id="leaveBtn">LEAVE MATCH</button>${fullscreenButton}</div></div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO KEEP PLAYING</div>`;
+  return `<h1>MENU</h1><h2>free for all · lobby ${esc(view.code.replace(/-\d+$/, ''))}</h2><div class="scoreboard" id="pauseScores">${scoreRows(view.scores, view.localId)}</div>${settings}<div class="online" id="online"><div class="row"><button type="button" class="alt" id="leaveBtn">LEAVE MATCH</button>${fullscreenButton}</div></div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO KEEP PLAYING</div>`;
 }
 
 export function pauseSoloHTML(

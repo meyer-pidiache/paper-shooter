@@ -232,6 +232,10 @@ export class HUD {
     this.el.board.hidden = !on;
     if (on) this.el.board.innerHTML = html;
   }
+  setPauseScores(html) {
+    const scores = this.el.panel.querySelector('#pauseScores');
+    if (scores && scores.innerHTML !== html) scores.innerHTML = html;
+  }
   setPvpScore(html) {
     const on = !!html;
     const { pvpscore, killfeed, screen } = this.el;

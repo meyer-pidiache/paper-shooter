@@ -204,9 +204,25 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       host.app.combat.breakProp(prop, new Vector3(1, 0, 0), true);
       await flushMessages();
       expect(guest.state.level.breakables[prop.id].alive).toBe(false);
-      host.app.match.tallyDeath(guest.net.id, host.net.id);
+      guest.app.session.pause();
+      const menu = guest.hud.el.panel;
+      const settings = menu.querySelector('#settingsShell');
+      // jsdom does not implement the modal dialog methods.
+      settings.open = true;
+      settings.close = () => {
+        settings.open = false;
+      };
+      settings.querySelector('#closeSettings').focus();
+      const focused = document.activeElement;
+      const pauseScores = menu.querySelector('#pauseScores');
+      expect(pauseScores.querySelector('.me').textContent).toContain('0 K · 0 D');
+      host.net.sendTo(guest.net.id, 'pdmg', { amount: 300, src: 'rifle' });
       await flushMessages();
       expect(guest.scores.get(host.net.id).kills).toBe(1);
+      expect(pauseScores.querySelector('.me').textContent).toContain('0 K · 1 D');
+      expect(settings.open).toBe(true);
+      expect(document.activeElement).toBe(focused);
+      expect(guest.game).toMatchObject({ state: 'dying', menu: true });
       host.app.multiplayer.netUpdate(1);
       await flushMessages();
       expect(guest.state.clockRunning).toBe(true);
