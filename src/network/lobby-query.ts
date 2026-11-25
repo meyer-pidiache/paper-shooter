@@ -124,7 +124,8 @@ export class LobbyQuery {
       done: false,
       data: (value) => this.receive(attempt, value),
       closed: () => {
-        this.offers = this.offers.filter((offer) => offer.connection !== connection);
+        if (this.options.mode !== 'all')
+          this.offers = this.offers.filter((offer) => offer.connection !== connection);
         this.fail(attempt);
       },
     };

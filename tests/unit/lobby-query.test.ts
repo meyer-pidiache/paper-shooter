@@ -103,6 +103,28 @@ describe('disposable lobby queries', () => {
     expect(adopt).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
+  it('keeps a full lobby snapshot after its probe closes while another slot is pending', async () => {
+    const peer = new ControlledPeer();
+    const result = new LobbyQuery(
+      peer,
+      ['a', 'b'],
+      {},
+      {
+        mode: 'all',
+        timeout: 11000,
+        gather: 2200,
+      },
+    ).run();
+    peer.connections.get('a')!.emit('data', {
+      t: 'refused',
+      d: { reason: 'full', players: 10, max: 10 },
+    });
+    peer.connections.get('a')!.close();
+    unavailable(peer, 'b');
+    expect(await result).toMatchObject([
+      { hostId: 'a', kind: 'refused', details: { players: 10, max: 10 } },
+    ]);
+  });
   it('finishes unavailable peers immediately and unanswered peers at the deadline', async () => {
     const peer = new ControlledPeer();
     const failed = expect(
