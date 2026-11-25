@@ -14,6 +14,7 @@ import type { MatchClockPorts } from './match-clock.js';
 import type { RosterPeer } from './remote-roster.js';
 import type { LobbyTransport, LobbyState, LobbyConnectionPorts } from './lobby-contracts.js';
 import type { Pickup } from './pickup-contracts.js';
+import type { KillFeedEntry } from '../presentation/kill-feed.js';
 
 export type MultiplayerPeer = RosterPeer &
   ReplicatedPeer &
@@ -76,6 +77,7 @@ export interface MultiplayerPorts {
     empty(): void;
   };
   hud: NetworkCombatFeedbackPorts['hud'] & {
+    kill(entry: KillFeedEntry, points: number): void;
     hitmarker(kill: boolean, critical: boolean): void;
     setTimer(text: string, urgent?: boolean): void;
     message(title: string, detail: string, duration: number): void;

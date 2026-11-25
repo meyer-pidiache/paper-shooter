@@ -82,7 +82,7 @@ it('orders remote death presentation local kill credit and host tally, preservin
   expect(events).toEqual([
     ['ragdoll', [0, 1, 0], true],
     ['sound'],
-    ['credit', 100, 'ERASED paper · rifle headshot'],
+    ['credit', 100, { killer: 'You', after: ' erased paper · rifle headshot' }],
     ['kill', true],
     ['tally', 'victim', 'local'],
   ]);
@@ -94,7 +94,7 @@ it('orders remote death presentation local kill credit and host tally, preservin
   expect(events).toEqual([
     ['ragdoll', undefined, false],
     ['sound'],
-    ['feed', 'ink erased paper', 0],
+    ['feed', { killer: 'ink', after: ' erased paper' }, 0],
   ]);
   expect(game.kills).toBe(1);
   events.length = 0;

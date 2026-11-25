@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import type { GamePayloads } from '../network/game-message-types.js';
 import type { GamePhase, Score } from '../domain/match.js';
 import type { PlayerHitReceipt } from '../gameplay/player/services.js';
+import type { KillFeedEntry } from '../presentation/kill-feed.js';
 export interface CombatMessagePeer {
   readonly name: string;
   readonly center: Vector3;
@@ -19,14 +20,18 @@ export interface CombatMessagePorts {
     throwGrenade(data: GamePayloads['nade']): void;
     detachGrapple(jump: boolean): void;
   };
-  game: { readonly state: GamePhase; kills: number; addScore(points: number, label: string): void };
+  game: {
+    readonly state: GamePhase;
+    kills: number;
+    addScore(points: number, label: KillFeedEntry): void;
+  };
   transport: { readonly id: string | null; readonly isHost: boolean };
   scores: ReadonlyMap<string, Score>;
   opponents: ReadonlyMap<string, CombatMessagePeer>;
   feedback: {
     death(point: Vector3): void;
     kill(): void;
-    feed(text: string): void;
+    feed(text: KillFeedEntry): void;
     parry(returned: boolean): void;
     cut(): void;
   };
@@ -50,20 +55,24 @@ export class CombatMessages {
   death(data: GamePayloads['pdead'], sender: string) {
     const { opponents, scores, transport, feedback, game, tally } = this.ports;
     const opponent = opponents.get(sender);
-    const victimName = opponent ? opponent.name : 'someone';
-    const killerName = data.killer ? scores.get(data.killer)?.name : null;
+    const victimName = opponent?.name || scores.get(sender)?.name || 'someone';
+    const killerName = data.killer
+      ? scores.get(data.killer)?.name || opponents.get(data.killer)?.name
+      : null;
     if (opponent) {
       opponent.ragdoll(data.dir ? new Vector3().fromArray(data.dir) : null, !!data.over);
       feedback.death(opponent.center);
     }
     const how = data.how ? ' · ' + data.how + (data.crit ? ' headshot' : '') : '';
-    if (data.killer === transport.id) {
+    if (data.killer && data.killer === transport.id) {
       game.kills++;
-      game.addScore(100, 'ERASED ' + victimName + how);
+      game.addScore(100, { killer: killerName || 'You', after: ' erased ' + victimName + how });
       feedback.kill();
     } else
       feedback.feed(
-        killerName ? killerName + ' erased ' + victimName + how : victimName + ' fell off the page',
+        killerName
+          ? { killer: killerName, after: ' erased ' + victimName + how }
+          : victimName + ' fell off the page',
       );
     if (transport.isHost) tally(sender, data.killer);
   }

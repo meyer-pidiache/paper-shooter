@@ -64,7 +64,7 @@ it('credits unknown victims to the local killer and reports host tally after cre
   const { owner, events, ports } = fixture();
   owner.death({ killer: 'local' }, 'missing');
   expect(events).toEqual([
-    ['score', 100, 'ERASED someone'],
+    ['score', 100, { killer: 'You', after: ' erased someone' }],
     ['kill'],
     ['tally', 'missing', 'local'],
   ]);

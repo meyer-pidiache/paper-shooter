@@ -22,6 +22,16 @@ describe('HUD trust boundaries', () => {
   it('escapes names before using trusted scoreboard templates', () => {
     expect(escapeHtml(`<img title="x">&'`)).toBe('&lt;img title=&quot;x&quot;&gt;&amp;&#39;');
   });
+  it('emphasizes only the killer and keeps names and hit details as text', () => {
+    const root = document.createElement('div');
+    const hud = new HUD(root);
+    hud.kill({ killer: '<ink>', after: ' erased <paper> · rifle headshot' }, 100);
+    expect(root.querySelector('#killfeed .killer')?.textContent).toBe('<ink>');
+    expect(root.querySelector('#killfeed > div')?.textContent).toBe(
+      '<ink> erased <paper> · rifle headshot +100',
+    );
+    expect(root.querySelector('#killfeed ink, #killfeed paper')).toBeNull();
+  });
   it('formats optional Nerd Stats and avoids writing the same display twice', () => {
     const root = document.createElement('div');
     const hud = new HUD(root);

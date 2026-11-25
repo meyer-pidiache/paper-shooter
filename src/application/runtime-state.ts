@@ -7,6 +7,7 @@ import type { EnemyActor } from '../gameplay/enemies/actor.js';
 import type { SessionGame } from './session-contracts.js';
 import type { WaveState } from './wave-contracts.js';
 import type { Pickup } from './pickup-contracts.js';
+import type { KillFeedEntry } from '../presentation/kill-feed.js';
 /** Owned construction state. Controllers continue to consume only their scoped protocols. */
 export interface RuntimeState extends SavedPreferences {
   loadedKey: MapKey;
@@ -32,6 +33,6 @@ export interface GameState extends SessionGame, WaveState {
   katanaStreak: number;
   focus: FocusState<EnemyActor>;
   hitstop(duration: number, scale: number): void;
-  addScore(points: number, label?: string | null): void;
+  addScore(points: number, label?: KillFeedEntry | null): void;
   onPlayerDeath(): void;
 }

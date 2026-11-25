@@ -345,6 +345,11 @@ canvas#c {
 .killfeed div {
   animation: kf 1.7s ease-out forwards;
 }
+.killfeed .killer {
+  color: var(--red);
+  font-weight: 700;
+  text-shadow: 0 0 2px var(--paper);
+}
 .killfeed .pts {
   color: var(--red);
 }

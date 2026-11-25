@@ -3,6 +3,7 @@ import type { Score } from '../domain/match.js';
 import type { PlayerHitReceipt } from '../gameplay/player/services.js';
 import type { GamePayloads } from '../network/game-message-types.js';
 import type { Winner } from './session-contracts.js';
+import type { KillFeedEntry } from '../presentation/kill-feed.js';
 
 export interface MatchOpponent {
   readonly alive: boolean;
@@ -26,7 +27,7 @@ export interface MatchTransport {
   broadcast(kind: 'pdead', data: GamePayloads['pdead']): void;
 }
 export interface MatchHud {
-  kill(message: string, points: number): void;
+  kill(message: KillFeedEntry, points: number): void;
   tip(message: string, duration: number): void;
   setPvpScore(html: string): void;
   setPauseScores(html: string): void;

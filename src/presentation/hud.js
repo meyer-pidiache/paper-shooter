@@ -324,9 +324,16 @@ export class HUD {
     this.el.msgsub.textContent = sub;
     this._msgT = dur;
   }
-  kill(text, pts) {
+  /** @param {import('./kill-feed.js').KillFeedEntry} entry */
+  kill(entry, pts) {
     const d = document.createElement('div');
-    d.textContent = text;
+    if (typeof entry === 'string') d.textContent = entry;
+    else {
+      const killer = document.createElement('strong');
+      killer.className = 'killer';
+      killer.textContent = entry.killer;
+      d.append(entry.before ?? '', killer, entry.after);
+    }
     if (pts > 0) {
       const score = document.createElement('span');
       score.className = 'pts';

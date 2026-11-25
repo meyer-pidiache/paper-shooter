@@ -1,6 +1,7 @@
 import { FFA_TARGET, formatClock } from '../domain/match.js';
 import type { Score, Winner } from '../domain/match.js';
 import { escapeHtml as esc } from './html.js';
+import type { KillFeedEntry } from './kill-feed.js';
 
 export interface MatchView {
   localId: string | null;
@@ -42,13 +43,16 @@ export function matchResults(view: MatchView, winner: Winner): string {
   return `<h1>${esc(title)}</h1><div class="scoreboard">${scoreRows(view.rows, view.localId)}</div><div class="online"><button type="button" id="resultsReturn" hidden disabled>BACK TO LOBBY</button></div><div class="hint">Returning to the lobby automatically</div>`;
 }
 
-/** Text-only feed label; the HUD publishes it through text nodes. */
 export function localDeathNotice(
   killerName: string | null | undefined,
   how: string | null,
   hit: { readonly crit?: boolean } | null,
-): string {
+): KillFeedEntry {
   return killerName
-    ? 'erased by ' + killerName + (how ? ' · ' + how + (hit?.crit ? ' headshot' : '') : '')
+    ? {
+        before: 'erased by ',
+        killer: killerName,
+        after: how ? ' · ' + how + (hit?.crit ? ' headshot' : '') : '',
+      }
     : 'erased';
 }

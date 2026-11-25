@@ -129,7 +129,14 @@ it('reports death before scoring and preserves headshot, suicide and respawn fee
   });
   expect(scores.get('local').deaths).toBe(1);
   expect(scores.get('other').kills).toBe(1);
-  expect(kill).toHaveBeenLastCalledWith('erased by <opponent> · rifle headshot', 0);
+  expect(kill).toHaveBeenLastCalledWith(
+    {
+      before: 'erased by ',
+      killer: '<opponent>',
+      after: ' · rifle headshot',
+    },
+    0,
+  );
   expect(game).toMatchObject({ state: 'dying', deathT: 0, respawnT: 2.5 });
   app.match.respawnLocal();
   expect(game.state).toBe('play');
