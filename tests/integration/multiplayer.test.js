@@ -67,6 +67,21 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       expect(observer.remote.get(guest.net.id)).toBe(guestReplica);
       expect(guestReplica.ink).toBe(INK.BLUE);
 
+      const emit = vi.spyOn(observer.net, '_emit');
+      for (const invalid of [null, undefined, 'x'.repeat(200)]) {
+        guest.net.broadcast('player-color', 'blue');
+        await flushMessages();
+        expect(guestReplica.ink).toBe(INK.BLUE);
+        guest.net.broadcast('player-color', invalid);
+        await flushMessages();
+        expect(host.remote.get(guest.net.id).ink).toBe(INK.RED);
+        expect(guestReplica.ink).toBe(INK.RED);
+        expect(emit).toHaveBeenLastCalledWith('player-color', 'original', guest.net.id);
+      }
+      guest.net.broadcast('player-color', 'blue');
+      await flushMessages();
+      emit.mockRestore();
+
       const previous = guest.net.id;
       host.app.match.tallyDeath(host.net.id, previous);
       host.app.match.tallyDeath(previous, host.net.id);

@@ -3,6 +3,7 @@ import { networkConfig } from './config.js';
 import { createIceClient } from './ice-client.js';
 import { isWireMessage, lobbyCode } from './protocol.js';
 import { MAX_PLAYERS } from '../domain/match.js';
+import { characterColor } from '../shared/character-color.js';
 import { isGamePayload } from './game-messages.js';
 import { LobbyDiscovery, PUBLIC_SLOT_COUNT } from './lobby-discovery.js';
 import { LobbyQuery } from './lobby-query.js';
@@ -256,7 +257,12 @@ export class Net {
     return isWireMessage(msg) && this.validatePayload(msg.t, msg.d);
   }
   _route(msg, from) {
-    if (!this._validMessage(msg)) return;
+    if (!isWireMessage(msg)) return;
+    if (msg.t === 'player-color' && (msg.d == null || typeof msg.d === 'string')) {
+      // Relay only a palette key, even when the original selection was missing or oversized.
+      msg = { ...msg, d: characterColor(msg.d) };
+    }
+    if (!this.validatePayload(msg.t, msg.d)) return;
     if (msg.t === 'rejoin-token') {
       if (!this.isHost && from === this.hostId && msg.from === this.authorityId)
         this.rejoinCredentials.save(this.code, { hostId: this.authorityId, ...msg.d });
