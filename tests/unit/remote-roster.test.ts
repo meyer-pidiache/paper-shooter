@@ -111,3 +111,25 @@ it('assigns balanced teams and preserves disconnected points on a rejoin', () =>
   expect(scores.get('new-one')?.kills).toBe(4);
   expect(lobby.teamBank).toEqual({ red: 0, blue: 0 });
 });
+
+it('leaves teamBank unchanged when a live peer rejoins without a pending disconnect', () => {
+  const { owner, lobby, scores, ports } = fixture();
+  lobby.mode = 'teams';
+  lobby.players.set('host', { name: 'host' });
+  owner.broadcast();
+  owner.join('one', { name: 'one' });
+  owner.join('two', { name: 'two' });
+  owner.join('three', { name: 'three' });
+  ports.phase = () => 'play';
+  ports.inMatch = () => true;
+  Object.defineProperty(ports.transport, 'rejoinKey', { value: 'test-key' });
+  owner.beginMatch();
+  scores.set('one', { name: 'one', team: 'blue', kills: 5, deaths: 1 });
+  scores.set('three', { name: 'three', team: 'blue', kills: 3, deaths: 0 });
+  owner.peerLeave('one');
+  expect(lobby.teamBank).toEqual({ red: 0, blue: 5 });
+  owner.join('new-three', { name: 'three' }, 'three');
+  expect(lobby.players.get('new-three')?.team).toBe('blue');
+  expect(scores.get('new-three')?.kills).toBe(3);
+  expect(lobby.teamBank).toEqual({ red: 0, blue: 5 });
+});

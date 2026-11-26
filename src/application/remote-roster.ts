@@ -1,5 +1,5 @@
 import { knownMap, type MapKey } from '../domain/maps.js';
-import { FFA_TIME, type GamePhase, type Score } from '../domain/match.js';
+import { FFA_TIME, type GamePhase, type Score, type Team } from '../domain/match.js';
 import type { GamePayloads } from '../network/game-message-types.js';
 import { isRecord } from '../shared/ice.js';
 import {
@@ -42,6 +42,7 @@ export interface RosterPorts<Peer extends RosterPeer> {
 /** Owns replica membership and roster reconciliation, not actor damage or host election. */
 export class RemoteRoster<Peer extends RosterPeer> {
   private readonly rejoins = new MatchRejoins();
+  private readonly banked = new Map<string, { team: Team; kills: number }>();
 
   constructor(private readonly ports: RosterPorts<Peer>) {}
 
@@ -53,6 +54,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
 
   clearRejoins() {
     this.rejoins.clear();
+    this.banked.clear();
   }
 
   private activeMatch() {
@@ -150,6 +152,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
       if (lobby.mode === 'teams' && score?.team) {
         lobby.teamBank ??= { red: 0, blue: 0 };
         lobby.teamBank[score.team] += score.kills;
+        this.banked.set(id, { team: score.team, kills: score.kills });
       }
     }
     lobby.migrationPeers?.delete(id);
@@ -168,10 +171,12 @@ export class RemoteRoster<Peer extends RosterPeer> {
     const color = characterColor(meta.color);
     let restoredTeam: 'red' | 'blue' | undefined;
     if (previous) {
+      const banked = this.banked.get(previous);
+      this.banked.delete(previous);
       const score = this.rejoins.restore(previous, id, scores.get(previous));
       restoredTeam = score?.team;
-      if (score?.team && lobby.teamBank)
-        lobby.teamBank[score.team] = Math.max(0, lobby.teamBank[score.team] - score.kills);
+      if (score && banked && lobby.teamBank)
+        lobby.teamBank[banked.team] = Math.max(0, lobby.teamBank[banked.team] - banked.kills);
       this.remove(previous);
       if (score) scores.set(id, { ...score, name });
     } else if (

@@ -83,6 +83,12 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     input,
     hud,
   });
+  const canReceiveDamage = (sender: string) =>
+    lobby.mode !== 'teams' ||
+    (!!net.id &&
+      !!lobby.players.get(net.id)?.team &&
+      !!lobby.players.get(sender)?.team &&
+      lobby.players.get(net.id)?.team !== lobby.players.get(sender)?.team);
   const combatMessages = new CombatMessages({
     player,
     game,
@@ -96,12 +102,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
       parry: (returned) => combatFeedback.parry(returned),
       cut: () => combatFeedback.cut(),
     },
-    canReceiveDamage: (sender) =>
-      lobby.mode !== 'teams' ||
-      (!!net.id &&
-        !!lobby.players.get(net.id)?.team &&
-        !!lobby.players.get(sender)?.team &&
-        lobby.players.get(net.id)?.team !== lobby.players.get(sender)?.team),
+    canReceiveDamage,
     tally: tallyDeath,
     colorFor: actions.colorFor,
   });
@@ -228,7 +229,9 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
   });
   net.on('parry', (data) => combatMessages.parry(data));
   net.on('shots', (data, sender) => combatFeedback.shots(data.k, data.e, sender));
-  net.on('cut', () => combatMessages.cut());
+  net.on('cut', (_data, sender) => {
+    if (canReceiveDamage(sender)) combatMessages.cut();
+  });
   net.onHost('score', (rows) => {
     if (!net.isHost) applyScores(rows);
   });
