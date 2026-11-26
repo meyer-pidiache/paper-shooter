@@ -190,7 +190,7 @@ test('distinguishes empty and incomplete lobby searches and retains full respons
       throw new Error('Quick Play should not create a lobby after a timeout');
     };
     net.discovery.openPeer = async () => {
-      const peer = { ...events(), destroy() {} };
+      const peer = { ...events(), open: true, destroy() {} };
       peer.connect = (id) => {
         const connection = {
           ...events(),

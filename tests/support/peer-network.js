@@ -41,11 +41,13 @@ export function peerNetwork() {
     constructor(id) {
       super();
       this.id = id || `guest-${++serial}`;
+      this.open = false;
       this.destroyed = false;
       queueMicrotask(() => {
         if (peers.has(this.id)) this.emit('error', { type: 'unavailable-id' });
         else {
           peers.set(this.id, this);
+          this.open = true;
           this.emit('open', this.id);
         }
       });
@@ -74,10 +76,12 @@ export function peerNetwork() {
       return outgoing;
     }
     reconnect() {
+      this.open = true;
       this.emit('open');
     }
     destroy() {
       if (peers.get(this.id) === this) peers.delete(this.id);
+      this.open = false;
       this.destroyed = true;
     }
   }

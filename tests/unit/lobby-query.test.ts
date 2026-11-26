@@ -159,27 +159,35 @@ describe('disposable lobby queries', () => {
     expect(peer.connections.get(ids[1])!.close).toHaveBeenCalledOnce();
   });
 
-  it('resumes the last scheduled probe when signaling reopens before the deadline', async () => {
-    const peer = Object.assign(new ControlledPeer(), { disconnected: false, reconnect: vi.fn() });
+  it('resumes probing and adopts a lobby when signaling reopens before the deadline', async () => {
+    const peer = new ControlledPeer();
     const ids = Array.from({ length: 17 }, (_, i) => `slot-${i}`);
-    const query = new LobbyQuery(peer, ids, {}, { mode: 'all', timeout: 11000, gather: 2200 });
+    const adopt = vi.fn();
+    const query = new LobbyQuery(
+      peer,
+      ids,
+      {},
+      { mode: 'best', timeout: 11000, gather: 1500, adopt },
+    );
     const result = query.run();
     for (const id of ids.slice(0, 16)) unavailable(peer, id);
-    peer.disconnected = true;
+    peer.disconnect();
     await vi.advanceTimersByTimeAsync(750);
     expect(peer.reconnect).toHaveBeenCalledOnce();
     expect(query.diagnostics.queued).toBe(1);
-    peer.disconnected = false;
-    peer.emit('open');
-    peer.connections.get(ids[16])!.emit('data', welcome());
+    expect(peer.open).toBe(false);
+    peer.reopen();
+    const last = peer.connections.get(ids[16])!;
+    last.emit('data', welcome());
     expect(await result).toMatchObject([{ hostId: ids[16] }]);
+    expect(adopt).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ connection: last }));
     expect(query.incomplete).toBe(false);
     expect(query.diagnostics.signalingReconnects).toBe(1);
     expect(peer.listenerCount('open')).toBe(0);
   });
 
   it('reports an incomplete search if signaling fails to reopen before the original deadline', async () => {
-    const peer = Object.assign(new ControlledPeer(), { disconnected: false, reconnect: vi.fn() });
+    const peer = new ControlledPeer();
     const ids = Array.from({ length: 17 }, (_, i) => `slot-${i}`);
     const adopt = vi.fn();
     const query = new LobbyQuery(
@@ -191,10 +199,13 @@ describe('disposable lobby queries', () => {
     const result = expect(query.run()).rejects.toMatchObject({ reason: 'timeout' });
     peer.connections.get(ids[0])!.emit('data', welcome());
     for (const id of ids.slice(1, 16)) unavailable(peer, id);
-    peer.disconnected = true;
-    await vi.advanceTimersByTimeAsync(11000);
-    await result;
+    peer.disconnect();
+    await vi.advanceTimersByTimeAsync(750);
     expect(peer.reconnect).toHaveBeenCalledOnce();
+    expect(peer.disconnected).toBe(false);
+    expect(peer.open).toBe(false);
+    await vi.advanceTimersByTimeAsync(10250);
+    await result;
     expect(adopt).not.toHaveBeenCalled();
     expect(query.diagnostics).toMatchObject({ pending: 1, queued: 1, signalingReconnects: 1 });
     expect(peer.listenerCount('open')).toBe(0);

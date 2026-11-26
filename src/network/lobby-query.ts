@@ -300,8 +300,8 @@ export class LobbyQuery {
     this.peer.off('open', this.onSignalReopened);
     this.options.signal?.removeEventListener('abort', this.onAbort);
     for (const attempt of this.attempts) if (!attempt.released) this.stopObserving(attempt);
-    // PeerJS clears its ID when its signaling socket drops. Quick Play cannot adopt that peer.
-    const signalLost = this.options.mode === 'best' && this.peer.disconnected;
+    // PeerJS clears disconnected when reconnect starts. Only open confirms signaling is ready.
+    const signalLost = this.options.mode === 'best' && !this.peer.open;
     const winner = signalLost ? undefined : this.select();
     let adopted: ConnectionPort | undefined;
     try {

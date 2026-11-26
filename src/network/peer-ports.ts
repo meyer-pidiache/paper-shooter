@@ -12,6 +12,7 @@ export interface ConnectionPort {
 
 export interface DiscoveryPeerPort {
   readonly id: string;
+  readonly open: boolean;
   readonly disconnected?: boolean;
   reconnect?(): void;
   connect(

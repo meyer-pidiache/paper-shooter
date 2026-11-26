@@ -14,12 +14,25 @@ export class ControlledConnection extends EventEmitter {
 }
 export class ControlledPeer extends EventEmitter {
   id = 'query-peer';
+  open = true;
+  disconnected = false;
   connections = new Map<string, ControlledConnection>();
   connect = vi.fn((id: string): ControlledConnection | undefined => {
     const connection = new ControlledConnection(id);
     this.connections.set(id, connection);
     return connection;
   });
+  disconnect() {
+    this.open = false;
+    this.disconnected = true;
+  }
+  reconnect = vi.fn(() => {
+    this.disconnected = false;
+  });
+  reopen() {
+    this.open = true;
+    this.emit('open', this.id);
+  }
   destroy = vi.fn();
 }
 export const welcome = (players = 1) => ({
