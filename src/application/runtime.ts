@@ -36,9 +36,14 @@ import { browserPreferences } from '../platform/preferences.js';
 import { comboScore, FFA_TIME } from '../domain/match.js';
 import { knownMap } from '../domain/maps.js';
 import { SceneResources } from '../engine/resources.js';
+import type { CharacterColor } from '../shared/character-color.js';
+
+interface RuntimeActions extends CombatActions {
+  playerColorChanged(color: CharacterColor): void;
+}
 
 /** Owns resources and shared match state; controllers receive explicit actions from composition. */
-export function createRuntime(options: ApplicationOptions, actions: CombatActions) {
+export function createRuntime(options: ApplicationOptions, actions: RuntimeActions) {
   const audio: ApplicationAudio = options.audio ?? new Sfx();
   const resources = new SceneResources();
   const canvas = options.canvas;
@@ -227,6 +232,7 @@ export function createRuntime(options: ApplicationOptions, actions: CombatAction
     player,
     transport: net,
     onBindingsChanged: () => hud.updateScoreboardHint?.(),
+    onColorChanged: actions.playerColorChanged,
     setAppearance: (appearance) => {
       if (typeof document !== 'undefined') document.documentElement.dataset.theme = appearance;
       R.setDarkMode?.(appearance === 'dark');

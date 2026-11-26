@@ -2,6 +2,7 @@ import { knownMap } from '../domain/maps';
 import type { MapKey } from '../domain/maps';
 import { cloneKeyBindings, normalizeKeyBindings } from '../shared/key-bindings.js';
 import type { KeyBindings } from '../shared/key-bindings.js';
+import { characterColor, type CharacterColor } from '../shared/character-color.js';
 
 export interface SavedPreferences {
   mapKey: MapKey;
@@ -9,6 +10,7 @@ export interface SavedPreferences {
   checkpoint: number;
   musicWanted: boolean;
   myName: string;
+  playerColor: CharacterColor;
   appearance: 'light' | 'dark';
   nerdStats: boolean;
   keyBindings: KeyBindings;
@@ -68,6 +70,7 @@ export class Preferences implements PreferencePort {
       checkpoint: Math.floor(boundedNumber(this.read('checkpoint'), 0, 0, 10000) / 5) * 5,
       musicWanted: this.read('music') !== '0',
       myName: this.read('name')?.slice(0, 14) || `paper${Math.floor(random() * 90 + 10)}`,
+      playerColor: characterColor(this.read('playerColor')),
       appearance: this.read('appearance') === 'dark' ? 'dark' : 'light',
       nerdStats: this.read('nerdStats') === '1',
       keyBindings,

@@ -120,6 +120,10 @@ forwarding or handshake adoption. Snapshots have 11 or 14 finite values; vectors
 Roster sizes follow `MAX_PLAYERS`; tracer batches, strings, spawn/breakable indices, clock values
 and damage are bounded. These are input-safety contracts, not authentication or anti-cheat rules.
 
+Character ink travels with the player's join metadata and the host's roster. The original red ink
+applies when a client omits the field or supplies a value outside the palette. A player-scoped
+message carries live color changes independently of movement snapshots.
+
 The host chooses the time limit in the lobby from 3, 5, 10 and 15 minutes. Five minutes is the
 default for new rooms. Lobby and start packets include the selected duration, and late-join start
 packets carry the host's current clock state. Followers continue to project the last host clock

@@ -1,9 +1,13 @@
 import { expect, it, vi } from 'vitest';
-import { RemoteRoster, type RosterPorts } from '../../src/application/remote-roster.js';
+import {
+  RemoteRoster,
+  type RosterPeer,
+  type RosterPorts,
+} from '../../src/application/remote-roster.js';
 import type { LobbyState } from '../../src/application/lobby-contracts.js';
 import type { Score } from '../../src/domain/match.js';
 function fixture() {
-  const peers = new Map<string, { name: string; dispose(): void }>();
+  const peers = new Map<string, RosterPeer>();
   const lobby: LobbyState = {
     players: new Map(),
     hostId: 'host',
@@ -13,12 +17,12 @@ function fixture() {
     map: null,
   };
   const scores = new Map<string, Score>();
-  const ports: RosterPorts<{ name: string; dispose(): void }> = {
+  const ports: RosterPorts<RosterPeer> = {
     peers,
     lobby,
     scores,
     transport: { id: 'host', code: 'ABCDE', send: vi.fn(), sendTo: vi.fn() },
-    createPeer: vi.fn((id, name) => ({ name, dispose: vi.fn() })),
+    createPeer: vi.fn((_id, name) => ({ name, dispose: vi.fn(), setColor: vi.fn() })),
     map: () => 'mexico',
     phase: () => 'lobby',
     inMatch: () => false,
@@ -65,4 +69,24 @@ it('accepts unknown handshake metadata through guarded fields without map actor 
     shown: 'ABCDE',
     duration: 300,
   });
+});
+
+it('keeps legacy and invalid color fields from breaking the roster', () => {
+  const { owner, peers, lobby, ports } = fixture();
+  owner.receive({
+    hostId: 'host',
+    isPublic: false,
+    players: [
+      { id: 'host', name: 'paper' },
+      { id: 'legacy', name: 'legacy' },
+      { id: 'invalid', name: 'invalid', color: { name: 'blue' } },
+      { id: 'valid', name: 'valid', color: 'green' },
+    ],
+  });
+  expect(ports.createPeer).toHaveBeenCalledWith('legacy', 'legacy', 'original');
+  expect(ports.createPeer).toHaveBeenCalledWith('invalid', 'invalid', 'original');
+  expect(ports.createPeer).toHaveBeenCalledWith('valid', 'valid', 'green');
+  owner.setColor('valid', 'blue');
+  expect(peers.get('valid')?.setColor).toHaveBeenLastCalledWith('blue');
+  expect(lobby.players.get('valid')?.color).toBe('blue');
 });

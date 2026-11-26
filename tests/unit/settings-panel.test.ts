@@ -9,6 +9,7 @@ const commands = () => ({
   setInvert: vi.fn(),
   setMusic: vi.fn(),
   setName: vi.fn(),
+  setPlayerColor: vi.fn(),
   setAppearance: vi.fn(),
   setNerdStats: vi.fn(),
   getKeyBindings: () => cloneKeyBindings(),
@@ -24,6 +25,7 @@ const view = () => ({
   settings: { sens: 100, invert: false },
   musicWanted: false,
   appearance: 'light' as const,
+  playerColor: 'original' as const,
   nerdStats: false,
   keyBindings: cloneKeyBindings(),
 });

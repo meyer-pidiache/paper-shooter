@@ -70,9 +70,9 @@ export class HostMigration {
     }
     const newId = transport.id;
     if (!newId) throw new Error('host identity missing after successful connection');
-    const mine = lobby.players.get(myId) || { name: local.myName };
+    const name = lobby.players.get(myId)?.name ?? local.myName;
     lobby.players.delete(myId);
-    lobby.players.set(newId, mine);
+    lobby.players.set(newId, { name, color: local.playerColor });
     const score = scores.get(myId);
     scores.delete(myId);
     if (score) scores.set(newId, score);
@@ -100,7 +100,11 @@ export class HostMigration {
     let joined = false;
     while (!joined && performance.now() < deadline) {
       try {
-        await transport.join(migration.code, { name: local.myName, prev: migration.myId });
+        await transport.join(migration.code, {
+          name: local.myName,
+          color: local.playerColor,
+          prev: migration.myId,
+        });
         if (!task.current) return;
         joined = true;
       } catch {

@@ -16,6 +16,7 @@ const valid: GamePayloads = {
   refused: { reason: 'full', ...offer },
   stay: undefined,
   'rejoin-token': { key: 'a'.repeat(32), token: 'b'.repeat(32) },
+  'player-color': 'green',
   lobby: {
     players: [{ id: 'host', name: 'paper' }],
     hostId: 'host',
@@ -86,6 +87,8 @@ describe('gameplay wire contracts', () => {
   });
   it('rejects non-finite, negative, excessive and malformed gameplay values', () => {
     const packets = [
+      ['player-color', { color: 'green' }],
+      ['player-color', 'x'.repeat(17)],
       ['pdmg', { amount: -1 }],
       ['pdmg', { amount: NaN }],
       ['pdmg', { amount: Infinity }],

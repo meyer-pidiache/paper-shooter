@@ -1,10 +1,18 @@
 import type { SavedPreferences, PreferencePort } from '../platform/preferences.js';
 import type { MapKey } from '../domain/maps.js';
 import type { BindingDevice, KeyBindingAction, KeyBindings } from '../shared/key-bindings.js';
+import { characterColor, type CharacterColor } from '../shared/character-color.js';
 
 export type UserSettingsState = Pick<
   SavedPreferences,
-  'settings' | 'musicWanted' | 'myName' | 'mapKey' | 'appearance' | 'nerdStats' | 'keyBindings'
+  | 'settings'
+  | 'musicWanted'
+  | 'myName'
+  | 'playerColor'
+  | 'mapKey'
+  | 'appearance'
+  | 'nerdStats'
+  | 'keyBindings'
 >;
 export interface UserSettingsPorts {
   state: UserSettingsState;
@@ -32,6 +40,7 @@ export interface UserSettingsPorts {
   setAppearance?(appearance: 'light' | 'dark'): void;
   setNerdStatsVisible?(visible: boolean): void;
   onBindingsChanged?(): void;
+  onColorChanged?(color: CharacterColor): void;
 }
 /** Owns persisted user edits and adapter synchronization; no screen or DOM access. */
 export class UserSettings {
@@ -121,6 +130,14 @@ export class UserSettings {
     preferences.write('name', state.myName);
     player.name = state.myName;
     transport.hostName = state.myName;
+  }
+  setPlayerColor(value: CharacterColor) {
+    const { state, preferences, onColorChanged } = this.ports;
+    const color = characterColor(value);
+    if (state.playerColor === color) return;
+    state.playerColor = color;
+    preferences.write('playerColor', color);
+    onColorChanged?.(color);
   }
   selectMap(map: MapKey) {
     this.ports.state.mapKey = map;

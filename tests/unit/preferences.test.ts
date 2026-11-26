@@ -59,6 +59,7 @@ describe('browser preferences', () => {
     const values = new Map<string, string>([
       ['paper_appearance', 'dark'],
       ['paper_nerdStats', '1'],
+      ['paper_playerColor', 'graphite'],
       [
         'paper_keyBindings',
         JSON.stringify({ ...DEFAULT_KEY_BINDINGS, jump: { keys: ['KeyJ'], mouse: [] } }),
@@ -70,16 +71,19 @@ describe('browser preferences', () => {
     });
     expect(prefs.load()).toMatchObject({
       appearance: 'dark',
+      playerColor: 'graphite',
       nerdStats: true,
       keyBindings: { jump: { keys: ['KeyJ'], mouse: [] } },
     });
     values.set('paper_appearance', 'sepia');
+    values.set('paper_playerColor', '__proto__');
     values.set(
       'paper_keyBindings',
       JSON.stringify({ ...DEFAULT_KEY_BINDINGS, jump: { keys: ['KeyS'], mouse: [] } }),
     );
     const safe = prefs.load();
     expect(safe.appearance).toBe('light');
+    expect(safe.playerColor).toBe('original');
     expect(safe.keyBindings.jump).toEqual(DEFAULT_KEY_BINDINGS.jump);
     values.set('paper_keyBindings', '{invalid json');
     expect(prefs.load().keyBindings.jump).toEqual(DEFAULT_KEY_BINDINGS.jump);

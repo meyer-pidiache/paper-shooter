@@ -15,7 +15,7 @@ export interface LobbyOffer {
   rejoinKey?: string;
 }
 export interface LobbyRoster {
-  players: Array<{ id: string; name: string }>;
+  players: Array<{ id: string; name: string; color?: unknown }>;
   hostId: string;
   isPublic: boolean;
   map?: MapKey;
@@ -56,6 +56,7 @@ export interface GamePayloads {
   refused: { reason: string } & Partial<LobbyOffer>;
   stay: { token?: string } | undefined;
   'rejoin-token': { key: string; token: string };
+  'player-color': string | undefined;
   lobby: LobbyRoster;
   leave: { id: string };
   start: MatchStart;

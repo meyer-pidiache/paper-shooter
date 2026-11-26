@@ -1,5 +1,4 @@
 import type { Vector3 } from 'three';
-import type { MapKey } from '../domain/maps.js';
 import type { Score, ScoreRow, Winner } from '../domain/match.js';
 import type { GamePayloads } from '../network/game-message-types.js';
 import type { RemoteDamageTarget, RemoteServices } from '../gameplay/remote/services.js';
@@ -57,12 +56,11 @@ export interface MultiplayerPorts {
   net: MultiplayerTransport;
   lobby: LobbyState;
   scores: Map<string, Score>;
-  local: MatchClockPorts['state'] & {
-    myName: string;
-    mapKey: MapKey;
-    readonly pickups: readonly Pickup[];
-    readonly level: { readonly breakables: readonly Breakable[] };
-  };
+  local: MatchClockPorts['state'] &
+    LobbyConnectionPorts['local'] & {
+      readonly pickups: readonly Pickup[];
+      readonly level: { readonly breakables: readonly Breakable[] };
+    };
   game: CombatMessagePorts['game'] & MatchClockPorts['game'];
   player: CombatMessagePorts['player'] &
     NetworkSyncPorts['player'] &

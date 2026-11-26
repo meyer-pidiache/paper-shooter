@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Vector3 } from 'three';
 import { applicationFixture } from '../support/application.js';
 import { flushMessages, peerNetwork } from '../support/peer-network.js';
+import { INK } from '../../src/shared/ink.js';
 import { Net } from '../../src/network/peer-transport.js';
 import {
   browserRejoinCredentials,
@@ -43,12 +44,28 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       const guest = make('district', browserRejoinCredentials());
       const observer = make();
       host.net.maxPlayers = 3;
+      host.app.runtime.userSettings.setPlayerColor('graphite');
+      const join = guest.net.join.bind(guest.net);
+      vi.spyOn(guest.net, 'join').mockImplementationOnce((code, metadata) => {
+        guest.app.runtime.userSettings.setPlayerColor('green');
+        return join(code, metadata);
+      });
       await host.app.multiplayer.createLobby(true);
       const code = host.net.code;
       await guest.app.multiplayer.joinLobby(code);
       await observer.app.multiplayer.joinLobby(code);
+      await flushMessages();
+      expect(guest.remote.get(host.net.id).ink).toBe(INK.BLACK);
+      expect(observer.remote.get(guest.net.id).ink).toBe(INK.GREEN);
       host.app.session.hostStart();
       await flushMessages();
+
+      const guestReplica = observer.remote.get(guest.net.id);
+      guest.app.runtime.userSettings.setPlayerColor('blue');
+      await flushMessages();
+      expect(host.remote.get(guest.net.id).ink).toBe(INK.BLUE);
+      expect(observer.remote.get(guest.net.id)).toBe(guestReplica);
+      expect(guestReplica.ink).toBe(INK.BLUE);
 
       const previous = guest.net.id;
       host.app.match.tallyDeath(host.net.id, previous);
@@ -62,10 +79,13 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       );
 
       const reloaded = make('district', browserRejoinCredentials());
+      reloaded.app.runtime.userSettings.setPlayerColor('blue');
       await reloaded.app.multiplayer.quickPlay();
       await flushMessages();
       const id = reloaded.net.id;
       expect(reloaded.game.state).toBe('play');
+      expect(host.remote.get(id).ink).toBe(INK.BLUE);
+      expect(observer.remote.get(id).ink).toBe(INK.BLUE);
       expect(host.net.peerIds).toEqual([observer.net.id, id]);
       expect(guest.net.active).toBe(false);
       for (const peer of [host, reloaded, observer]) {
@@ -78,8 +98,10 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       // An untrusted name or a previous peer ID cannot claim this live score.
       host.net.maxPlayers = 4;
       const other = make();
-      await other.net.join(code, { name: 'player', prev: id });
+      await other.net.join(code, { name: 'player', prev: id, color: '__proto__' });
       await flushMessages();
+      expect(host.remote.get(other.net.id).ink).toBe(INK.RED);
+      expect(observer.remote.get(other.net.id).ink).toBe(INK.RED);
       expect(host.scores.get(other.net.id)).toEqual({ name: 'player', kills: 0, deaths: 0 });
       expect(host.scores.get(id)).toEqual(score);
     },

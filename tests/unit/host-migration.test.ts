@@ -37,7 +37,7 @@ function fixture(successor = true) {
       order: successor ? ['old', 'me', 'next'] : ['old', 'next', 'me'],
     },
     scores: new Map([['me', { name: 'mine', kills: 7, deaths: 2 }]]),
-    local: { myName: 'mine', mapKey: 'district' },
+    local: { myName: 'mine', mapKey: 'district', playerColor: 'green' },
     removeRemote: vi.fn((id) => {
       ports.lobby.players.delete(id);
       ports.scores.delete(id);
@@ -84,6 +84,7 @@ describe('host recovery policy', () => {
     expect(f.transport.host).toHaveBeenCalledTimes(2);
     expect(f.ports.scores.get('new-host')).toMatchObject({ kills: 7, deaths: 2 });
     expect(f.ports.scores.has('me')).toBe(false);
+    expect(f.ports.lobby.players.get('new-host')).toEqual({ name: 'mine', color: 'green' });
     expect(f.ports.lobby.order).toEqual(['new-host', 'next']);
     expect(f.events).toEqual(['clock', 'alias', 'recover', 'broadcast']);
     f.transport.onAlias?.();
@@ -111,7 +112,11 @@ describe('host recovery policy', () => {
     const running = f.migration.run();
     await vi.advanceTimersByTimeAsync(24000);
     await running;
-    expect(f.transport.join).toHaveBeenCalledWith('ABCDE-1', { name: 'mine', prev: 'me' });
+    expect(f.transport.join).toHaveBeenCalledWith('ABCDE-1', {
+      name: 'mine',
+      color: 'green',
+      prev: 'me',
+    });
     expect(f.leave).toHaveBeenCalledWith('lost the match when the host left');
     expect(f.ports.session.recoverFollower).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
@@ -148,6 +153,10 @@ it('retires a follower endpoint before backoff while retaining its previous iden
   expect(f.transport.join).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(1200);
   await running;
-  expect(f.transport.join).toHaveBeenCalledWith('ABCDE-1', { name: 'mine', prev: 'me' });
+  expect(f.transport.join).toHaveBeenCalledWith('ABCDE-1', {
+    name: 'mine',
+    color: 'green',
+    prev: 'me',
+  });
   expect(f.ports.session.recoverFollower).toHaveBeenCalledWith(true);
 });

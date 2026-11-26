@@ -2,10 +2,16 @@ import { knownMap, type MapKey } from '../domain/maps.js';
 import { FFA_TIME, type GamePhase, type Score } from '../domain/match.js';
 import type { GamePayloads } from '../network/game-message-types.js';
 import { isRecord } from '../shared/ice.js';
+import {
+  characterColor,
+  DEFAULT_CHARACTER_COLOR,
+  type CharacterColor,
+} from '../shared/character-color.js';
 import type { LobbyState } from './lobby-contracts.js';
 import { MatchRejoins } from './match-rejoins.js';
 export interface RosterPeer {
   name: string;
+  setColor(color: CharacterColor): void;
   dispose(): void;
 }
 export interface RosterPorts<Peer extends RosterPeer> {
@@ -20,7 +26,7 @@ export interface RosterPorts<Peer extends RosterPeer> {
     sendTo<K extends 'start' | 'rejoin-token'>(id: string, kind: K, data: GamePayloads[K]): void;
     readonly rejoinKey?: string | null;
   };
-  createPeer(id: string, name: string): Peer;
+  createPeer(id: string, name: string, color: CharacterColor): Peer;
   map(): MapKey;
   phase(): GamePhase;
   inMatch(): boolean;
@@ -65,15 +71,23 @@ export class RemoteRoster<Peer extends RosterPeer> {
         token: this.rejoins.track(id),
       });
   }
-  add(id: string, name: string): Peer {
+  add(id: string, name: string, color = DEFAULT_CHARACTER_COLOR): Peer {
     const existing = this.ports.peers.get(id);
     if (existing) {
       existing.name = name;
+      existing.setColor(color);
       return existing;
     }
-    const peer = this.ports.createPeer(id, name);
+    const peer = this.ports.createPeer(id, name, color);
     this.ports.peers.set(id, peer);
     return peer;
+  }
+  setColor(id: string, selection: unknown) {
+    const player = this.ports.lobby.players.get(id);
+    if (!player) return;
+    const color = characterColor(selection);
+    player.color = color;
+    this.ports.peers.get(id)?.setColor(color);
   }
   remove(id: string) {
     const { peers, lobby, scores } = this.ports;
@@ -94,7 +108,9 @@ export class RemoteRoster<Peer extends RosterPeer> {
     const id = transport.id;
     if (id !== null)
       transport.send('lobby', {
-        players: this.rows(),
+        players: Array.from(lobby.players, ([id, { name, color }]) =>
+          color && color !== DEFAULT_CHARACTER_COLOR ? { id, name, color } : { id, name },
+        ),
         hostId: id,
         isPublic: lobby.isPublic,
         map: lobby.map || map(),
@@ -121,6 +137,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
       this.ports;
     const meta = isRecord(metadata) ? metadata : {};
     const name = typeof meta.name === 'string' ? meta.name.slice(0, 14) : 'paper';
+    const color = characterColor(meta.color);
     if (previous) {
       const score = this.rejoins.restore(previous, id, scores.get(previous));
       this.remove(previous);
@@ -132,8 +149,8 @@ export class RemoteRoster<Peer extends RosterPeer> {
     ) {
       this.replace(meta.prev, id);
     }
-    lobby.players.set(id, { name });
-    this.add(id, name);
+    lobby.players.set(id, { name, color });
+    this.add(id, name, color);
     this.broadcast();
     if (this.activeMatch()) {
       if (!scores.has(id)) scores.set(id, { name, kills: 0, deaths: 0 });
@@ -161,9 +178,11 @@ export class RemoteRoster<Peer extends RosterPeer> {
     lobby.duration = data.duration ?? FFA_TIME;
     lobby.order = data.players.map((player) => player.id);
     lobby.players.clear();
-    for (const player of data.players) lobby.players.set(player.id, { name: player.name });
-    for (const player of data.players)
-      if (player.id !== transport.id) this.add(player.id, player.name);
+    for (const { id, name, color: selection } of data.players) {
+      const color = characterColor(selection);
+      lobby.players.set(id, { name, color });
+      if (id !== transport.id) this.add(id, name, color);
+    }
     for (const id of [...peers.keys()]) if (!lobby.players.has(id)) this.remove(id);
     if (inMatch()) {
       for (const player of data.players)

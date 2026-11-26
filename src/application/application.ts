@@ -23,6 +23,7 @@ import { createLoop } from './frame-composition.js';
 export function createApplication(options: ApplicationOptions) {
   const runtime = createRuntime(options, {
     spawnPickup: (...args) => pickups.spawnPickup(...args),
+    playerColorChanged: (color) => multiplayer.setPlayerColor(color),
   });
   const audio = runtime.audio;
   const mapVoteView = new MapVoteView(runtime.hud.el.panel);

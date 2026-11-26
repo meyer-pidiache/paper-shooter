@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { LobbyConnection } from './lobby-connection.js';
 import { connectionError } from '../presentation/network-errors.js';
-import { INK } from '../shared/ink.js';
+import { CHARACTER_INKS, type CharacterColor } from '../shared/character-color.js';
 import { RemotePlayer } from '../gameplay/remote-player.js';
 import { knownMap } from '../domain/maps.js';
 import type {
@@ -116,8 +116,8 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     refreshScores: refreshScoreHud,
     feed: (text) => hud.kill(text, 0),
   });
-  function makeRemote(id: string, name: string) {
-    const rp = new RemotePlayer(remoteServices, id, name, 0, INK.RED);
+  function makeRemote(id: string, name: string, color: CharacterColor) {
+    const rp = new RemotePlayer(remoteServices, id, name, 0, CHARACTER_INKS[color]);
     rp.lastSeen = performance.now();
     rp.onDamage = (t, amount, fromPos) => {
       if (!ports.canHurt(t) || !t.alive) return;
@@ -145,6 +145,11 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
   function broadcastLobby() {
     roster.broadcast();
   }
+  function setPlayerColor(color: CharacterColor) {
+    if (!net.active || net.id === null) return;
+    roster.setColor(net.id, color);
+    net.broadcast('player-color', color);
+  }
 
   net.onPeerLeave = (id, reason) => roster.peerLeave(id, reason);
   net.onDisconnect = () => {
@@ -155,7 +160,13 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
   net.hostName = ports.local.myName;
   net.onPeerJoin = (id, metadata, previous) => roster.join(id, metadata, previous);
   net.onPeerResume = (token) => roster.resumePeer(token);
-  net.onHost('lobby', (data) => roster.receive(data));
+  net.onHost('lobby', (data) => {
+    roster.receive(data);
+    // Settings can change while a join or migration handshake is in flight.
+    const member = net.id === null ? undefined : lobby.players.get(net.id);
+    if (member && member.color !== ports.local.playerColor) setPlayerColor(ports.local.playerColor);
+  });
+  net.on('player-color', (color, sender) => roster.setColor(sender, color));
   net.onHost('leave', (data) => roster.leave(data.id));
   net.onHost('start', (d) => {
     if (net.isHost) return;
@@ -313,6 +324,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     removeRemote,
     lobbyRows,
     broadcastLobby,
+    setPlayerColor,
     migrateHost,
     idleUpdate: (dt: number) => idle.update(dt),
     netUpdate: (dt: number, clockElapsed?: number, frameAt?: number) =>

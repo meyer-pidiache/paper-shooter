@@ -147,6 +147,7 @@ const validators: Record<keyof import('./game-message-types.js').GamePayloads, V
   }),
   stay: optional(record({ token: optional(isRejoinSecret) })),
   'rejoin-token': record({ key: isRejoinSecret, token: isRejoinSecret }),
+  'player-color': optional(text(16)),
   lobby: roster,
   leave: record({ id }),
   start,

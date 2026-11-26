@@ -48,9 +48,24 @@ test('Paper settings survive a reload and inherit existing Doodle saves', async 
     input.value = '150';
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
+  const picker = page.getByRole('group', { name: 'Character ink' });
+  const original = picker.getByRole('radio', { name: 'Original red' });
+  const graphite = picker.getByRole('radio', { name: 'Graphite' });
+  const preview = picker.locator('.ink-preview');
+  await expect(original).toBeChecked();
+  const originalPreview = await preview.evaluate((el) => getComputedStyle(el).color);
+  await original.focus();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(graphite).toBeChecked();
+  await expect(preview).not.toHaveCSS('color', originalPreview);
   await page.reload();
   await page.getByRole('button', { name: 'Settings & Controls' }).click();
   await expect(page.locator('#setSens')).toHaveValue('150');
+  await expect(graphite).toBeChecked();
+  const lightPreview = await preview.evaluate((el) => getComputedStyle(el).color);
+  await page.locator('#setAppearance').selectOption('dark');
+  await expect(preview).not.toHaveCSS('color', lightPreview);
 });
 
 test('settings stay usable on resize without moving the main menu', async ({ page }) => {

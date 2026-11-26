@@ -720,6 +720,80 @@ canvas#c {
 .binding-row kbd {
   color: var(--red);
 }
+.character-ink {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0 0 4px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 19%, transparent);
+}
+.character-ink legend {
+  padding: 8px 0 0;
+}
+.ink-options {
+  display: flex;
+  align-items: center;
+}
+.ink-option {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  cursor: pointer;
+}
+.ink-option input {
+  position: absolute;
+  appearance: none;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  cursor: inherit;
+}
+.ink-option span {
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 50%;
+  background: var(--ink-light);
+}
+.ink-option input:checked + span {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.ink-option input:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--settings-accent);
+  outline-offset: -1px;
+}
+.ink-preview {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  margin-inline: 12px;
+  color: var(--ink-light);
+}
+.ink-preview::before,
+.ink-preview::after {
+  content: '';
+  background: currentColor;
+}
+.ink-preview::before {
+  inline-size: 11px;
+  block-size: 11px;
+  border-radius: 50%;
+}
+.ink-preview::after {
+  inline-size: 22px;
+  block-size: 12px;
+  border-radius: 9px 9px 3px 3px;
+}
+html[data-theme='dark'] .ink-option span {
+  background: var(--ink-dark);
+}
+html[data-theme='dark'] .ink-preview {
+  color: var(--ink-dark);
+}
 .settings select {
   font: inherit;
   color: var(--ink);

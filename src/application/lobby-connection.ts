@@ -57,7 +57,7 @@ export class LobbyConnection {
     lobby.duration = FFA_TIME;
     lobby.players.clear();
     lobby.migrationPeers = undefined;
-    lobby.players.set(transport.id, { name: local.myName });
+    lobby.players.set(transport.id, { name: local.myName, color: local.playerColor });
     lobby.hostId = transport.id;
     lobby.status = '';
     session.enterLobby();
@@ -68,7 +68,7 @@ export class LobbyConnection {
     const { transport, local, lobby, presentation, session } = this.ports;
     this.setStatus('connecting…');
     try {
-      await transport.join(code, { name: local.myName });
+      await transport.join(code, { name: local.myName, color: local.playerColor });
       if (!task.current) return;
     } catch (error) {
       if (!task.current) return;
@@ -85,7 +85,7 @@ export class LobbyConnection {
     if (!task) return;
     const { transport, local, lobby, presentation, session } = this.ports;
     try {
-      await transport.quickJoin({ name: local.myName }, (status) => {
+      await transport.quickJoin({ name: local.myName, color: local.playerColor }, (status) => {
         if (task.current) this.setStatus(status);
       });
       if (!task.current) return;

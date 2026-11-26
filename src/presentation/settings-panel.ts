@@ -1,11 +1,14 @@
 import { bindingLabel, KEY_BINDING_ACTIONS, KEY_BINDING_LABELS } from '../shared/key-bindings.js';
 import type { BindingDevice, KeyBindingAction, KeyBindings } from '../shared/key-bindings.js';
 import { controlsHTML } from './input-guide.js';
+import type { CharacterColor } from '../shared/character-color.js';
+import { characterInkPickerHTML, wireCharacterInkPicker } from './character-ink-picker.js';
 
 interface SettingsView {
   readonly settings: { readonly sens: number; readonly invert: boolean };
   readonly musicWanted: boolean;
   readonly appearance: 'light' | 'dark';
+  readonly playerColor: CharacterColor;
   readonly nerdStats: boolean;
 }
 interface SettingsCommands {
@@ -14,6 +17,7 @@ interface SettingsCommands {
   setMusic(value: boolean): void;
   setName(value: string): void;
   setAppearance(value: 'light' | 'dark'): void;
+  setPlayerColor(color: CharacterColor): void;
   setNerdStats(value: boolean): void;
   getKeyBindings(): KeyBindings;
   keyLabel(action: string): string;
@@ -70,6 +74,7 @@ export class SettingsPanel {
           <label class="settings-row">Invert vertical look <input type="checkbox" id="setInv" ${this.view.settings.invert ? 'checked' : ''}></label>
           <label class="settings-row"><span>Music <small id="musicBinding">(${keyLabel('music')})</small></span><input type="checkbox" id="setMus" ${this.view.musicWanted ? 'checked' : ''}></label>
           <label class="settings-row">Appearance <select id="setAppearance"><option value="light" ${this.view.appearance === 'light' ? 'selected' : ''}>Light</option><option value="dark" ${this.view.appearance === 'dark' ? 'selected' : ''}>Dark</option></select></label>
+          ${characterInkPickerHTML(this.view.playerColor)}
           <label class="settings-row"><span>Nerd stats <small>FPS and multiplayer ping</small></span><input type="checkbox" id="setNerdStats" ${this.view.nerdStats ? 'checked' : ''}></label>
           </div>
           <div id="settingsBindings" hidden>
@@ -104,6 +109,7 @@ export class SettingsPanel {
     appearance?.addEventListener('change', () =>
       this.commands.setAppearance(appearance.value === 'dark' ? 'dark' : 'light'),
     );
+    wireCharacterInkPicker(box, (color) => this.commands.setPlayerColor(color));
     const nerdStats = box.querySelector<HTMLInputElement>('#setNerdStats');
     nerdStats?.addEventListener('change', () => this.commands.setNerdStats(nerdStats.checked));
     box.querySelector('#controlBindings')?.addEventListener('click', (event) => {

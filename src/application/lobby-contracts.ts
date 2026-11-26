@@ -1,7 +1,13 @@
 import type { MapKey } from '../domain/maps.js';
 import type { MatchDuration, Score } from '../domain/match.js';
+import type { CharacterColor } from '../shared/character-color.js';
+
+type PlayerProfile = {
+  name: string;
+  color?: CharacterColor;
+};
 export interface LobbyState {
-  players: Map<string, { name: string }>;
+  players: Map<string, PlayerProfile>;
   hostId: string | null;
   isPublic: boolean;
   status: string;
@@ -23,8 +29,8 @@ export interface LobbyTransport {
   accepting: boolean;
   onAlias: (() => void) | null;
   host(options: { isPublic: boolean; code?: string }): Promise<unknown>;
-  join(code: string, metadata: { name: string; prev?: string }): Promise<unknown>;
-  quickJoin(metadata: { name: string }, status: (message: string) => void): Promise<unknown>;
+  join(code: string, metadata: PlayerProfile & { prev?: string }): Promise<unknown>;
+  quickJoin(metadata: PlayerProfile, status: (message: string) => void): Promise<unknown>;
   leave(): void;
   claimAlias(code: string): void;
 }
@@ -32,7 +38,7 @@ export interface LobbyConnectionPorts {
   transport: LobbyTransport;
   lobby: LobbyState;
   scores: Map<string, Score>;
-  local: { myName: string; mapKey: MapKey };
+  local: { myName: string; mapKey: MapKey; playerColor: CharacterColor };
   removeRemote(id: string): void;
   remoteIds(): Iterable<string>;
   inMatch(): boolean;
@@ -60,7 +66,7 @@ export interface HostMigrationPorts extends Pick<
     LobbyTransport,
     'id' | 'code' | 'accepting' | 'onAlias' | 'host' | 'join' | 'claimAlias' | 'leave'
   >;
-  local: Pick<LobbyConnectionPorts['local'], 'myName'>;
+  local: Pick<LobbyConnectionPorts['local'], 'myName' | 'playerColor'>;
   session: Pick<
     LobbyConnectionPorts['session'],
     'takeClockAuthority' | 'recoverHost' | 'recoverFollower'

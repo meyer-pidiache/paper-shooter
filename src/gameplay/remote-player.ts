@@ -10,8 +10,14 @@ import { buildRemoteNameTag } from '../presentation/characters/remote-name-tag.j
 import { RemoteRagdoll } from '../presentation/characters/remote-ragdoll.js';
 import { RemoteGrapple } from '../presentation/remote-grapple.js';
 import { RemoteInterpolation } from './remote/interpolation.js';
-import { makeInkMaterial, setFill } from '../presentation/ink/materials.js';
+import {
+  makeInkMaterial,
+  setFill,
+  setInk,
+  type InkMaterial,
+} from '../presentation/ink/materials.js';
 import { INK } from '../shared/ink.js';
+import { CHARACTER_INKS, type CharacterColor } from '../shared/character-color.js';
 import { buildHumanoid } from '../presentation/models/humanoid.js';
 import { buildHeldWeapon } from '../presentation/models/held-weapon.js';
 import {
@@ -92,7 +98,7 @@ export class RemotePlayer {
   deaths = 0;
   score = 0;
   lastSeen = 0;
-  readonly mat: THREE.ShaderMaterial;
+  readonly mat: InkMaterial;
   readonly solid: THREE.ShaderMaterial;
   private readonly sight: THREE.ShaderMaterial;
   private readonly releaseMaterials: () => void;
@@ -121,7 +127,7 @@ export class RemotePlayer {
     readonly id: string,
     name: string,
     readonly team: number,
-    readonly ink: number,
+    ink: number,
   ) {
     this.displayName = name.slice(0, 14) || 'paper';
     this.death = new RemoteRagdoll(services.scene, services.effects);
@@ -132,6 +138,12 @@ export class RemotePlayer {
     this.model = this.buildModel();
     this.root = this.model.root;
     this.ropeView = new RemoteGrapple(services.scene, services.resources);
+  }
+  get ink() {
+    return this.mat.inkId;
+  }
+  setColor(color: CharacterColor) {
+    setInk(this.mat, CHARACTER_INKS[color]);
   }
   get parts() {
     return this.model.parts;
