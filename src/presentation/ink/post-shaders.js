@@ -135,9 +135,9 @@ void main() {
   float ls = uLineSpacing;
   float ly = mod(pp.y + ls * 0.5, ls);
   float rule = 1.0 - smoothstep(0.5 * sc, 1.7 * sc, abs(ly - ls * 0.5));
-  paper = mix(paper, mix(vec3(0.58, 0.70, 0.92), vec3(0.12, 0.18, 0.32), uDarkMode), rule * 0.5);
+  paper = mix(paper, mix(vec3(0.58, 0.70, 0.92), vec3(0.16, 0.19, 0.25), uDarkMode), rule * 0.5);
   float margin = 1.0 - smoothstep(0.9 * sc, 2.3 * sc, abs(pp.x - uRes.x * 0.07));
-  paper = mix(paper, mix(vec3(0.92, 0.48, 0.55), vec3(0.36, 0.15, 0.26), uDarkMode), margin * 0.55);
+  paper = mix(paper, mix(vec3(0.92, 0.48, 0.55), vec3(0.29, 0.18, 0.22), uDarkMode), margin * 0.55);
 
   vec3 col = paper;
   col = mix(col, inkColor(s.g), hatch * 0.72 * fade);

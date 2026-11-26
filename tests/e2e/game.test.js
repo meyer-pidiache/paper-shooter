@@ -295,6 +295,9 @@ test('filled controls stay legible in both themes and Nerd Stats sit under the s
   await expectContrast('#soloBtn');
   await expectContrast('#onlineBtn');
   await expectContrast('.mapbtn.on');
+  const panelPaper = await page
+    .locator('.panel')
+    .evaluate((panel) => getComputedStyle(panel).backgroundColor);
   await page.locator('#onlineBtn').click();
   await expectContrast('#quickBtn');
   await page.locator('#backBtn').click();
@@ -307,7 +310,7 @@ test('filled controls stay legible in both themes and Nerd Stats sit under the s
   ]);
   expect(line.y).toBeGreaterThan(score.y);
   expect(Math.abs(line.x - score.x)).toBeLessThan(4);
-  await expect(page.locator('#board')).toHaveCSS('background-color', 'rgba(14, 22, 42, 0.97)');
+  await expect(page.locator('#board')).toHaveCSS('background-color', panelPaper);
   for (const selector of ['#tip', '#bossbar', '#focusmeter', '#gstam']) {
     await expect(page.locator(selector)).toHaveCSS('mix-blend-mode', 'normal');
   }

@@ -53,7 +53,7 @@ export class InkRenderer {
         uDarkMode: { value: 0 },
         uLineSpacing: { value: 60 },
         uPaper: { value: new THREE.Vector3(0.965, 0.955, 0.905) },
-        uDarkPaper: { value: new THREE.Vector3(0.035, 0.045, 0.085) },
+        uDarkPaper: { value: new THREE.Vector3(0.09, 0.105, 0.14) },
         uInks: { value: createInkColors() },
         uDarkInks: { value: createDarkInkColors() },
         uInvProj: { value: new THREE.Matrix4() },

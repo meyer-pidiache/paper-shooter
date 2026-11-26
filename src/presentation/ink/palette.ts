@@ -12,14 +12,14 @@ export function createInkColors(): Vector3[] {
   ];
 }
 
-/** Pastel inks selected for contrast against the night-paper palette. */
+/** Muted inks that remain distinct against night paper. */
 export function createDarkInkColors(): Vector3[] {
   return [
-    new Vector3(0.56, 0.68, 1),
-    new Vector3(1, 0.43, 0.5),
-    new Vector3(0.78, 0.83, 0.94),
-    new Vector3(1, 0.72, 0.36),
-    new Vector3(0.42, 0.87, 0.64),
-    new Vector3(0.98, 0.62, 0.84),
+    new Vector3(0.55, 0.62, 0.77),
+    new Vector3(0.81, 0.47, 0.5),
+    new Vector3(0.68, 0.7, 0.75),
+    new Vector3(0.78, 0.63, 0.45),
+    new Vector3(0.45, 0.69, 0.55),
+    new Vector3(0.75, 0.53, 0.67),
   ];
 }

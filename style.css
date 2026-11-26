@@ -7,17 +7,25 @@
   --panel-paper: rgba(250, 248, 238, 0.93);
   --screen-wash: rgba(246, 243, 230, 0.55);
   --settings-accent: #1a30c0;
+  --crosshair-halo: rgba(255, 255, 255, 0.9);
+  --hit-ink: #e8801a;
+  --hit-outline: rgba(250, 248, 238, 0.85);
+  --dialog-wash: rgba(8, 12, 29, 0.55);
 }
 html[data-theme='dark'] {
   color-scheme: dark;
-  --ink: #c4d3ff;
-  --red: #ff7184;
-  --paper: #090e1d;
-  --on-accent: #090e1d;
+  --ink: #b5bfd5;
+  --red: #de9297;
+  --paper: #171b24;
+  --on-accent: var(--paper);
   --hud-blend: normal;
-  --panel-paper: rgba(14, 22, 42, 0.97);
-  --screen-wash: rgba(3, 7, 16, 0.74);
-  --settings-accent: #9fb4ff;
+  --panel-paper: rgba(31, 36, 48, 0.97);
+  --screen-wash: rgba(18, 21, 28, 0.72);
+  --settings-accent: #a1acc5;
+  --crosshair-halo: rgba(12, 16, 23, 0.9);
+  --hit-ink: #d1a176;
+  --hit-outline: rgba(12, 16, 23, 0.9);
+  --dialog-wash: rgba(12, 16, 23, 0.55);
 }
 html,
 body {
@@ -165,7 +173,7 @@ canvas#c {
   width: 0;
   height: 0;
   --s: 10px;
-  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9));
+  filter: drop-shadow(0 0 1px var(--crosshair-halo));
 }
 .crosshair i {
   position: absolute;
@@ -250,11 +258,11 @@ canvas#c {
   position: absolute;
   width: 3.5px;
   height: 36px;
-  background: #e8801a;
+  background: var(--hit-ink);
   left: -1.75px;
   top: -18px;
   border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(250, 248, 238, 0.85);
+  box-shadow: 0 0 0 1px var(--hit-outline);
 }
 .hitmarker i:first-child {
   transform: rotate(45deg);
@@ -646,7 +654,7 @@ canvas#c {
   cursor: default;
 }
 .settings-dialog::backdrop {
-  background: rgba(8, 12, 29, 0.55);
+  background: var(--dialog-wash);
 }
 .settings {
   display: flex;
