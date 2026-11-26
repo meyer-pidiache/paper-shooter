@@ -282,3 +282,28 @@ it('blocks allied simulated grenade blast damage on the receiving client while a
   player.grenadeSystem.update(0.02);
   expect(player.hp).toBeLessThan(100);
 });
+
+it('rebalances at rematch start if the last opponent left during results', () => {
+  const { app, game, lobby, net, scores } = host();
+  lobby.mode = 'teams';
+  lobby.players.set('local', { name: 'player', team: 'red' });
+  lobby.players.set('other', { name: 'guest', team: 'red' });
+  lobby.players.set('blue', { name: 'opponent', team: 'blue' });
+  game.state = 'over';
+  game.overT = 60;
+  net.onPeerLeave('blue');
+  expect(lobby.players.get('other').team).toBe('red');
+  app.session.returnFromResults();
+  expect(game.state).toBe('lobby');
+  const send = vi.spyOn(net, 'send');
+  app.session.hostStart();
+  expect(scores.get('local').team).toBe('red');
+  expect(scores.get('other').team).toBe('blue');
+  expect(send.mock.calls.find(([kind]) => kind === 'lobby')?.[1].players).toEqual([
+    { id: 'local', name: 'player', team: 'red' },
+    { id: 'other', name: 'guest', team: 'blue' },
+  ]);
+  expect(send.mock.calls.findIndex(([kind]) => kind === 'lobby')).toBeLessThan(
+    send.mock.calls.findIndex(([kind]) => kind === 'start'),
+  );
+});

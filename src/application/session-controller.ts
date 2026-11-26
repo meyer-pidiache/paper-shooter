@@ -179,6 +179,7 @@ export class SessionController {
     if (!transport.isHost || game.state !== 'lobby') return;
     scores.clear();
     lobby.teamBank = { red: 0, blue: 0 };
+    if (lobby.mode === 'teams') this.ports.broadcastLobby();
     for (const [id, player] of lobby.players)
       scores.set(id, {
         name: player.name,

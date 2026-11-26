@@ -105,6 +105,7 @@ it('assigns balanced teams and preserves disconnected points on a rejoin', () =>
   owner.beginMatch();
   scores.set('one', { name: 'one', team: 'blue', kills: 4, deaths: 1 });
   owner.peerLeave('one');
+  expect(lobby.players.get('two')?.team).toBe('red');
   expect(lobby.teamBank).toEqual({ red: 0, blue: 4 });
   owner.join('new-one', { name: 'one' }, 'one');
   expect(lobby.players.get('new-one')?.team).toBe('blue');
@@ -161,4 +162,27 @@ it('enforces fixed team colors in team mode and ignores custom ink overrides unt
   owner.broadcast();
   expect(peers.get('bluePeer')?.setColor).toHaveBeenLastCalledWith('green');
   expect(peers.get('redPeer')?.setColor).toHaveBeenLastCalledWith('magenta');
+});
+
+it('keeps both teams represented when the last blue player leaves the lobby', () => {
+  const { owner, lobby, peers, ports } = fixture();
+  lobby.mode = 'teams';
+  lobby.players.set('host', { name: 'host' });
+  owner.broadcast();
+  owner.join('blue', { name: 'blue' });
+  owner.join('red', { name: 'red' });
+  owner.peerLeave('blue');
+  expect(ports.transport.send).toHaveBeenLastCalledWith('lobby', {
+    players: [
+      { id: 'host', name: 'host', team: 'red' },
+      { id: 'red', name: 'red', team: 'blue' },
+    ],
+    hostId: 'host',
+    isPublic: false,
+    map: 'mexico',
+    mode: 'teams',
+    shown: 'ABCDE',
+    duration: 300,
+  });
+  expect(peers.get('red')?.setColor).toHaveBeenLastCalledWith('blue');
 });

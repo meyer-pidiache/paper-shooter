@@ -124,8 +124,17 @@ export class RemoteRoster<Peer extends RosterPeer> {
   broadcast() {
     const { transport, lobby, map, render } = this.ports;
     const id = transport.id;
-    if (lobby.mode === 'teams')
+    if (lobby.mode === 'teams') {
       for (const player of lobby.players.values()) player.team ??= this.assignTeam();
+      if (this.ports.phase() === 'lobby' && lobby.players.size > 1) {
+        const members = [...lobby.players];
+        const firstTeam = members[0][1].team;
+        if (members.every(([, player]) => player.team === firstTeam)) {
+          const guest = members.reverse().find(([peerId]) => peerId !== id);
+          if (guest) guest[1].team = this.assignTeam();
+        }
+      }
+    }
     if (id !== null)
       transport.send('lobby', {
         players: Array.from(lobby.players, ([id, { name, color, team }]) => ({
