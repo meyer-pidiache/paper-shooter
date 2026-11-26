@@ -1,6 +1,13 @@
 import { Vector3 } from 'three';
 import { choose } from '../engine/math.js';
-import { FFA_TARGET, rankScores, recordDeath, parseScoreRows } from '../domain/match.js';
+import {
+  FFA_TARGET,
+  rankScores,
+  recordDeath,
+  parseScoreRows,
+  teamTotals,
+  teamWinner,
+} from '../domain/match.js';
 import type { WireVector } from '../network/game-message-types.js';
 import type { PlayerHitReceipt } from '../gameplay/player/services.js';
 import type { Winner } from './session-contracts.js';
@@ -103,7 +110,15 @@ export class MatchController {
     spawnFeedback(player.center);
   }
   tallyDeath(victim: string, killer?: string | null) {
-    recordDeath(this.ports.scores, victim, killer);
+    const scores = this.ports.scores;
+    if (
+      this.ports.mode?.() === 'teams' &&
+      killer &&
+      scores.get(victim)?.team &&
+      scores.get(victim)?.team === scores.get(killer)?.team
+    )
+      killer = null;
+    recordDeath(scores, victim, killer);
     this.sendScores();
     this.checkWin();
   }
@@ -128,6 +143,8 @@ export class MatchController {
       rows: this.sortedScores(),
       remaining: this.ports.remainingTime(),
       lobbyCode: this.ports.lobbyCode(),
+      mode: this.ports.mode?.() ?? 'ffa',
+      teamBank: this.ports.teamBank?.(),
     };
   }
   refreshScoreHud() {
@@ -140,11 +157,17 @@ export class MatchController {
     if (boardVisible()) hud.setBoard(this.boardHTML());
   }
   boardHTML(title = 'FREE FOR ALL') {
-    return matchBoard(this.view(), title);
+    return matchBoard(this.view(), this.ports.mode?.() === 'teams' ? 'TEAM MATCH' : title);
   }
   checkWin() {
     const { transport, online, finished, scores } = this.ports;
     if (!transport.isHost || !online() || finished()) return;
+    if (this.ports.mode?.() === 'teams') {
+      const totals = teamTotals(scores, this.ports.teamBank?.());
+      if (totals.red >= FFA_TARGET || totals.blue >= FFA_TARGET)
+        this.endMatch(teamWinner(scores, this.ports.teamBank?.()));
+      return;
+    }
     let winner: Winner | null = null;
     for (const [id, score] of scores)
       if (score.kills >= FFA_TARGET) winner = { id, name: score.name };

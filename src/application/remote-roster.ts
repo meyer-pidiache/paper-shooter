@@ -13,6 +13,7 @@ export interface RosterPeer {
   name: string;
   setColor(color: CharacterColor): void;
   dispose(): void;
+  setTeamLabel?(team: 'red' | 'blue' | undefined): void;
 }
 export interface RosterPorts<Peer extends RosterPeer> {
   peers: Map<string, Peer>;
@@ -101,29 +102,56 @@ export class RemoteRoster<Peer extends RosterPeer> {
     if (lobby.order) lobby.order = lobby.order.filter((peerId) => peerId !== id);
   }
   rows() {
-    return [...this.ports.lobby.players].map(([id, player]) => ({ id, name: player.name }));
+    return [...this.ports.lobby.players].map(([id, player]) => ({
+      id,
+      name: player.name,
+      ...(player.team ? { team: player.team } : {}),
+    }));
+  }
+  private assignTeam() {
+    const members = [...this.ports.lobby.players.values()];
+    return members.filter((p) => p.team === 'red').length <=
+      members.filter((p) => p.team === 'blue').length
+      ? 'red'
+      : 'blue';
   }
   broadcast() {
     const { transport, lobby, map, render } = this.ports;
     const id = transport.id;
+    if (lobby.mode === 'teams')
+      for (const player of lobby.players.values()) player.team ??= this.assignTeam();
     if (id !== null)
       transport.send('lobby', {
-        players: Array.from(lobby.players, ([id, { name, color }]) =>
-          color && color !== DEFAULT_CHARACTER_COLOR ? { id, name, color } : { id, name },
-        ),
+        players: Array.from(lobby.players, ([id, { name, color, team }]) => ({
+          id,
+          name,
+          ...(color && color !== DEFAULT_CHARACTER_COLOR ? { color } : {}),
+          ...(team ? { team } : {}),
+        })),
+        ...(lobby.mode ? { mode: lobby.mode } : {}),
+        ...(lobby.mode === 'teams' && lobby.teamBank ? { teamBank: lobby.teamBank } : {}),
         hostId: id,
         isPublic: lobby.isPublic,
         map: lobby.map || map(),
-        mapLocked: lobby.mapLocked,
+        ...(lobby.mapLocked !== undefined ? { mapLocked: lobby.mapLocked } : {}),
         shown: transport.aliasCode || transport.code || undefined,
         duration: lobby.duration ?? FFA_TIME,
       });
+    for (const [peerId, peer] of this.ports.peers)
+      peer.setTeamLabel?.(lobby.mode === 'teams' ? lobby.players.get(peerId)?.team : undefined);
     render();
   }
   peerLeave(id: string, reason = 'left') {
     const { lobby, inMatch, feed, scores, sendScores } = this.ports;
     const name = lobby.players.get(id)?.name;
-    if (this.activeMatch()) this.rejoins.disconnect(id, scores.get(id));
+    if (this.activeMatch()) {
+      const score = scores.get(id);
+      this.rejoins.disconnect(id, score);
+      if (lobby.mode === 'teams' && score?.team) {
+        lobby.teamBank ??= { red: 0, blue: 0 };
+        lobby.teamBank[score.team] += score.kills;
+      }
+    }
     lobby.migrationPeers?.delete(id);
     this.remove(id);
     this.broadcast();
@@ -138,8 +166,12 @@ export class RemoteRoster<Peer extends RosterPeer> {
     const meta = isRecord(metadata) ? metadata : {};
     const name = typeof meta.name === 'string' ? meta.name.slice(0, 14) : 'paper';
     const color = characterColor(meta.color);
+    let restoredTeam: 'red' | 'blue' | undefined;
     if (previous) {
       const score = this.rejoins.restore(previous, id, scores.get(previous));
+      restoredTeam = score?.team;
+      if (score?.team && lobby.teamBank)
+        lobby.teamBank[score.team] = Math.max(0, lobby.teamBank[score.team] - score.kills);
       this.remove(previous);
       if (score) scores.set(id, { ...score, name });
     } else if (
@@ -147,13 +179,24 @@ export class RemoteRoster<Peer extends RosterPeer> {
       meta.prev !== id &&
       lobby.migrationPeers?.delete(meta.prev)
     ) {
+      restoredTeam = lobby.players.get(meta.prev)?.team ?? scores.get(meta.prev)?.team;
       this.replace(meta.prev, id);
     }
-    lobby.players.set(id, { name, color });
+    lobby.players.set(id, {
+      name,
+      color,
+      ...(lobby.mode === 'teams' ? { team: restoredTeam ?? this.assignTeam() } : {}),
+    });
     this.add(id, name, color);
     this.broadcast();
     if (this.activeMatch()) {
-      if (!scores.has(id)) scores.set(id, { name, kills: 0, deaths: 0 });
+      if (!scores.has(id))
+        scores.set(id, {
+          name,
+          kills: 0,
+          deaths: 0,
+          ...(lobby.players.get(id)?.team ? { team: lobby.players.get(id)!.team } : {}),
+        });
       if (!previous) this.offerRejoin(id);
       transport.sendTo(id, 'start', {
         late: true,
@@ -169,6 +212,8 @@ export class RemoteRoster<Peer extends RosterPeer> {
   }
   receive(data: GamePayloads['lobby']) {
     const { lobby, transport, peers, inMatch, scores, refreshScores, render } = this.ports;
+    lobby.mode = data.mode ?? 'ffa';
+    lobby.teamBank = data.teamBank ? { ...data.teamBank } : undefined;
     lobby.hostId = data.hostId;
     lobby.isPublic = !!data.isPublic;
     lobby.code = transport.code || '';
@@ -178,16 +223,24 @@ export class RemoteRoster<Peer extends RosterPeer> {
     lobby.duration = data.duration ?? FFA_TIME;
     lobby.order = data.players.map((player) => player.id);
     lobby.players.clear();
-    for (const { id, name, color: selection } of data.players) {
+    for (const { id, name, color: selection, team } of data.players) {
       const color = characterColor(selection);
-      lobby.players.set(id, { name, color });
-      if (id !== transport.id) this.add(id, name, color);
+      lobby.players.set(id, { name, color, ...(team ? { team } : {}) });
+      if (id !== transport.id) {
+        const peer = this.add(id, name, color);
+        peer.setTeamLabel?.(lobby.mode === 'teams' ? team : undefined);
+      }
     }
     for (const id of [...peers.keys()]) if (!lobby.players.has(id)) this.remove(id);
     if (inMatch()) {
       for (const player of data.players)
         if (!scores.has(player.id))
-          scores.set(player.id, { name: player.name, kills: 0, deaths: 0 });
+          scores.set(player.id, {
+            name: player.name,
+            kills: 0,
+            deaths: 0,
+            ...(player.team ? { team: player.team } : {}),
+          });
       refreshScores();
     }
     render();

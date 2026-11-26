@@ -25,6 +25,7 @@ export interface CombatPorts {
   targets(): Iterable<SplashTarget>;
   props(): readonly Breakable[];
   lookupProp(id: number): Breakable | undefined;
+  canAttack?(id: string): boolean;
   online(): boolean;
   solo(): boolean;
   inMatch(): boolean;

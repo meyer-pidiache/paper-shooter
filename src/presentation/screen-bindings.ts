@@ -1,4 +1,4 @@
-import { isMatchDuration, type MatchDuration } from '../domain/match.js';
+import { isMatchDuration, type MatchDuration, type MatchMode } from '../domain/match.js';
 import { LEVELS } from '../domain/maps.js';
 import type { MapKey } from '../domain/maps.js';
 
@@ -17,6 +17,7 @@ export interface ScreenEvents {
   refresh(): void;
   pickLobbyMap(map: MapKey): void;
   pickDuration?(seconds: MatchDuration): void;
+  pickMode?(mode: MatchMode): void;
   startMatch(): void;
   leave(): void;
 }
@@ -84,6 +85,11 @@ class ScreenBindings {
     this.wireConnection(box);
     this.wireBrowsing(box);
     this.wireMap(this.actions.pickLobbyMap);
+    const mode = box.querySelector<HTMLSelectElement>('#matchMode');
+    mode?.addEventListener('change', () => {
+      if (mode.value === 'ffa' || mode.value === 'teams') this.actions.pickMode?.(mode.value);
+      this.panel.querySelector<HTMLSelectElement>('#matchMode')?.focus();
+    });
     const duration = box.querySelector<HTMLSelectElement>('#matchDuration');
     duration?.addEventListener('change', () => {
       const seconds = Number(duration.value);

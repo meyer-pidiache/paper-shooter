@@ -55,6 +55,8 @@ export class LobbyConnection {
     lobby.map = local.mapKey;
     lobby.mapLocked = false;
     lobby.duration = FFA_TIME;
+    lobby.mode = 'ffa';
+    lobby.teamBank = undefined;
     lobby.players.clear();
     lobby.migrationPeers = undefined;
     lobby.players.set(transport.id, { name: local.myName, color: local.playerColor });

@@ -260,6 +260,12 @@ export function createRuntime(options: ApplicationOptions, actions: RuntimeActio
       player,
       remote,
       targets,
+      canAttack: (id) =>
+        lobby.mode !== 'teams' ||
+        (!!net.id &&
+          !!lobby.players.get(net.id)?.team &&
+          !!lobby.players.get(id)?.team &&
+          lobby.players.get(net.id)?.team !== lobby.players.get(id)?.team),
       online,
       inMatch,
       props: () => state.level.breakables,

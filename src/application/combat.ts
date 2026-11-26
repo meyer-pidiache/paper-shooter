@@ -11,7 +11,10 @@ import { INK } from '../shared/ink.js';
 export function createCombat(ports: CombatPorts, actions: CombatActions) {
   const { player, remote, online, world, effects, audio, hud, input, net, inMatch, shotQueue } =
     ports;
-  const canHurt = (target: object) => online() && target !== player;
+  const canHurt = (target: object) =>
+    online() &&
+    target !== player &&
+    (!('id' in target) || typeof target.id !== 'string' || (ports.canAttack?.(target.id) ?? true));
   const queries = new PlayerQueries(() => remote.values(), canHurt, world);
   const pvp = new PvpDamage({
     canHurt,
@@ -34,7 +37,7 @@ export function createCombat(ports: CombatPorts, actions: CombatActions) {
       }),
   });
   const ropes = new RopeCuts(
-    () => remote.values(),
+    () => [...remote.values()].filter(canHurt),
     (id, point) => {
       effects.strokeBurst(point, INK.ORANGE, 10, 5, { life: 0.25, size: 0.035 });
       net.sendTo(id, 'cut', {});

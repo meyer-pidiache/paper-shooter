@@ -178,8 +178,14 @@ export class SessionController {
     const { scores, lobby, setArena, spawnSpots, transport, screen, sendScores, game } = this.ports;
     if (!transport.isHost || game.state !== 'lobby') return;
     scores.clear();
+    lobby.teamBank = { red: 0, blue: 0 };
     for (const [id, player] of lobby.players)
-      scores.set(id, { name: player.name, kills: 0, deaths: 0 });
+      scores.set(id, {
+        name: player.name,
+        kills: 0,
+        deaths: 0,
+        ...(lobby.mode === 'teams' && player.team ? { team: player.team } : {}),
+      });
     setArena(true);
     const order = spawnSpots().map((_, index) => index);
     for (let index = order.length - 1; index > 0; index--) {
@@ -216,6 +222,7 @@ export class SessionController {
       hud,
     } = this.ports;
     transport.inMatch = true;
+    if (!late) lobby.teamBank = { red: 0, blue: 0 };
     game.mode = 'ffa';
     setArena(true);
     this.resetGame();
@@ -227,7 +234,12 @@ export class SessionController {
     for (const actor of remote()) actor.lastSeen = performance.now();
     if (!scores.size)
       for (const [id, member] of lobby.players)
-        scores.set(id, { name: member.name, kills: 0, deaths: 0 });
+        scores.set(id, {
+          name: member.name,
+          kills: 0,
+          deaths: 0,
+          ...(lobby.mode === 'teams' && member.team ? { team: member.team } : {}),
+        });
     const spots = spawnSpots();
     player.reset(
       spawnIndex != null && spots[spawnIndex] ? spots[spawnIndex].clone() : arenaSpawn(),
@@ -238,10 +250,15 @@ export class SessionController {
     player.shieldT = 2;
     refreshScores();
     hud.message(
-      'FREE FOR ALL',
+      lobby.mode === 'teams' ? 'TEAM MATCH' : 'FREE FOR ALL',
       late
         ? 'you joined a match in progress'
-        : 'first to ' + FFA_TARGET + ' · ' + duration / 60 + ' minutes · everyone is fair game',
+        : 'first to ' +
+            FFA_TARGET +
+            ' · ' +
+            duration / 60 +
+            ' minutes · ' +
+            (lobby.mode === 'teams' ? 'team kills count together' : 'everyone is fair game'),
       3,
     );
     this.prompt = setTimeout(() => {

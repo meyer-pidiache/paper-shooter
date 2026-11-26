@@ -37,6 +37,7 @@ export interface CombatMessagePorts {
     parry(returned: boolean): void;
     cut(): void;
   };
+  canReceiveDamage?(sender: string): boolean;
   tally(victim: string, killer?: string | null): void;
 }
 /** Applies already validated combat messages; transport decoding and views have separate owners. */
@@ -44,7 +45,13 @@ export class CombatMessages {
   constructor(private readonly ports: CombatMessagePorts) {}
   damage(data: GamePayloads['pdmg'], sender: string) {
     const { player, game } = this.ports;
-    if (!player.alive || game.state !== 'play' || player.shieldT > 0) return;
+    if (
+      !player.alive ||
+      game.state !== 'play' ||
+      player.shieldT > 0 ||
+      this.ports.canReceiveDamage?.(sender) === false
+    )
+      return;
     player.lastHitBy = sender || null;
     player.lastHit = {
       from: data.from || null,

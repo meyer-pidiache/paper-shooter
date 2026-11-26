@@ -60,10 +60,13 @@ const offerFields = {
   hostName: text(128),
   rejoinKey: optional(isRejoinSecret),
 };
-const player = record({ id, name: text(128) });
+const team: Validator = (value) => value === 'red' || value === 'blue';
+const player = record({ id, name: text(128), team: optional(team) });
 
 const rosterShape = record({
   players: array(player, MAX_PLAYERS),
+  mode: optional((value) => value === 'ffa' || value === 'teams'),
+  teamBank: optional(record({ red: integer, blue: integer })),
   hostId: id,
   isPublic: boolean,
   map: optional(map),

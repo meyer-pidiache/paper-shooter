@@ -1,5 +1,5 @@
 import type { MapKey } from '../domain/maps.js';
-import type { MatchDuration, Score } from '../domain/match.js';
+import type { MatchDuration, MatchMode, Team, Score } from '../domain/match.js';
 export interface LobbyRowView {
   code: string;
   hostName: string;
@@ -29,7 +29,8 @@ export interface OnlineScreenView {
   rejoinCode?: string | null;
 }
 export interface LobbyScreenView {
-  rows: readonly { id: string; name: string }[];
+  rows: readonly { id: string; name: string; team?: Team }[];
+  mode?: MatchMode;
   host: boolean;
   code: string | null;
   localId: string | null;
@@ -42,6 +43,7 @@ export interface LobbyScreenView {
   status: string;
 }
 export interface PauseScreenView {
+  mode?: MatchMode;
   code: string;
   localId: string | null;
   scores: ReadonlyArray<readonly [string, Score]>;

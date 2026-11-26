@@ -13,6 +13,28 @@ export const RESPAWN = 2.5;
 
 export type GamePhase = 'start' | 'lobby' | 'play' | 'pause' | 'dying' | 'dead' | 'over';
 
+export type MatchMode = 'ffa' | 'teams';
+export type Team = 'red' | 'blue';
+
+export function teamTotals(
+  scores: ReadonlyMap<string, Score>,
+  bank: Readonly<Record<Team, number>> = { red: 0, blue: 0 },
+): Record<Team, number> {
+  const totals = { ...bank };
+  for (const score of scores.values()) if (score.team) totals[score.team] += score.kills;
+  return totals;
+}
+
+export function teamWinner(
+  scores: ReadonlyMap<string, Score>,
+  bank?: Readonly<Record<Team, number>>,
+): Winner {
+  const totals = teamTotals(scores, bank);
+  if (totals.red === totals.blue) return { id: 'team-draw', name: 'DRAW' };
+  const team = totals.red > totals.blue ? 'red' : 'blue';
+  return { id: `team-${team}`, name: `${team.toUpperCase()} TEAM` };
+}
+
 export interface Winner {
   id: string;
   name: string;
@@ -22,6 +44,7 @@ export interface Score {
   name: string;
   kills: number;
   deaths: number;
+  team?: Team;
 }
 
 export interface ScoreRow extends Score {
@@ -54,8 +77,15 @@ export function parseScoreRows(value: unknown): ScoreRow[] | null {
       deaths < 0
     )
       return null;
+    if (row.team !== undefined && row.team !== 'red' && row.team !== 'blue') return null;
     ids.add(row.id);
-    rows.push({ id: row.id, name: row.name.slice(0, 14), kills, deaths });
+    rows.push({
+      id: row.id,
+      name: row.name.slice(0, 14),
+      kills,
+      deaths,
+      ...(row.team ? { team: row.team } : {}),
+    });
   }
   return rows;
 }

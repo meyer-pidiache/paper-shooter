@@ -4,6 +4,7 @@ import { connectionError } from '../presentation/network-errors.js';
 import { CHARACTER_INKS, type CharacterColor } from '../shared/character-color.js';
 import { RemotePlayer } from '../gameplay/remote-player.js';
 import { knownMap } from '../domain/maps.js';
+import { teamWinner } from '../domain/match.js';
 import type {
   MultiplayerPorts,
   MultiplayerActions,
@@ -95,6 +96,12 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
       parry: (returned) => combatFeedback.parry(returned),
       cut: () => combatFeedback.cut(),
     },
+    canReceiveDamage: (sender) =>
+      lobby.mode !== 'teams' ||
+      (!!net.id &&
+        !!lobby.players.get(net.id)?.team &&
+        !!lobby.players.get(sender)?.team &&
+        lobby.players.get(net.id)?.team !== lobby.players.get(sender)?.team),
     tally: tallyDeath,
     colorFor: actions.colorFor,
   });
@@ -257,6 +264,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     opponentCount: () => remote.size,
     localName: () => ports.local.myName,
     sortedScores,
+    winner: () => (lobby.mode === 'teams' ? teamWinner(scores, lobby.teamBank) : null),
     timer: (text, urgent) => hud.setTimer(text, urgent),
     end: endMatch,
   });

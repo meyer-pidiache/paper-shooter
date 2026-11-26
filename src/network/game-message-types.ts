@@ -1,4 +1,4 @@
-import type { MatchDuration, ScoreRow } from '../domain/match.js';
+import type { MatchDuration, MatchMode, Team, ScoreRow } from '../domain/match.js';
 import type { MapKey } from '../domain/maps.js';
 import type { PickupKind } from '../domain/pickups.js';
 import type { MapBallot } from '../domain/map-vote.js';
@@ -15,7 +15,9 @@ export interface LobbyOffer {
   rejoinKey?: string;
 }
 export interface LobbyRoster {
-  players: Array<{ id: string; name: string; color?: unknown }>;
+  players: Array<{ id: string; name: string; color?: unknown; team?: Team }>;
+  mode?: MatchMode;
+  teamBank?: Record<Team, number>;
   hostId: string;
   isPublic: boolean;
   map?: MapKey;

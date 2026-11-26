@@ -38,6 +38,13 @@ export class ScreenController {
         void this.refreshLobbies();
       },
       pickLobbyMap: (map) => this.pickLobbyMap(map),
+      pickMode: (mode) => {
+        const { transport, game, lobby, actions } = ports;
+        if (!transport.isHost || game.state !== 'lobby') return;
+        lobby.mode = mode;
+        for (const player of lobby.players?.values() ?? []) delete player.team;
+        actions.broadcastLobby();
+      },
       pickDuration: (seconds) => {
         const { transport, game, lobby, actions } = ports;
         if (!transport.isHost || game.state !== 'lobby') return;
@@ -122,6 +129,7 @@ export class ScreenController {
     const { transport, lobby, profile, actions } = this.ports;
     return views.lobbyHTML({
       rows: actions.lobbyRows(),
+      mode: lobby.mode,
       host: transport.isHost,
       localId: transport.id,
       hostId: lobby.hostId,
@@ -161,6 +169,7 @@ export class ScreenController {
         views.pauseOnlineHTML(
           {
             code: String(transport.aliasCode || transport.code || ''),
+            mode: this.ports.lobby.mode,
             localId: transport.id,
             scores: actions.sortedScores(),
           },
@@ -175,7 +184,7 @@ export class ScreenController {
     view.bind('pause', this.events);
   }
   showClickToPlay() {
-    this.ports.view.show(views.clickToPlayHTML(this.ports.view.confirm()));
+    this.ports.view.show(views.clickToPlayHTML(this.ports.view.confirm(), this.ports.lobby.mode));
   }
   showDead() {
     const { view, game, records } = this.ports;

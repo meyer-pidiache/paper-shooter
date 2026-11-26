@@ -243,3 +243,17 @@ it('keeps the host in the results phase when its death awards the winning kill',
   expect(game.state).toBe('over');
   expect(player.alive).toBe(false);
 });
+
+it('ends a team match on combined kills and does not credit allied kills', () => {
+  const { app, lobby, scores, game } = host();
+  lobby.mode = 'teams';
+  scores.set('local', { name: 'player', team: 'red', kills: 10, deaths: 0 });
+  scores.set('ally', { name: 'ally', team: 'red', kills: 9, deaths: 0 });
+  scores.set('other', { name: 'opponent', team: 'blue', kills: 0, deaths: 0 });
+  app.match.tallyDeath('local', 'ally');
+  expect(scores.get('ally').kills).toBe(9);
+  expect(game.state).toBe('play');
+  app.match.tallyDeath('other', 'ally');
+  expect(game.over).toEqual({ id: 'team-red', name: 'RED TEAM' });
+  expect(game.state).toBe('over');
+});

@@ -1,5 +1,5 @@
 import type { MapKey } from '../domain/maps.js';
-import type { MatchDuration, Score } from '../domain/match.js';
+import type { MatchDuration, MatchMode, Team, Score } from '../domain/match.js';
 import type { CharacterColor } from '../shared/character-color.js';
 
 type PlayerProfile = {
@@ -7,7 +7,9 @@ type PlayerProfile = {
   color?: CharacterColor;
 };
 export interface LobbyState {
-  players: Map<string, PlayerProfile>;
+  players: Map<string, PlayerProfile & { team?: Team }>;
+  mode?: MatchMode;
+  teamBank?: Record<Team, number>;
   hostId: string | null;
   isPublic: boolean;
   status: string;

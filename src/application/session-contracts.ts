@@ -75,7 +75,7 @@ export interface SessionPorts {
   hud: SessionHud;
   presentation: SessionPresentation;
   transport: SessionTransport;
-  lobby: Pick<LobbyState, 'players' | 'map' | 'mapLocked' | 'duration'>;
+  lobby: Pick<LobbyState, 'players' | 'map' | 'mapLocked' | 'duration' | 'mode' | 'teamBank'>;
   scores: Map<string, Score>;
   player: { reset(position: Vector3): void; shieldT: number };
   remote: () => Iterable<{ lastSeen: number }>;

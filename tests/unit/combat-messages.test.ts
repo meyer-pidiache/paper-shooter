@@ -71,3 +71,13 @@ it('credits unknown victims to the local killer and reports host tally after cre
   ]);
   expect(ports.game.kills).toBe(1);
 });
+
+it('rejects damage from a teammate before attributing the hit', () => {
+  const { ports, owner } = fixture();
+  ports.canReceiveDamage = (sender) => sender !== 'ally';
+  owner.damage({ amount: 30 }, 'ally');
+  expect(ports.player.takeDamage).not.toHaveBeenCalled();
+  expect(ports.player.lastHitBy).toBeNull();
+  owner.damage({ amount: 30 }, 'enemy');
+  expect(ports.player.takeDamage).toHaveBeenCalledOnce();
+});

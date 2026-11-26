@@ -32,12 +32,12 @@ export function mapHTML(selected: MapKey, canPick: boolean) {
 
 export function mainHTML(view: MainScreenView, settings: string) {
   return `<h1>PAPER SHOOTER</h1><h2>a scribbled survival shooter</h2>
-    <div class="mainbtns"><button type="button" class="start" id="soloBtn">START<i>solo · survive the waves</i></button><button type="button" id="onlineBtn">PLAY ONLINE<i>free for all · up to 10 players</i></button></div>
+    <div class="mainbtns"><button type="button" class="start" id="soloBtn">START<i>solo · survive the waves</i></button><button type="button" id="onlineBtn">PLAY ONLINE<i>free for all or teams · up to 10 players</i></button></div>
     ${mapHTML(view.mapKey, true)}${settings}${checkpointHTML(view.checkpoint)}${view.best ? `<div class="beststat">best score: ${view.best}</div>` : ''}`;
 }
 
 export function onlineHTML(view: OnlineScreenView, list: string) {
-  return `<h1>PLAY ONLINE</h1><h2>free for all · first to ${FFA_TARGET} · up to 10 players</h2>
+  return `<h1>PLAY ONLINE</h1><h2>free for all or teams · first to ${FFA_TARGET} · up to 10 players</h2>
     <div class="online" id="online">
       <div class="row"><label for="setName">Your name</label><input type="text" class="namebox" id="setName" maxlength="14" value="${esc(view.myName)}"></div>
       <div class="quick-play"><button type="button" class="big" id="quickBtn" aria-describedby="quickHint">QUICK PLAY</button><p class="hint" id="quickHint">Joins an open public lobby or creates one for you.</p></div>
@@ -54,15 +54,16 @@ export function lobbyHTML(view: LobbyScreenView) {
   const rows = view.rows;
   const host = view.host;
   const n = rows.length;
-  return `<h1>LOBBY</h1><h2>free for all · first to ${FFA_TARGET} · ${n}/${view.maxPlayers} players</h2>
+  return `<h1>LOBBY</h1><h2>${view.mode === 'teams' ? 'teams' : 'free for all'} · first to ${FFA_TARGET} · ${n}/${view.maxPlayers} players</h2>
     <div class="online" id="online">
       <div class="row"><span>code</span><span class="code">${esc(String(view.code).replace(/-\d+$/, ''))}</span></div>
       ${view.mapLocked ? `<div class="row">Next map · <b>${mapName(view.mapKey)}</b></div>` : mapHTML(view.mapKey, host)}
+      <div class="row">${host ? `<label for="matchMode">Mode</label><select id="matchMode"><option value="ffa" ${view.mode !== 'teams' ? 'selected' : ''}>Free for all</option><option value="teams" ${view.mode === 'teams' ? 'selected' : ''}>Teams</option></select>` : `<span>Mode: ${view.mode === 'teams' ? 'Teams' : 'Free for all'}</span>`}</div>
       <div class="row duration">
         ${host ? `<label for="matchDuration">Time limit</label><select id="matchDuration">${FFA_DURATIONS.map((seconds) => `<option value="${seconds}" ${seconds === (view.duration ?? FFA_TIME) ? 'selected' : ''}>${seconds / 60} minutes</option>`).join('')}</select>` : `<span>Time limit · ${(view.duration ?? FFA_TIME) / 60} minutes</span>`}
       </div>
       <div class="hint">${view.isPublic ? 'this lobby is public: anyone can quick play in, or type the code' : 'private lobby: friends type this code under PLAY ONLINE → JOIN'}</div>
-      <div class="plist">${rows.map((p) => `<div class="${p.id === view.hostId ? 'host' : ''}${p.id === view.localId ? ' me' : ''}"><span>${esc(p.name)}</span><span>${p.id === view.localId ? 'you' : ''}</span></div>`).join('')}</div>
+      <div class="plist">${rows.map((p) => `<div class="${p.id === view.hostId ? 'host' : ''}${p.id === view.localId ? ' me' : ''}"><span>${esc(p.name)}${view.mode === 'teams' && p.team ? ' [' + esc(p.team.toUpperCase()) + ']' : ''}</span><span>${p.id === view.localId ? 'you' : ''}</span></div>`).join('')}</div>
       <div class="row"><button type="button" class="big" id="startBtn">START MATCH</button><button type="button" class="alt" id="leaveBtn">LEAVE</button></div>
       <div class="status" id="status">${esc(view.status || '')}</div><div class="hint">anyone can start · ${n < 2 ? 'people can still join once it is running' : n + ' players in'}</div>
     </div>`;
@@ -99,7 +100,7 @@ const fullscreenButton =
   '<button type="button" class="alt" data-fullscreen>TOGGLE FULLSCREEN</button>';
 
 export function pauseOnlineHTML(view: PauseScreenView, settings: string, confirm: string) {
-  return `<h1>MENU</h1><h2>free for all · lobby ${esc(view.code.replace(/-\d+$/, ''))}</h2><div class="scoreboard" id="pauseScores">${scoreRows(view.scores, view.localId)}</div>${settings}<div class="online" id="online"><div class="row"><button type="button" class="alt" id="leaveBtn">LEAVE MATCH</button>${fullscreenButton}</div></div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO KEEP PLAYING</div>`;
+  return `<h1>MENU</h1><h2>${view.mode === 'teams' ? 'teams' : 'free for all'} · lobby ${esc(view.code.replace(/-\d+$/, ''))}</h2><div class="scoreboard" id="pauseScores">${scoreRows(view.scores, view.localId)}</div>${settings}<div class="online" id="online"><div class="row"><button type="button" class="alt" id="leaveBtn">LEAVE MATCH</button>${fullscreenButton}</div></div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO KEEP PLAYING</div>`;
 }
 
 export function pauseSoloHTML(
@@ -114,6 +115,6 @@ export function deathHTML(view: DeathScreenView, newBest: boolean, confirm: stri
   return `<h1>ERASED</h1><div class="stats">you survived <b>${view.wave}</b> wave${view.wave === 1 ? '' : 's'} · <b>${view.kills}</b> kills · score <b>${view.score}</b>${newBest ? ' · <b>NEW BEST</b>' : ` · best ${view.best}`}</div>${checkpointHTML(view.checkpoint)}${menuBtnHTML()}<div class="go">CLICK (or press ${confirm}) TO DRAW AGAIN</div>`;
 }
 
-export function clickToPlayHTML(confirm: string) {
-  return `<h1>MATCH ON</h1><h2>free for all · first to ${FFA_TARGET}</h2><div class="online">${fullscreenButton}</div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO PLAY</div>`;
+export function clickToPlayHTML(confirm: string, mode?: 'ffa' | 'teams') {
+  return `<h1>MATCH ON</h1><h2>${mode === 'teams' ? 'teams' : 'free for all'} · first to ${FFA_TARGET}</h2><div class="online">${fullscreenButton}</div><div class="go">CLICK ANYWHERE (or press ${confirm}) TO PLAY</div>`;
 }

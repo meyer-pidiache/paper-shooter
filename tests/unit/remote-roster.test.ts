@@ -90,3 +90,24 @@ it('keeps legacy and invalid color fields from breaking the roster', () => {
   expect(peers.get('valid')?.setColor).toHaveBeenLastCalledWith('blue');
   expect(lobby.players.get('valid')?.color).toBe('blue');
 });
+
+it('assigns balanced teams and preserves disconnected points on a rejoin', () => {
+  const { owner, lobby, scores, ports } = fixture();
+  lobby.mode = 'teams';
+  lobby.players.set('host', { name: 'host' });
+  owner.broadcast();
+  owner.join('one', { name: 'one' });
+  owner.join('two', { name: 'two' });
+  expect([...lobby.players.values()].map((p) => p.team)).toEqual(['red', 'blue', 'red']);
+  ports.phase = () => 'play';
+  ports.inMatch = () => true;
+  Object.defineProperty(ports.transport, 'rejoinKey', { value: 'test-key' });
+  owner.beginMatch();
+  scores.set('one', { name: 'one', team: 'blue', kills: 4, deaths: 1 });
+  owner.peerLeave('one');
+  expect(lobby.teamBank).toEqual({ red: 0, blue: 4 });
+  owner.join('new-one', { name: 'one' }, 'one');
+  expect(lobby.players.get('new-one')?.team).toBe('blue');
+  expect(scores.get('new-one')?.kills).toBe(4);
+  expect(lobby.teamBank).toEqual({ red: 0, blue: 0 });
+});

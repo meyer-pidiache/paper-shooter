@@ -27,7 +27,7 @@ export class HostMigration {
     }
   }
   private async recover(task: SessionTask) {
-    const { lobby, transport, removeRemote, presentation, inMatch } = this.ports;
+    const { lobby, transport, removeRemote, presentation, inMatch, scores } = this.ports;
     const myId = transport.id;
     const oldHost = lobby.hostId;
     lobby.gen = (lobby.gen || 0) + 1;
@@ -41,7 +41,14 @@ export class HostMigration {
     const migration = { myId, roster, base, code, wasInMatch: inMatch() };
     // Capture identity/roster/clock authority before retiring the old endpoint clears its ids.
     transport.leave();
-    if (oldHost) removeRemote(oldHost);
+    if (oldHost) {
+      const score = scores.get(oldHost);
+      if (migration.wasInMatch && lobby.mode === 'teams' && score?.team) {
+        lobby.teamBank ??= { red: 0, blue: 0 };
+        lobby.teamBank[score.team] += score.kills;
+      }
+      removeRemote(oldHost);
+    }
     const successor = roster[0] === myId;
     presentation.message(
       'HOST LEFT',

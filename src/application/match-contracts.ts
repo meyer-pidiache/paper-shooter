@@ -45,6 +45,8 @@ export interface MatchPorts {
   player: MatchPlayer;
   opponents(): Iterable<MatchOpponent>;
   level(): { arenaSpawns?: readonly Vector3[]; spawns: readonly Vector3[] };
+  mode?(): 'ffa' | 'teams';
+  teamBank?(): { red: number; blue: number } | undefined;
   online(): boolean;
   finished(): boolean;
   localName(): string;

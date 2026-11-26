@@ -13,6 +13,7 @@ export interface MatchClockPorts {
   opponentCount(): number;
   localName(): string;
   sortedScores(): Array<[string, Score]>;
+  winner?(): Winner | null;
   timer(text: string, urgent?: boolean): void;
   end(winner: Winner): void;
 }
@@ -67,6 +68,6 @@ export class MatchClock {
     const winner: Winner = first
       ? { id: first[0], name: first[1].name }
       : { id, name: localName() };
-    end(winner);
+    end(this.ports.winner?.() ?? winner);
   }
 }

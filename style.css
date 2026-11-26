@@ -1482,7 +1482,8 @@ html[data-theme='dark'] .ink-option span {
   border-left: 2px solid currentColor;
   transform: rotate(-45deg);
 }
-.duration select {
+.duration select,
+#matchMode {
   font: inherit;
   color: var(--ink);
   background: var(--panel-paper);

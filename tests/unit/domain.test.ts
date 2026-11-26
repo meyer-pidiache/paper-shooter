@@ -8,6 +8,8 @@ import {
   idlePolicy,
   rankScores,
   recordDeath,
+  teamTotals,
+  teamWinner,
 } from '../../src/domain/match';
 import { bossFor, enemyName, planWave } from '../../src/domain/waves';
 
@@ -89,4 +91,15 @@ describe('game rules', () => {
     expect(() => planWave(0)).toThrow(RangeError);
     expect(() => planWave(1.5)).toThrow(RangeError);
   });
+});
+
+it('counts team points and resolves ties, including departed players', () => {
+  const scores = new Map([
+    ['a', { name: 'a', team: 'red' as const, kills: 3, deaths: 1 }],
+    ['b', { name: 'b', team: 'blue' as const, kills: 4, deaths: 2 }],
+  ]);
+  expect(teamTotals(scores, { red: 2, blue: 0 })).toEqual({ red: 5, blue: 4 });
+  expect(teamWinner(scores, { red: 2, blue: 0 }).id).toBe('team-red');
+  expect(teamWinner(scores, { red: 1, blue: 0 }).id).toBe('team-draw');
+  expect(parseScoreRows([{ id: 'a', name: 'a', kills: 1, deaths: 0, team: 'invalid' }])).toBeNull();
 });

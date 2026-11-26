@@ -51,6 +51,11 @@ type RemoteModel = ReturnType<typeof buildHumanoid> & {
 };
 export class RemotePlayer {
   private displayName = 'paper';
+  private teamLabel = '';
+  setTeamLabel(team: 'red' | 'blue' | undefined) {
+    this.teamLabel = team ? `[${team.toUpperCase()}] ` : '';
+    if (this.root) this.model.nameTag.setName(this.teamLabel + this.displayName);
+  }
   get name() {
     return this.displayName;
   }
@@ -58,7 +63,7 @@ export class RemotePlayer {
     const next = name.slice(0, 14) || 'paper';
     if (next === this.displayName) return;
     this.displayName = next;
-    if (this.root) this.model.nameTag.setName(next);
+    if (this.root) this.model.nameTag.setName(this.teamLabel + next);
   }
   readonly isLocal = false;
   alive = true;
@@ -177,7 +182,7 @@ export class RemotePlayer {
     model.root.add(tagG);
     tagG.position.y = 2.25;
     const nameTag = buildRemoteNameTag();
-    nameTag.setName(this.name);
+    nameTag.setName(this.teamLabel + this.name);
     tagG.add(nameTag.mesh);
     const animation = { root: model.root, joints: model.J, tag: tagG, face: model.face };
     this.corpse = false;

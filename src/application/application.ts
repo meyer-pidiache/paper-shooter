@@ -128,6 +128,8 @@ export function createApplication(options: ApplicationOptions) {
     opponents: () => runtime.remote.values(),
     level: () => runtime.state.level,
     online: runtime.online,
+    mode: () => runtime.lobby.mode ?? 'ffa',
+    teamBank: () => runtime.lobby.teamBank,
     finished: () => runtime.game.over !== null,
     localName: () => runtime.state.myName,
     colorFor,
