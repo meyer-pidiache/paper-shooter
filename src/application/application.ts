@@ -10,6 +10,7 @@ import { SettingsPanel } from '../presentation/settings-panel.js';
 import { WaveController } from './waves.js';
 import { EnemyRewards } from './enemy-rewards.js';
 import { MatchController } from './match.js';
+import { teamColor } from '../domain/match.js';
 import { INK } from '../shared/ink.js';
 import { presentPickup } from '../presentation/pickups.js';
 import { ScreenController } from './screens.js';
@@ -26,8 +27,11 @@ export function createApplication(options: ApplicationOptions) {
     playerColorChanged: (color) => multiplayer.setPlayerColor(color),
   });
   const audio = runtime.audio;
-  const colorFor = (id: string) =>
-    id === runtime.net.id ? runtime.state.playerColor : runtime.lobby.players.get(id)?.color;
+  const colorFor = (id: string) => {
+    const member = runtime.lobby.players.get(id);
+    if (runtime.lobby.mode === 'teams' && member?.team) return teamColor(member.team);
+    return id === runtime.net.id ? runtime.state.playerColor : member?.color;
+  };
   const mapVoteView = new MapVoteView(runtime.hud.el.panel);
   const debug: ApplicationDebug = {
     ...runtime,
@@ -197,7 +201,29 @@ export function createApplication(options: ApplicationOptions) {
     mapVoteView,
     respawnLocal: () => match.respawnLocal(),
   });
-  const settingsPanel = new SettingsPanel(runtime.state, runtime.userSettings);
+  const settingsPanel = new SettingsPanel(
+    {
+      get settings() {
+        return runtime.state.settings;
+      },
+      get musicWanted() {
+        return runtime.state.musicWanted;
+      },
+      get appearance() {
+        return runtime.state.appearance;
+      },
+      get playerColor() {
+        return (runtime.net.id ? colorFor(runtime.net.id) : undefined) ?? runtime.state.playerColor;
+      },
+      get characterInkLocked() {
+        return runtime.online() && runtime.lobby.mode === 'teams';
+      },
+      get nerdStats() {
+        return runtime.state.nerdStats;
+      },
+    },
+    runtime.userSettings,
+  );
   runtime.hud.onScreenChange = () => settingsPanel.close();
   const screens = new ScreenController({
     navigation: runtime.state,

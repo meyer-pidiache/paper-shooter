@@ -155,7 +155,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     roster.broadcast();
   }
   function setPlayerColor(color: CharacterColor) {
-    if (!net.active || net.id === null) return;
+    if (!net.active || net.id === null || lobby.mode === 'teams') return;
     roster.setColor(net.id, color);
     net.broadcast('player-color', color);
   }
@@ -173,7 +173,8 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     roster.receive(data);
     // Settings can change while a join or migration handshake is in flight.
     const member = net.id === null ? undefined : lobby.players.get(net.id);
-    if (member && member.color !== ports.local.playerColor) setPlayerColor(ports.local.playerColor);
+    if (lobby.mode !== 'teams' && member && member.color !== ports.local.playerColor)
+      setPlayerColor(ports.local.playerColor);
   });
   net.on('player-color', (color, sender) => roster.setColor(sender, color));
   net.onHost('leave', (data) => roster.leave(data.id));

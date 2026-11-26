@@ -133,3 +133,32 @@ it('leaves teamBank unchanged when a live peer rejoins without a pending disconn
   expect(scores.get('new-three')?.kills).toBe(3);
   expect(lobby.teamBank).toEqual({ red: 0, blue: 5 });
 });
+
+it('enforces fixed team colors in team mode and ignores custom ink overrides until FFA', () => {
+  const { owner, peers, lobby, ports } = fixture();
+  lobby.mode = 'teams';
+  lobby.players.set('host', { name: 'host', color: 'green' });
+  owner.broadcast();
+  owner.join('bluePeer', { name: 'bluePeer', color: 'amber' });
+  owner.join('redPeer', { name: 'redPeer', color: 'magenta' });
+  expect(ports.createPeer).toHaveBeenCalledWith('bluePeer', 'bluePeer', 'blue');
+  expect(ports.createPeer).toHaveBeenCalledWith('redPeer', 'redPeer', 'original');
+  owner.setColor('bluePeer', 'green');
+  expect(peers.get('bluePeer')?.setColor).toHaveBeenLastCalledWith('blue');
+  owner.receive({
+    hostId: 'host',
+    isPublic: false,
+    mode: 'teams',
+    players: [
+      { id: 'host', name: 'host', color: 'green', team: 'red' },
+      { id: 'bluePeer', name: 'bluePeer', color: 'green', team: 'blue' },
+      { id: 'redPeer', name: 'redPeer', color: 'magenta', team: 'red' },
+    ],
+  });
+  expect(peers.get('bluePeer')?.setColor).toHaveBeenLastCalledWith('blue');
+  expect(peers.get('redPeer')?.setColor).toHaveBeenLastCalledWith('original');
+  lobby.mode = 'ffa';
+  owner.broadcast();
+  expect(peers.get('bluePeer')?.setColor).toHaveBeenLastCalledWith('green');
+  expect(peers.get('redPeer')?.setColor).toHaveBeenLastCalledWith('magenta');
+});

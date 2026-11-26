@@ -172,3 +172,23 @@ it('cancels capture safely after its button has been removed', () => {
   expect(() => adapter.cancelCapture()).not.toThrow();
   expect(() => adapter.cancelCapture()).not.toThrow();
 });
+
+it('locks the character ink picker when team colors are fixed', () => {
+  const panel = document.createElement('div');
+  document.body.append(panel);
+  const actions = commands();
+  const adapter = new SettingsPanel(
+    { ...view(), playerColor: 'blue', characterInkLocked: true },
+    actions,
+  );
+  panel.innerHTML = adapter.html();
+  adapter.wire(panel);
+  const fieldset = panel.querySelector<HTMLFieldSetElement>('#characterInk')!;
+  expect(fieldset.disabled).toBe(true);
+  const green = panel.querySelector<HTMLInputElement>(
+    'input[name="characterColor"][value="green"]',
+  )!;
+  green.checked = true;
+  green.dispatchEvent(new Event('change', { bubbles: true }));
+  expect(actions.setPlayerColor).not.toHaveBeenCalled();
+});

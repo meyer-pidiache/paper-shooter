@@ -1,5 +1,7 @@
 import { isRecord } from '../shared/ice.js';
 
+import type { CharacterColor } from '../shared/character-color.js';
+
 export const MAX_PLAYERS = 10;
 export const FFA_TARGET = 20;
 export const FFA_TIME = 300;
@@ -15,6 +17,10 @@ export type GamePhase = 'start' | 'lobby' | 'play' | 'pause' | 'dying' | 'dead' 
 
 export type MatchMode = 'ffa' | 'teams';
 export type Team = 'red' | 'blue';
+
+export function teamColor(team: Team): CharacterColor {
+  return team === 'blue' ? 'blue' : 'original';
+}
 
 export function teamTotals(
   scores: ReadonlyMap<string, Score>,

@@ -9,6 +9,7 @@ interface SettingsView {
   readonly musicWanted: boolean;
   readonly appearance: 'light' | 'dark';
   readonly playerColor: CharacterColor;
+  readonly characterInkLocked?: boolean;
   readonly nerdStats: boolean;
 }
 interface SettingsCommands {
@@ -74,7 +75,7 @@ export class SettingsPanel {
           <label class="settings-row">Invert vertical look <input type="checkbox" id="setInv" ${this.view.settings.invert ? 'checked' : ''}></label>
           <label class="settings-row"><span>Music <small id="musicBinding">(${keyLabel('music')})</small></span><input type="checkbox" id="setMus" ${this.view.musicWanted ? 'checked' : ''}></label>
           <label class="settings-row">Appearance <select id="setAppearance"><option value="light" ${this.view.appearance === 'light' ? 'selected' : ''}>Light</option><option value="dark" ${this.view.appearance === 'dark' ? 'selected' : ''}>Dark</option></select></label>
-          ${characterInkPickerHTML(this.view.playerColor)}
+          ${characterInkPickerHTML(this.view.playerColor, this.view.characterInkLocked)}
           <label class="settings-row"><span>Nerd stats <small>FPS and multiplayer ping</small></span><input type="checkbox" id="setNerdStats" ${this.view.nerdStats ? 'checked' : ''}></label>
           </div>
           <div id="settingsBindings" hidden>

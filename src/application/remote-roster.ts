@@ -1,5 +1,5 @@
 import { knownMap, type MapKey } from '../domain/maps.js';
-import { FFA_TIME, type GamePhase, type Score, type Team } from '../domain/match.js';
+import { FFA_TIME, teamColor, type GamePhase, type Score, type Team } from '../domain/match.js';
 import type { GamePayloads } from '../network/game-message-types.js';
 import { isRecord } from '../shared/ice.js';
 import {
@@ -85,12 +85,16 @@ export class RemoteRoster<Peer extends RosterPeer> {
     this.ports.peers.set(id, peer);
     return peer;
   }
+  private effectiveColor(player: { color?: CharacterColor; team?: Team }): CharacterColor {
+    if (this.ports.lobby.mode === 'teams' && player.team) return teamColor(player.team);
+    return characterColor(player.color);
+  }
   setColor(id: string, selection: unknown) {
     const player = this.ports.lobby.players.get(id);
     if (!player) return;
     const color = characterColor(selection);
     player.color = color;
-    this.ports.peers.get(id)?.setColor(color);
+    this.ports.peers.get(id)?.setColor(this.effectiveColor(player));
   }
   remove(id: string) {
     const { peers, lobby, scores } = this.ports;
@@ -139,8 +143,11 @@ export class RemoteRoster<Peer extends RosterPeer> {
         shown: transport.aliasCode || transport.code || undefined,
         duration: lobby.duration ?? FFA_TIME,
       });
-    for (const [peerId, peer] of this.ports.peers)
-      peer.setTeamLabel?.(lobby.mode === 'teams' ? lobby.players.get(peerId)?.team : undefined);
+    for (const [peerId, peer] of this.ports.peers) {
+      const player = lobby.players.get(peerId);
+      peer.setTeamLabel?.(lobby.mode === 'teams' ? player?.team : undefined);
+      if (player) peer.setColor(this.effectiveColor(player));
+    }
     render();
   }
   peerLeave(id: string, reason = 'left') {
@@ -187,12 +194,13 @@ export class RemoteRoster<Peer extends RosterPeer> {
       restoredTeam = lobby.players.get(meta.prev)?.team ?? scores.get(meta.prev)?.team;
       this.replace(meta.prev, id);
     }
+    const team = lobby.mode === 'teams' ? (restoredTeam ?? this.assignTeam()) : undefined;
     lobby.players.set(id, {
       name,
       color,
-      ...(lobby.mode === 'teams' ? { team: restoredTeam ?? this.assignTeam() } : {}),
+      ...(team ? { team } : {}),
     });
-    this.add(id, name, color);
+    this.add(id, name, team ? teamColor(team) : color);
     this.broadcast();
     if (this.activeMatch()) {
       if (!scores.has(id))
@@ -232,7 +240,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
       const color = characterColor(selection);
       lobby.players.set(id, { name, color, ...(team ? { team } : {}) });
       if (id !== transport.id) {
-        const peer = this.add(id, name, color);
+        const peer = this.add(id, name, lobby.mode === 'teams' && team ? teamColor(team) : color);
         peer.setTeamLabel?.(lobby.mode === 'teams' ? team : undefined);
       }
     }

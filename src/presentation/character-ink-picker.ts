@@ -15,15 +15,15 @@ function swatchStyle(color: CharacterColor): string {
   return `--ink-light:${inkCss(ink, 'light')};--ink-dark:${inkCss(ink, 'dark')}`;
 }
 
-export function characterInkPickerHTML(selected: CharacterColor) {
+export function characterInkPickerHTML(selected: CharacterColor, locked = false) {
   const options = colors.map(
     ([color, label]) => `<label class="ink-option" title="${label}">
       <input type="radio" name="characterColor" value="${color}" aria-label="${label}" ${color === selected ? 'checked' : ''}>
       <span style="${swatchStyle(color)}" aria-hidden="true"></span>
     </label>`,
   );
-  return `<fieldset class="character-ink" id="characterInk">
-    <legend>Character ink</legend>
+  return `<fieldset class="character-ink" id="characterInk"${locked ? ' disabled' : ''}>
+    <legend>Character ink${locked ? ' <small>(fixed by team)</small>' : ''}</legend>
     <div class="ink-options">
       ${options.join('')}
     </div>
@@ -31,10 +31,16 @@ export function characterInkPickerHTML(selected: CharacterColor) {
 }
 
 export function wireCharacterInkPicker(panel: ParentNode, select: (color: CharacterColor) => void) {
-  const picker = panel.querySelector('#characterInk');
+  const picker = panel.querySelector<HTMLFieldSetElement>('#characterInk');
   picker?.addEventListener('change', (event) => {
     const option = event.target;
-    if (!(option instanceof HTMLInputElement) || !option.checked) return;
+    if (
+      picker.disabled ||
+      !(option instanceof HTMLInputElement) ||
+      option.disabled ||
+      !option.checked
+    )
+      return;
     select(characterColor(option.value));
   });
 }
