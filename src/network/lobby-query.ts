@@ -1,6 +1,7 @@
 import { isRecord } from '../shared/ice.js';
 import { decodeGameMessage } from './game-messages.js';
 import type { GamePayloads } from './game-message-types.js';
+import type { RejoinChallenge } from './rejoin-proof.js';
 import type { ConnectionPort, DiscoveryPeerPort } from './peer-ports.js';
 
 const PUBLIC_PROBE_BATCH_SIZE = 16;
@@ -19,6 +20,7 @@ interface Attempt {
   done: boolean;
   released?: boolean;
   challenged?: boolean;
+  proofHost?: string;
   channelOpened: boolean;
   iceConnected: boolean;
   ice?: RTCPeerConnection | null;
@@ -34,7 +36,12 @@ export type QueryOptions = QuerySelection & {
   gather: number;
   signal?: AbortSignal;
   onOffer?: (count: number) => void;
-  rejoinToken?: (key: string) => string | undefined;
+  rejoinToken?: (key: string, hostId: string) => string | undefined;
+  rejoinProof?: {
+    match: string;
+    acceptsHost(hostId: string): boolean;
+    sign(challenge: RejoinChallenge, hostId: string): Promise<string | undefined>;
+  };
 };
 
 export class LobbyQueryError extends Error {
@@ -71,6 +78,7 @@ export class LobbyQuery {
   private gatherTimer?: ReturnType<typeof setTimeout>;
   private batchTimer?: ReturnType<typeof setTimeout>;
   private lastError: Error | null = null;
+  private proofAttempt?: Attempt;
   private resolve!: (offers: LobbyOffer[]) => void;
   private reject!: (error: Error) => void;
 
@@ -246,9 +254,35 @@ export class LobbyQuery {
       this.complete(attempt);
       return;
     }
+    if (message.t === 'welcome' && this.options.rejoinProof) {
+      const proof = this.options.rejoinProof;
+      const { rejoinChallenge: challenge, hostId } = message.d;
+      if (!attempt.proofHost) {
+        if (this.proofAttempt || this.peer.id === hostId || message.from !== hostId ||
+            !challenge || challenge.endpoint !== attempt.hostId || challenge.match !== proof.match ||
+            !proof.acceptsHost(hostId)) {
+          this.complete(attempt, true);
+          return;
+        }
+        // Signing on more than one alias/canonical channel could replace our own winning seat.
+        this.proofAttempt = attempt;
+        attempt.proofHost = hostId;
+        void proof.sign(challenge, hostId).then((signature) => {
+          if (this.settled || attempt.done || !attempt.connection.open) return;
+          if (!signature) this.complete(attempt, true);
+          else attempt.connection.send({ t: 'stay', d: { proof: signature } });
+        }).catch(() => {
+          if (!this.settled && !attempt.done) this.complete(attempt, true);
+        });
+        return;
+      }
+      if (challenge || message.d.rejoinKey || attempt.proofHost !== hostId || message.from !== hostId)
+        return;
+    }
     if (message.t === 'welcome' && this.options.rejoinToken) {
       if (!attempt.challenged) {
-        const token = message.d.rejoinKey && this.options.rejoinToken(message.d.rejoinKey);
+        const token = message.d.rejoinKey && message.from === message.d.hostId &&
+          this.options.rejoinToken(message.d.rejoinKey, message.d.hostId);
         if (!token) {
           this.complete(attempt);
           return;

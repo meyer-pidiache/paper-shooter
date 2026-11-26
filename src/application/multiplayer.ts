@@ -60,6 +60,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     scores,
     local: ports.local,
     removeRemote: (id) => removeRemote(id),
+    reconcileRejoin: (previous, current) => roster.reconcileRejoin(previous, current),
     remoteIds: () => remote.keys(),
     inMatch,
     broadcastLobby: () => broadcastLobby(),
@@ -169,6 +170,8 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
   net.hostName = ports.local.myName;
   net.onPeerJoin = (id, metadata, previous) => roster.join(id, metadata, previous);
   net.onPeerResume = (token) => roster.resumePeer(token);
+  net.onPeerProof = (match, verifier) => roster.resumeProof(match, verifier);
+  net.canSeatPeer = (id, previous) => roster.canSeat(id, previous);
   net.onHost('lobby', (data) => {
     roster.receive(data);
     // Settings can change while a join or migration handshake is in flight.
@@ -324,6 +327,8 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     net.onPeerJoin = null;
     net.onPeerLeave = null;
     net.onPeerResume = null;
+    net.onPeerProof = null;
+    net.canSeatPeer = null;
     net.onDisconnect = null;
     roster.clearRejoins();
     connection.dispose();

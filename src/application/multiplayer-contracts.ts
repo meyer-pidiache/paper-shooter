@@ -37,6 +37,10 @@ export interface MultiplayerTransport extends LobbyTransport {
   onPeerJoin: ((id: string, metadata: unknown, previous?: string) => void) | null;
   onPeerLeave: ((id: string, reason?: string) => void) | null;
   onPeerResume: ((token: string) => string | undefined) | null;
+  onPeerProof?: ((match: string, verifier: string) => string | undefined) | null;
+  canSeatPeer?: ((id: string, previous?: string) => boolean) | null;
+  rejoinVerifierFor?(id: string): unknown;
+  clearMatchProof?(): void;
   dropPeer(id: string, reason: string): boolean;
   onDisconnect: (() => void) | null;
   on<K extends keyof GamePayloads>(

@@ -1,4 +1,5 @@
-import type { MatchDuration, MatchMode, Team, ScoreRow } from '../domain/match.js';
+import type { MatchDuration, MatchMode, Team, Score, ScoreRow } from '../domain/match.js';
+import type { RejoinChallenge } from './rejoin-proof.js';
 import type { MapKey } from '../domain/maps.js';
 import type { PickupKind } from '../domain/pickups.js';
 import type { MapBallot } from '../domain/map-vote.js';
@@ -13,11 +14,24 @@ export interface LobbyOffer {
   inMatch: boolean;
   hostName: string;
   rejoinKey?: string;
+  rejoinChallenge?: RejoinChallenge;
+}
+export interface RejoinBinding {
+  id: string;
+  verifier: string;
+  /** The pending team's kills are also the attribution for its exact bank debit. */
+  pending?: { score: Score; expiresAt: number };
+}
+export interface TeamsRejoinSnapshot {
+  match: string;
+  bindings: RejoinBinding[];
+  scores: ScoreRow[];
 }
 export interface LobbyRoster {
   players: Array<{ id: string; name: string; color?: unknown; team?: Team }>;
   mode?: MatchMode;
   teamBank?: Record<Team, number>;
+  rejoins?: TeamsRejoinSnapshot;
   hostId: string;
   isPublic: boolean;
   map?: MapKey;
@@ -56,7 +70,7 @@ export type EmptyPayload = Record<string, never> | undefined;
 export interface GamePayloads {
   welcome: LobbyOffer;
   refused: { reason: string } & Partial<LobbyOffer>;
-  stay: { token?: string } | undefined;
+  stay: { token?: string; proof?: string; rejoinVerifier?: string } | undefined;
   'rejoin-token': { key: string; token: string };
   'player-color': string | undefined;
   lobby: LobbyRoster;

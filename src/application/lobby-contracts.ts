@@ -1,6 +1,7 @@
 import type { MapKey } from '../domain/maps.js';
 import type { MatchDuration, MatchMode, Team, Score } from '../domain/match.js';
 import type { CharacterColor } from '../shared/character-color.js';
+import type { MigrationRejoin } from '../network/rejoin-credentials.js';
 
 type PlayerProfile = {
   name: string;
@@ -31,7 +32,12 @@ export interface LobbyTransport {
   accepting: boolean;
   onAlias: (() => void) | null;
   host(options: { isPublic: boolean; code?: string }): Promise<unknown>;
-  join(code: string, metadata: PlayerProfile & { prev?: string }): Promise<unknown>;
+  join(
+    code: string,
+    metadata: PlayerProfile & { prev?: string },
+    migration?: MigrationRejoin,
+  ): Promise<unknown>;
+  migrationRejoin?(): MigrationRejoin | undefined;
   quickJoin(metadata: PlayerProfile, status: (message: string) => void): Promise<unknown>;
   leave(): void;
   claimAlias(code: string): void;
@@ -42,6 +48,7 @@ export interface LobbyConnectionPorts {
   scores: Map<string, Score>;
   local: { myName: string; mapKey: MapKey; playerColor: CharacterColor };
   removeRemote(id: string): void;
+  reconcileRejoin?(previous: string, current?: string): void;
   remoteIds(): Iterable<string>;
   inMatch(): boolean;
   broadcastLobby(): void;
@@ -62,11 +69,11 @@ export interface LobbyConnectionPorts {
 
 export interface HostMigrationPorts extends Pick<
   LobbyConnectionPorts,
-  'lobby' | 'scores' | 'removeRemote' | 'inMatch' | 'broadcastLobby'
+  'lobby' | 'scores' | 'removeRemote' | 'reconcileRejoin' | 'inMatch' | 'broadcastLobby'
 > {
   transport: Pick<
     LobbyTransport,
-    'id' | 'code' | 'accepting' | 'onAlias' | 'host' | 'join' | 'claimAlias' | 'leave'
+    'id' | 'code' | 'accepting' | 'onAlias' | 'host' | 'join' | 'migrationRejoin' | 'claimAlias' | 'leave'
   >;
   local: Pick<LobbyConnectionPorts['local'], 'myName' | 'playerColor'>;
   session: Pick<

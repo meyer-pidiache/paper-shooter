@@ -2,6 +2,7 @@ import { MAX_PLAYERS } from '../domain/match.js';
 import { lobbyCode, lobbyCount } from './protocol.js';
 import { LobbyQuery, LobbyQueryError } from './lobby-query.js';
 import type { LobbyOffer, WelcomeOffer, QueryOptions, QuerySelection } from './lobby-query.js';
+import type { GamePayloads } from './game-message-types.js';
 import type { DiscoveryPeerPort } from './peer-ports.js';
 
 export const PUBLIC_SLOT_COUNT = 16;
@@ -99,7 +100,13 @@ export class LobbyDiscovery {
     return { rows: listings(result.offers, this.prefix), incomplete: result.incomplete };
   }
 
-  async join(metadata: object, adopt: Adopt, onStatus?: Status): Promise<void> {
+  async join(
+    metadata: object,
+    adopt: Adopt,
+    onStatus?: Status,
+    prepareStay?: () => Promise<GamePayloads['stay']>,
+  ): Promise<void> {
+    let seating: Promise<void> | undefined;
     try {
       await this.query(metadata, (peer, transfer) => {
         onStatus?.('looking for an open lobby…');
@@ -111,10 +118,16 @@ export class LobbyDiscovery {
           adopt: (offer) => {
             adopt(peer, offer);
             transfer();
-            offer.connection.send({ t: 'stay' });
+            if (!prepareStay) offer.connection.send({ t: 'stay' });
+            else seating = prepareStay().then((d) => {
+              if (!offer.connection.open)
+                throw new LobbyQueryError('cancelled', 'lobby operation cancelled');
+              offer.connection.send(d ? { t: 'stay', d } : { t: 'stay' });
+            });
           },
         };
       });
+      await seating;
     } catch (error) {
       if (error instanceof LobbyQueryError) {
         if (error.reason === 'empty') throw new LobbyQueryError('empty', 'no open public lobbies');

@@ -1,5 +1,7 @@
-import type { Score } from '../domain/match.js';
+import type { Score, Team } from '../domain/match.js';
+import type { RejoinBinding, TeamsRejoinSnapshot } from '../network/game-message-types.js';
 import { newRejoinSecret } from '../network/rejoin-credentials.js';
+import { isRejoinVerifier, MAX_REJOIN_BINDINGS } from '../network/rejoin-proof.js';
 
 const REJOIN_GRACE_MS = 90_000;
 type RejoinRecord = {
@@ -7,11 +9,68 @@ type RejoinRecord = {
   pending?: { score: Score; expiresAt: number };
 };
 
-/** Keeps credentials and disconnected scores for the current host's active match. */
+/** Legacy tokens stay host-local; Teams replicas receive only match-scoped public bindings. */
 export class MatchRejoins {
   private readonly records = new Map<string, RejoinRecord>();
+  private readonly bindings = new Map<string, RejoinRecord>();
+  match?: string;
 
-  constructor(private readonly now: () => number = () => performance.now()) {}
+  constructor(
+    private readonly now: () => number = () => performance.now(),
+    private readonly wallNow: () => number = Date.now,
+  ) {}
+
+  startTeams(): void {
+    this.match = newRejoinSecret();
+  }
+
+  bind(id: string, verifier: unknown): boolean {
+    this.prune();
+    if (!this.match || !isRejoinVerifier(verifier) || this.bindings.has(verifier) ||
+        this.bindings.size >= MAX_REJOIN_BINDINGS) return false;
+    this.bindings.set(verifier, { id });
+    return true;
+  }
+
+  protectedId(id: string): boolean {
+    this.prune();
+    return [...this.bindings.values()].some((record) => record.id === id);
+  }
+
+  proofId(match: string, verifier: string): string | undefined {
+    this.prune();
+    if (match === this.match) return this.bindings.get(verifier)?.id;
+  }
+
+  snapshot(): RejoinBinding[] {
+    this.prune();
+    return Array.from(this.bindings, ([verifier, { id, pending }]) => ({
+      id, verifier, ...(pending ? { pending } : {}),
+    }));
+  }
+
+  receive(snapshot: TeamsRejoinSnapshot | undefined): void {
+    this.clear();
+    if (!snapshot) return;
+    this.match = snapshot.match;
+    // Expiry is an absolute timestamp, not a fresh grace period on every reception or migration.
+    for (const { verifier, id, pending } of snapshot.bindings) {
+      this.bindings.set(verifier, {
+        id,
+        ...(pending ? { pending: {
+          expiresAt: pending.expiresAt,
+          score: { name: pending.score.name, team: pending.score.team,
+            kills: pending.score.kills, deaths: pending.score.deaths },
+        } } : {}),
+      });
+    }
+    this.prune();
+  }
+
+  rekey(previous: string, id: string): void {
+    const record = this.find(previous);
+    if (record && !record.pending) record.id = id;
+  }
 
   track(id: string): string {
     this.prune();
@@ -22,11 +81,13 @@ export class MatchRejoins {
 
   disconnect(id: string, score: Score | undefined): void {
     this.prune();
-    for (const [token, record] of this.records) {
-      if (record.id !== id) continue;
-      if (score) record.pending = { score: { ...score }, expiresAt: this.now() + REJOIN_GRACE_MS };
-      else this.records.delete(token);
-      break;
+    for (const records of [this.bindings, this.records]) {
+      const expiresAt = (records === this.bindings ? this.wallNow() : this.now()) + REJOIN_GRACE_MS;
+      for (const [key, record] of records) {
+        if (record.id !== id || record.pending) continue;
+        if (score) record.pending = { score: { ...score }, expiresAt };
+        else records.delete(key);
+      }
     }
   }
 
@@ -35,23 +96,37 @@ export class MatchRejoins {
     return this.records.get(token)?.id;
   }
 
-  restore(previous: string, id: string, liveScore: Score | undefined): Score | undefined {
-    for (const record of this.records.values()) {
-      if (record.id !== previous) continue;
-      const score = record.pending?.score ?? liveScore;
-      record.id = id;
-      record.pending = undefined;
-      return score;
+  /** Called synchronously after the transport authorizes a seat with previousId/proofId. */
+  restore(
+    previous: string, id: string, liveScore: Score | undefined,
+    debit?: (team: Team, kills: number) => void,
+  ): Score | undefined {
+    const record = this.find(previous);
+    if (!record) return;
+    const pending = record.pending?.score;
+    record.id = id;
+    record.pending = undefined;
+    if (pending?.team) debit?.(pending.team, pending.kills);
+    return pending ?? liveScore;
+  }
+
+  private find(id: string): RejoinRecord | undefined {
+    for (const records of [this.bindings, this.records]) {
+      for (const record of records.values()) if (record.id === id) return record;
     }
   }
 
   clear(): void {
     this.records.clear();
+    this.bindings.clear();
+    this.match = undefined;
   }
 
   private prune(): void {
-    const now = this.now();
-    for (const [token, { pending }] of this.records)
-      if (pending && pending.expiresAt <= now) this.records.delete(token);
+    for (const records of [this.bindings, this.records]) {
+      const now = records === this.bindings ? this.wallNow() : this.now();
+      for (const [key, { pending }] of records)
+        if (pending && pending.expiresAt <= now) records.delete(key);
+    }
   }
 }

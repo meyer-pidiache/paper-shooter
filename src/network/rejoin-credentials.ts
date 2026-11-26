@@ -1,5 +1,8 @@
+import { isRejoinKeyPair, type RejoinKeyPair } from './rejoin-proof.js';
+
 const STORAGE_KEY = 'paper_match_rejoins';
 const MAX_SAVED_LOBBIES = 16;
+const baseCode = (code: string) => code.replace(/-\d+$/, '');
 
 export function newRejoinSecret(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -16,16 +19,43 @@ export interface RejoinCredential {
   token: string;
 }
 
-type SavedCredential = RejoinCredential & { code: string };
+export interface PortableRejoinCredential extends RejoinKeyPair {
+  match: string;
+  hostId: string;
+}
 
-function isSavedCredential(value: unknown): value is SavedCredential {
+export interface MigrationRejoin {
+  key: RejoinKeyPair;
+  binding?: PortableRejoinCredential;
+}
+
+type SavedProof = PortableRejoinCredential & { code: string };
+type SavedToken = RejoinCredential & { code: string };
+type SavedCredential = SavedToken | SavedProof;
+
+function isSavedProof(value: unknown): value is SavedProof {
+  if (!isRejoinKeyPair(value)) return false;
+  const { code, hostId, match } = value as Partial<SavedProof>;
+  return typeof code === 'string' && typeof hostId === 'string' && isRejoinSecret(match);
+}
+
+function isSavedToken(value: unknown): value is SavedToken {
   if (value === null || typeof value !== 'object') return false;
-  const { code, hostId, key, token } = value as Partial<SavedCredential>;
+  const { code, hostId, key, token } = value as Partial<SavedToken>;
   return (
     typeof code === 'string' &&
     typeof hostId === 'string' &&
     isRejoinSecret(key) &&
     isRejoinSecret(token)
+  );
+}
+
+function publicEntry({ code, hostId }: SavedCredential, prefix: string, slotCount: number) {
+  return (
+    /^PUB(?:0|[1-9]\d*)$/.test(code) &&
+    Number(code.slice(3)) < slotCount &&
+    hostId.startsWith(prefix) &&
+    baseCode(hostId.slice(prefix.length)) === code
   );
 }
 
@@ -37,7 +67,8 @@ export class RejoinCredentials {
   private read(): SavedCredential[] {
     try {
       const data: unknown = JSON.parse(this.storage?.getItem(STORAGE_KEY) ?? 'null');
-      if (Array.isArray(data)) return data.filter(isSavedCredential);
+      if (Array.isArray(data))
+        return data.filter((entry) => isSavedProof(entry) || isSavedToken(entry));
     } catch {
       // A blocked or damaged save falls back to credentials from this page.
     }
@@ -45,25 +76,39 @@ export class RejoinCredentials {
   }
 
   get(code: string): RejoinCredential | undefined {
-    const base = code.replace(/-\d+$/, '');
-    return this.read().find((entry) => entry.code === base);
+    return this.read().filter(isSavedToken).find((entry) => entry.code === baseCode(code));
+  }
+
+  getProof(code: string): PortableRejoinCredential | undefined {
+    return this.read().filter(isSavedProof).find((entry) => entry.code === baseCode(code));
   }
 
   latestPublic(prefix: string, slotCount: number): RejoinCredential | undefined {
-    return this.read().find(({ code, hostId }) => {
-      if (!/^PUB(?:0|[1-9]\d*)$/.test(code) || Number(code.slice(3)) >= slotCount) return false;
-      if (!hostId.startsWith(prefix)) return false;
-      const canonicalCode = hostId.slice(prefix.length).replace(/-\d+$/, '');
-      return canonicalCode === code;
-    });
+    return this.read().filter(isSavedToken).find((entry) => publicEntry(entry, prefix, slotCount));
+  }
+
+  latestPublicRecovery(prefix: string, slotCount: number): SavedCredential | undefined {
+    return this.read().find((entry) => publicEntry(entry, prefix, slotCount));
+  }
+
+  saveProof(code: string, credential: PortableRejoinCredential): void {
+    const base = baseCode(code);
+    const entries = this.read();
+    const previous = entries.find((entry) => entry.code === base);
+    if (
+      previous && 'match' in previous && previous.match === credential.match &&
+      previous.hostId === credential.hostId && previous.verifier === credential.verifier
+    ) return;
+    this.saveEntry({ ...credential, code: base }, entries);
   }
 
   save(code: string, credential: RejoinCredential): void {
-    const base = code.replace(/-\d+$/, '');
-    this.saved = [
-      { ...credential, code: base },
-      ...this.read().filter((entry) => entry.code !== base),
-    ].slice(0, MAX_SAVED_LOBBIES);
+    this.saveEntry({ ...credential, code: baseCode(code) }, this.read());
+  }
+
+  private saveEntry(entry: SavedCredential, entries: SavedCredential[]): void {
+    this.saved = [entry, ...entries.filter(({ code }) => code !== entry.code)]
+      .slice(0, MAX_SAVED_LOBBIES);
     try {
       this.storage?.setItem(STORAGE_KEY, JSON.stringify(this.saved));
     } catch {

@@ -7,7 +7,8 @@ import { characterColor } from '../shared/character-color.js';
 import { isGamePayload } from './game-messages.js';
 import { LobbyDiscovery, PUBLIC_SLOT_COUNT } from './lobby-discovery.js';
 import { LobbyQuery } from './lobby-query.js';
-import { browserRejoinCredentials, newRejoinSecret } from './rejoin-credentials.js';
+import { browserRejoinCredentials, isRejoinSecret, newRejoinSecret } from './rejoin-credentials.js';
+import { createRejoinKey, isRejoinVerifier, signRejoin, verifyRejoin } from './rejoin-proof.js';
 
 // Peer-to-peer networking over WebRTC, using the public PeerJS signalling service.
 // The host player's browser is authoritative. A small same-origin endpoint obtains temporary
@@ -58,8 +59,11 @@ export class Net {
     this.prefix = namespace;
     this.rejoinCredentials = rejoinCredentials;
     this.rejoinKey = null;
+    this.proofKey = undefined;
+    this.boundProof = undefined;
     this.peer = null;
     this.conns = new Map();
+    this.probeVerifiers = new WeakMap();
     this.isHost = false;
     this.id = null;
     this.code = null;
@@ -69,6 +73,8 @@ export class Net {
     this.connected = false;
     this.onPeerJoin = null;
     this.onPeerResume = null;
+    this.onPeerProof = null;
+    this.canSeatPeer = null;
     this.onPeerLeave = null;
     this.onDisconnect = null;
     this.onAlias = null;
@@ -263,10 +269,26 @@ export class Net {
       msg = { ...msg, d: characterColor(msg.d) };
     }
     if (!this.validatePayload(msg.t, msg.d)) return;
+    const fromAuthority = !this.isHost && from === this.hostId && msg.from === this.authorityId;
     if (msg.t === 'rejoin-token') {
-      if (!this.isHost && from === this.hostId && msg.from === this.authorityId)
-        this.rejoinCredentials.save(this.code, { hostId: this.authorityId, ...msg.d });
+      if (fromAuthority) {
+        const { key, token } = msg.d;
+        this.rejoinCredentials.save(this.code, { hostId: this.authorityId, key, token });
+      }
       return;
+    }
+    if (msg.t === 'lobby' && fromAuthority && msg.d.hostId === this.authorityId) {
+      const snapshot = msg.d.rejoins;
+      const key = this.proofKey;
+      const binding = key && snapshot?.bindings.some((entry) =>
+        !entry.pending && entry.id === this.id && entry.verifier === key.verifier,
+      );
+      if (!binding) this.boundProof = undefined;
+      else if (this.boundProof?.match !== snapshot.match ||
+          this.boundProof.hostId !== this.authorityId) {
+        this.boundProof = { ...key, match: snapshot.match, hostId: this.authorityId };
+        this.rejoinCredentials.saveProof(this.authorityId.slice(this.prefix.length), this.boundProof);
+      }
     }
     if (msg.t === 'stay') return;
     const sender = this.isHost ? from : msg.from || from;
@@ -346,7 +368,7 @@ export class Net {
     this.rejoinKey = newRejoinSecret();
     this.connected = true;
     this.accepting = true;
-    this.peer.on('connection', (conn) => this._incoming(conn));
+    this.peer.on('connection', (conn) => this._incoming(conn, this.id));
     this._keepAlive(this.peer);
     this._startPingPolling();
     return this.code;
@@ -369,15 +391,15 @@ export class Net {
   _sendWelcome(conn, details = this._lobbyOffer()) {
     conn.send({ t: 'welcome', d: details, from: this.id });
   }
-  _seat(conn, { reply, resume = false, token }) {
+  _seat(conn, { reply, resume = false, token, proofPrevious }) {
     if (!conn.open || this.conns.has(conn.peer)) return;
-    const previous = token && this.onPeerResume?.(token);
+    const previous = proofPrevious ?? (token && this.onPeerResume?.(token));
     const old = previous && this.conns.get(previous);
     if (!this.accepting || (this._full() && !old)) {
       this._refuse(conn);
       return;
     }
-    if (resume && !previous) {
+    if ((resume && !previous) || this.canSeatPeer?.(conn.peer, previous || undefined) === false) {
       this._refuse(conn, 'score recovery is unavailable');
       return;
     }
@@ -396,8 +418,12 @@ export class Net {
   _full() {
     return this.conns.size >= this.maxPlayers - 1;
   }
+  rejoinVerifierFor(id) {
+    const connection = this.conns.get(id);
+    return this.probeVerifiers.get(connection) ?? connection?.metadata?.rejoinVerifier;
+  }
   // Discovery and score recovery claim a seat only after the guest selects this channel.
-  _incoming(conn) {
+  _incoming(conn, endpoint) {
     const generation = this.generation;
     conn.on('open', () => {
       if (generation !== this.generation) {
@@ -407,12 +433,18 @@ export class Net {
       const resume = conn.metadata?.resume === true;
       if (!this.accepting || (this._full() && !resume)) {
         this._refuse(conn);
+      } else if (resume && conn.metadata?.rejoinMatch !== undefined) {
+        this._challengeRejoin(conn, endpoint, generation);
+      } else if (resume && endpoint !== this.id) {
+        this._refuse(conn, 'score recovery is unavailable');
       } else if (resume || conn.metadata?.probe) {
         const onData = (msg) => {
           if (!this._validMessage(msg) || msg.t !== 'stay') return;
           conn.off('data', onData);
-          if (generation === this.generation)
-            this._seat(conn, { reply: resume, resume, token: resume ? msg.d?.token : undefined });
+          if (generation !== this.generation) return;
+          if (!resume && isRejoinVerifier(msg.d?.rejoinVerifier))
+            this.probeVerifiers.set(conn, msg.d.rejoinVerifier);
+          this._seat(conn, { reply: resume, resume, token: resume ? msg.d?.token : undefined });
         };
         conn.on('data', onData);
         const offer = this._lobbyOffer();
@@ -422,6 +454,49 @@ export class Net {
         this._seat(conn, { reply: true });
       }
     });
+  }
+  _challengeRejoin(conn, endpoint, generation) {
+    const { rejoinMatch: match, rejoinVerifier: verifier } = conn.metadata;
+    const host = this.id;
+    const client = conn.peer;
+    const previous = isRejoinSecret(match) && isRejoinVerifier(verifier) &&
+      this.onPeerProof?.(match, verifier);
+    if (!previous) {
+      this._refuse(conn, 'score recovery is unavailable');
+      return;
+    }
+    const challenge = { nonce: newRejoinSecret(), match, endpoint };
+    const current = () => generation === this.generation && this.isHost && this.id === host &&
+      conn.open && !this.conns.has(client);
+    let used = false;
+    const stop = () => {
+      clearTimeout(timer);
+      conn.off('data', onData);
+      conn.off('close', stop);
+      conn.off('error', stop);
+    };
+    const onData = async (msg) => {
+      if (used || !isWireMessage(msg) || msg.t !== 'stay') return;
+      used = true;
+      conn.off('data', onData);
+      const verified = this._validMessage(msg) && !msg.d?.token &&
+        await verifyRejoin(verifier, msg.d?.proof, challenge, host, client);
+      stop();
+      if (!current()) return;
+      if (!verified || this.onPeerProof?.(match, verifier) !== previous) {
+        this._refuse(conn, 'score recovery is unavailable');
+        return;
+      }
+      this._seat(conn, { reply: true, resume: true, proofPrevious: previous });
+    };
+    const timer = setTimeout(() => {
+      stop();
+      closeConnection(conn);
+    }, JOIN_TIMEOUT);
+    conn.on('close', stop);
+    conn.on('error', stop);
+    conn.on('data', onData);
+    this._sendWelcome(conn, { ...this._lobbyOffer(), rejoinChallenge: challenge });
   }
   // after a host transfer the lobby lives on a generation code; keep trying to open the original code
   // as a second front door so it stays the code people know
@@ -438,7 +513,7 @@ export class Net {
         }
         this.alias = peer;
         this.aliasCode = code;
-        peer.on('connection', (conn) => this._incoming(conn));
+        peer.on('connection', (conn) => this._incoming(conn, peer.id));
         if (this.onAlias) this.onAlias(code);
       } catch (e) {
         if (--tries > 0) this._aliasTimer = setTimeout(attempt, 6000);
@@ -453,13 +528,14 @@ export class Net {
     this._keepAlive(peer);
     this._adopt(offer.hostId, offer.connection, offer.details);
   }
-  _queryLobby(peer, ids, metadata, rejoinToken) {
+  _queryLobby(peer, ids, metadata, { rejoinToken, rejoinProof } = {}) {
     return new LobbyQuery(peer, ids, metadata, {
       mode: 'first',
       timeout: JOIN_TIMEOUT,
       gather: 0,
       signal: this.sessionAbort.signal,
       rejoinToken,
+      rejoinProof,
       adopt: (offer) => this._adoptOffer(peer, offer),
     }).run();
   }
@@ -471,7 +547,8 @@ export class Net {
         peer,
         [credential.hostId],
         { ...meta, resume: true, probe: true },
-        (key) => (key === credential.key ? credential.token : undefined),
+        { rejoinToken: (key, hostId) =>
+          key === credential.key && hostId === credential.hostId ? credential.token : undefined },
       );
       return true;
     } catch (error) {
@@ -479,7 +556,52 @@ export class Net {
       return false;
     }
   }
-  async join(code, meta = {}, wantId = null) {
+  _sameCodeIds(code, priorHostId) {
+    const base = code.replace(/-\d+$/, '');
+    const prior = Number(priorHostId.match(/-(\d+)$/)?.[1] ?? 0);
+    const generations = Number.isSafeInteger(prior + 3) ? [prior + 1, prior + 2, prior + 3] : [];
+    return [...new Set([
+      ...[code, base, ...[1, 2, 3, ...generations].map((n) => `${base}-${n}`)]
+        .map((candidate) => this.prefix + candidate),
+      priorHostId,
+    ])];
+  }
+  async _resumeProof(peer, code, credential, meta) {
+    const generation = this.generation;
+    const baseId = this.prefix + code.replace(/-\d+$/, '');
+    const exact = this.prefix + code;
+    if (credential.hostId.replace(/-\d+$/, '') !== baseId) return false;
+    this.proofKey = { verifier: credential.verifier, privateKey: credential.privateKey };
+    try {
+      await this._queryLobby(peer, meta.prev ? [exact] : this._sameCodeIds(code, credential.hostId), {
+        ...meta, resume: true, probe: true, rejoinVerifier: credential.verifier,
+        rejoinMatch: credential.match,
+      }, { rejoinProof: {
+        match: credential.match,
+        acceptsHost: (id) => meta.prev ? id === exact : id.replace(/-\d+$/, '') === baseId,
+        sign: (challenge, host) => signRejoin(credential, challenge, host, peer.id),
+      } });
+      return true;
+    } catch (error) {
+      if (generation !== this.generation) throw error;
+      this.proofKey = undefined;
+      if (meta.prev) throw error;
+      return false;
+    }
+  }
+  async _joinMetadata(meta, generation) {
+    const key = await createRejoinKey();
+    if (generation !== this.generation) throw new Error('lobby operation cancelled');
+    this.proofKey = key;
+    return key ? { ...meta, rejoinVerifier: key.verifier } : meta;
+  }
+  clearMatchProof() {
+    this.boundProof = undefined;
+  }
+  migrationRejoin() {
+    if (this.proofKey) return { key: this.proofKey, binding: this.boundProof };
+  }
+  async join(code, meta = {}, migration = undefined) {
     this.leave();
     this.isHost = false;
     code = String(code || '')
@@ -495,6 +617,9 @@ export class Net {
       ...['-1', '-2', '-3'].map((suf) => base + suf).filter((c) => c !== code),
     ].map((c) => this.prefix + c);
     try {
+      // A migrating tab must only prove its own seat, not a different tab's saved seat.
+      const proof = meta.prev ? migration?.binding : this.rejoinCredentials.getProof(code);
+      if (proof && (await this._resumeProof(this.peer, code, proof, meta))) return this.code;
       const credential = !meta.prev && this.rejoinCredentials.get(code);
       if (
         credential &&
@@ -502,7 +627,11 @@ export class Net {
         (await this._resume(this.peer, credential, meta))
       )
         return this.code;
-      await this._queryLobby(this.peer, ids, meta);
+      if (meta.prev) {
+        this.proofKey = migration?.key;
+        const metadata = this.proofKey ? { ...meta, rejoinVerifier: this.proofKey.verifier } : meta;
+        await this._queryLobby(this.peer, ids, metadata);
+      } else await this._queryLobby(this.peer, ids, await this._joinMetadata(meta, generation));
     } catch (error) {
       if (generation === this.generation) this.leave();
       throw error;
@@ -518,18 +647,26 @@ export class Net {
     this.leave();
     const generation = this.generation;
     try {
-      const credential = this.rejoinCredentials.latestPublic(this.prefix, PUBLIC_SLOT_COUNT);
+      const credential = this.rejoinCredentials.latestPublicRecovery(this.prefix, PUBLIC_SLOT_COUNT);
       if (credential) {
         const peer = await this._newPeer(null);
         try {
           onStatus?.('rejoining your last match…');
           if (generation !== this.generation) throw new Error('lobby operation cancelled');
-          if (await this._resume(peer, credential, meta)) return this.code;
+          const resumed = 'match' in credential
+            ? await this._resumeProof(peer, credential.code, credential, meta)
+            : await this._resume(peer, credential, meta);
+          if (resumed) return this.code;
         } finally {
           if (this.peer !== peer) peer.destroy();
         }
       }
-      await this.discovery.join(meta, (peer, offer) => this._adoptOffer(peer, offer), onStatus);
+      await this.discovery.join(meta, (peer, offer) => this._adoptOffer(peer, offer), onStatus,
+        async () => {
+          const { rejoinVerifier } = await this._joinMetadata({}, generation);
+          return rejoinVerifier ? { rejoinVerifier } : undefined;
+        },
+      );
     } catch (error) {
       if (generation === this.generation) this.leave();
       throw error;
@@ -604,6 +741,8 @@ export class Net {
     this.hostId = null;
     this.authorityId = null;
     this.rejoinKey = null;
+    this.proofKey = undefined;
+    this.boundProof = undefined;
     this.leaving = false;
   }
 

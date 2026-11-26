@@ -26,6 +26,8 @@ export interface RosterPorts<Peer extends RosterPeer> {
     send(kind: 'lobby', data: GamePayloads['lobby']): void;
     sendTo<K extends 'start' | 'rejoin-token'>(id: string, kind: K, data: GamePayloads[K]): void;
     readonly rejoinKey?: string | null;
+    rejoinVerifierFor?(id: string): unknown;
+    clearMatchProof?(): void;
   };
   createPeer(id: string, name: string, color: CharacterColor): Peer;
   map(): MapKey;
@@ -42,7 +44,6 @@ export interface RosterPorts<Peer extends RosterPeer> {
 /** Owns replica membership and roster reconciliation, not actor damage or host election. */
 export class RemoteRoster<Peer extends RosterPeer> {
   private readonly rejoins = new MatchRejoins();
-  private readonly banked = new Map<string, { team: Team; kills: number }>();
   private readonly leaveHints = new Set<string>();
 
   constructor(private readonly ports: RosterPorts<Peer>) {}
@@ -50,12 +51,14 @@ export class RemoteRoster<Peer extends RosterPeer> {
   beginMatch() {
     const { lobby, transport } = this.ports;
     this.clearRejoins();
+    if (lobby.mode === 'teams') this.rejoins.startTeams();
     for (const id of lobby.players.keys()) if (id !== transport.id) this.offerRejoin(id);
+    if (this.rejoins.match) this.broadcast();
   }
 
   clearRejoins() {
+    this.ports.transport.clearMatchProof?.();
     this.rejoins.clear();
-    this.banked.clear();
     this.leaveHints.clear();
   }
 
@@ -68,8 +71,27 @@ export class RemoteRoster<Peer extends RosterPeer> {
     if (this.activeMatch()) return this.rejoins.previousId(token);
   }
 
+  resumeProof(match: string, verifier: string) {
+    if (this.activeMatch() && this.ports.lobby.mode === 'teams') {
+      const previous = this.rejoins.proofId(match, verifier);
+      if (previous !== this.ports.transport.id) return previous;
+    }
+  }
+
+  canSeat(id: string, previous?: string) {
+    if (!this.rejoins.match || id === previous) return true;
+    // Signaling IDs can be reused after disconnection; a public ID isn't authorization.
+    return !this.ports.lobby.players.has(id) && !this.rejoins.protectedId(id);
+  }
+
+  reconcileRejoin(previous: string, current?: string) {
+    if (current) this.rejoins.rekey(previous, current);
+    else this.rejoins.disconnect(previous, this.ports.scores.get(previous));
+  }
+
   private offerRejoin(id: string) {
     const { transport } = this.ports;
+    if (this.rejoins.bind(id, transport.rejoinVerifierFor?.(id))) return;
     if (transport.rejoinKey)
       transport.sendTo(id, 'rejoin-token', {
         key: transport.rejoinKey,
@@ -125,7 +147,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
       : 'blue';
   }
   broadcast() {
-    const { transport, lobby, map, render } = this.ports;
+    const { transport, lobby, map, render, scores } = this.ports;
     const id = transport.id;
     if (lobby.mode === 'teams') {
       for (const player of lobby.players.values()) player.team ??= this.assignTeam();
@@ -148,6 +170,14 @@ export class RemoteRoster<Peer extends RosterPeer> {
         })),
         ...(lobby.mode ? { mode: lobby.mode } : {}),
         ...(lobby.mode === 'teams' && lobby.teamBank ? { teamBank: lobby.teamBank } : {}),
+        ...(lobby.mode === 'teams' && this.rejoins.match ? {
+          rejoins: {
+            match: this.rejoins.match,
+            bindings: this.rejoins.snapshot(),
+            scores: [...scores].filter(([id]) => lobby.players.has(id))
+              .map(([id, score]) => ({ id, ...score })),
+          },
+        } : {}),
         hostId: id,
         isPublic: lobby.isPublic,
         map: lobby.map || map(),
@@ -171,7 +201,6 @@ export class RemoteRoster<Peer extends RosterPeer> {
       if (lobby.mode === 'teams' && score?.team) {
         lobby.teamBank ??= { red: 0, blue: 0 };
         lobby.teamBank[score.team] += score.kills;
-        this.banked.set(id, { team: score.team, kills: score.kills });
       }
     }
     lobby.migrationPeers?.delete(id);
@@ -190,17 +219,18 @@ export class RemoteRoster<Peer extends RosterPeer> {
     const color = characterColor(meta.color);
     let restoredTeam: 'red' | 'blue' | undefined;
     if (previous) {
-      const banked = this.banked.get(previous);
-      this.banked.delete(previous);
-      const score = this.rejoins.restore(previous, id, scores.get(previous));
+      const score = this.rejoins.restore(previous, id, scores.get(previous), (team, kills) => {
+        if (lobby.teamBank) lobby.teamBank[team] = Math.max(0, lobby.teamBank[team] - kills);
+      });
+      lobby.migrationPeers?.delete(previous);
       restoredTeam = score?.team;
-      if (score && banked && lobby.teamBank)
-        lobby.teamBank[banked.team] = Math.max(0, lobby.teamBank[banked.team] - banked.kills);
       this.remove(previous);
       if (score) scores.set(id, { ...score, name });
     } else if (
       typeof meta.prev === 'string' &&
       meta.prev !== id &&
+      lobby.players.has(meta.prev) &&
+      !this.rejoins.protectedId(meta.prev) &&
       lobby.migrationPeers?.delete(meta.prev)
     ) {
       restoredTeam = lobby.players.get(meta.prev)?.team ?? scores.get(meta.prev)?.team;
@@ -213,7 +243,8 @@ export class RemoteRoster<Peer extends RosterPeer> {
       ...(team ? { team } : {}),
     });
     this.add(id, name, team ? teamColor(team) : color);
-    this.broadcast();
+    const publishTogether = !!this.rejoins.match && this.activeMatch();
+    if (!publishTogether) this.broadcast();
     if (this.activeMatch()) {
       if (!scores.has(id))
         scores.set(id, {
@@ -223,6 +254,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
           ...(lobby.players.get(id)?.team ? { team: lobby.players.get(id)!.team } : {}),
         });
       if (!previous) this.offerRejoin(id);
+      if (publishTogether) this.broadcast();
       transport.sendTo(id, 'start', {
         late: true,
         duration: lobby.duration ?? FFA_TIME,
@@ -239,6 +271,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
     const { lobby, transport, peers, inMatch, scores, refreshScores, render, feed } = this.ports;
     lobby.mode = data.mode ?? 'ffa';
     lobby.teamBank = data.teamBank ? { ...data.teamBank } : undefined;
+    this.rejoins.receive(data.rejoins);
     lobby.hostId = data.hostId;
     lobby.isPublic = !!data.isPublic;
     lobby.code = transport.code || '';
@@ -263,6 +296,11 @@ export class RemoteRoster<Peer extends RosterPeer> {
       this.remove(id);
     }
     this.leaveHints.clear();
+    if (data.rejoins) {
+      scores.clear();
+      for (const { id, name, kills, deaths, team } of data.rejoins.scores)
+        scores.set(id, { name, kills, deaths, ...(team ? { team } : {}) });
+    }
     if (inMatch()) {
       for (const player of data.players)
         if (!scores.has(player.id))

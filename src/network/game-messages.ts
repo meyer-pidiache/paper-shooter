@@ -3,7 +3,8 @@ import { FFA_DURATIONS, MAX_PLAYERS, isMatchDuration, parseScoreRows } from '../
 import { LEVELS } from '../domain/maps.js';
 import { isWireMessage } from './protocol.js';
 import { isRejoinSecret } from './rejoin-credentials.js';
-import type { GameMessage, WireVector } from './game-message-types.js';
+import { isRejoinSignature, isRejoinVerifier, MAX_REJOIN_BINDINGS } from './rejoin-proof.js';
+import type { GameMessage, LobbyRoster, WireVector } from './game-message-types.js';
 
 type Validator = (value: unknown) => boolean;
 const number: Validator = (value) =>
@@ -50,6 +51,7 @@ function record(fields: Record<string, Validator>): Validator {
 const empty: Validator = (value) =>
   value === undefined || (isRecord(value) && Object.keys(value).length === 0);
 const reference = record({ id: integer });
+const challenge = record({ nonce: isRejoinSecret, match: isRejoinSecret, endpoint: id });
 const offerFields = {
   hostId: id,
   code,
@@ -59,14 +61,26 @@ const offerFields = {
   inMatch: boolean,
   hostName: text(128),
   rejoinKey: optional(isRejoinSecret),
+  rejoinChallenge: optional(challenge),
 };
 const team: Validator = (value) => value === 'red' || value === 'blue';
 const player = record({ id, name: text(128), team: optional(team) });
+const pendingScore = record({ name: text(128), kills: integer, deaths: integer, team });
+const binding = record({
+  id,
+  verifier: isRejoinVerifier,
+  pending: optional(record({
+    score: pendingScore,
+    expiresAt: (value) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0,
+  })),
+});
+const rejoins = record({ match: isRejoinSecret, bindings: array(binding, MAX_REJOIN_BINDINGS), scores: score });
 
 const rosterShape = record({
   players: array(player, MAX_PLAYERS),
   mode: optional((value) => value === 'ffa' || value === 'teams'),
   teamBank: optional(record({ red: integer, blue: integer })),
+  rejoins: optional(rejoins),
   hostId: id,
   isPublic: boolean,
   map: optional(map),
@@ -76,9 +90,25 @@ const rosterShape = record({
 });
 function roster(value: unknown): boolean {
   if (!rosterShape(value)) return false;
-  const data = value as { players: Array<{ id: string }>; hostId: string };
-  const ids = data.players.map((entry) => entry.id);
-  return ids.length > 0 && new Set(ids).size === ids.length && ids.includes(data.hostId);
+  const data = value as LobbyRoster;
+  const players = new Map(data.players.map((entry) => [entry.id, entry]));
+  if (players.size !== data.players.length || !players.has(data.hostId)) return false;
+  const snapshot = data.rejoins;
+  if (!snapshot) return true;
+  if (data.mode !== 'teams' || snapshot.scores.some(
+    (row) => !players.has(row.id) || row.team !== players.get(row.id)?.team,
+  )) return false;
+  const ids = new Set<string>();
+  const verifiers = new Set<string>();
+  const attributed = { red: 0, blue: 0 };
+  for (const { id, verifier, pending } of snapshot.bindings) {
+    if (ids.has(id) || verifiers.has(verifier) || players.has(id) === !!pending) return false;
+    ids.add(id);
+    verifiers.add(verifier);
+    if (pending?.score.team) attributed[pending.score.team] += pending.score.kills;
+  }
+  return attributed.red <= (data.teamBank?.red ?? 0) &&
+    attributed.blue <= (data.teamBank?.blue ?? 0);
 }
 function spawnTable(value: unknown): boolean {
   return (
@@ -148,7 +178,11 @@ const validators: Record<keyof import('./game-message-types.js').GamePayloads, V
       Object.entries(offerFields).map(([key, check]) => [key, optional(check)]),
     ),
   }),
-  stay: optional(record({ token: optional(isRejoinSecret) })),
+  stay: optional(record({
+    token: optional(isRejoinSecret),
+    proof: optional(isRejoinSignature),
+    rejoinVerifier: optional(isRejoinVerifier),
+  })),
   'rejoin-token': record({ key: isRejoinSecret, token: isRejoinSecret }),
   'player-color': optional(text(16)),
   lobby: roster,

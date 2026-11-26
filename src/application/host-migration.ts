@@ -1,4 +1,5 @@
 import type { HostMigrationPorts } from './lobby-contracts.js';
+import type { MigrationRejoin } from '../network/rejoin-credentials.js';
 import { SessionTasks, type SessionTask } from './session-tasks.js';
 interface Migration {
   myId: string;
@@ -6,6 +7,7 @@ interface Migration {
   base: string;
   code: string;
   wasInMatch: boolean;
+  rejoin?: MigrationRejoin;
 }
 /** Host authority recovery owns election order, generation codes and bounded/cancellable retries. */
 export class HostMigration {
@@ -30,7 +32,8 @@ export class HostMigration {
     const { lobby, transport, removeRemote, presentation, inMatch, scores } = this.ports;
     const myId = transport.id;
     const oldHost = lobby.hostId;
-    lobby.gen = (lobby.gen || 0) + 1;
+    const priorGeneration = Number(oldHost?.match(/-(\d+)$/)?.[1] ?? 0);
+    lobby.gen = Math.max(lobby.gen || 0, priorGeneration) + 1;
     const base = (lobby.code || transport.code || '').replace(/-\d+$/, '');
     const code = base + '-' + lobby.gen;
     const roster = (lobby.order || []).filter((id) => id !== oldHost && lobby.players.has(id));
@@ -38,7 +41,9 @@ export class HostMigration {
       this.leave('the host left the lobby');
       return;
     }
-    const migration = { myId, roster, base, code, wasInMatch: inMatch() };
+    const migration = {
+      myId, roster, base, code, wasInMatch: inMatch(), rejoin: transport.migrationRejoin?.(),
+    };
     // Capture identity/roster/clock authority before retiring the old endpoint clears its ids.
     transport.leave();
     if (oldHost) {
@@ -46,6 +51,7 @@ export class HostMigration {
       if (migration.wasInMatch && lobby.mode === 'teams' && score?.team) {
         lobby.teamBank ??= { red: 0, blue: 0 };
         lobby.teamBank[score.team] += score.kills;
+        this.ports.reconcileRejoin?.(oldHost);
       }
       removeRemote(oldHost);
     }
@@ -89,6 +95,7 @@ export class HostMigration {
     });
     scores.delete(myId);
     if (score) scores.set(newId, score);
+    this.ports.reconcileRejoin?.(myId, newId);
     lobby.hostId = newId;
     lobby.code = code;
     const followers = roster.filter((id) => id !== myId);
@@ -113,11 +120,9 @@ export class HostMigration {
     let joined = false;
     while (!joined && performance.now() < deadline) {
       try {
-        await transport.join(migration.code, {
-          name: local.myName,
-          color: local.playerColor,
-          prev: migration.myId,
-        });
+        const metadata = { name: local.myName, color: local.playerColor, prev: migration.myId };
+        if (migration.rejoin) await transport.join(migration.code, metadata, migration.rejoin);
+        else await transport.join(migration.code, metadata);
         if (!task.current) return;
         joined = true;
       } catch {
