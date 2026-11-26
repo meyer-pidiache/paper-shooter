@@ -14,6 +14,7 @@ import type { RosterPeer } from './remote-roster.js';
 import type { LobbyTransport, LobbyState, LobbyConnectionPorts } from './lobby-contracts.js';
 import type { Pickup } from './pickup-contracts.js';
 import type { KillFeedEntry } from '../presentation/kill-feed.js';
+import type { CharacterColor } from '../shared/character-color.js';
 
 export type MultiplayerPeer = RosterPeer &
   ReplicatedPeer &
@@ -100,6 +101,7 @@ export interface MultiplayerActions {
   spawnPickup(kind: 'ammo' | 'health', point: Vector3, id: number): void;
   removePickup(pickup: Pickup): void;
   tallyDeath(victim: string, killer?: string | null): void;
+  colorFor(id: string): CharacterColor | undefined;
   applyScores(rows: ScoreRow[]): void;
   sortedScores(): Array<[string, Score]>;
   session: LobbyConnectionPorts['session'];

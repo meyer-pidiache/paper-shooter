@@ -96,6 +96,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
       cut: () => combatFeedback.cut(),
     },
     tally: tallyDeath,
+    colorFor: actions.colorFor,
   });
 
   const roster = new RemoteRoster<MultiplayerPeer>({

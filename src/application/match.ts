@@ -66,7 +66,7 @@ export class MatchController {
     return best;
   }
   onLocalDeath() {
-    const { player, online, session, transport, hud, scores } = this.ports;
+    const { player, online, session, transport, hud, scores, colorFor } = this.ports;
     if (!online()) {
       session.playerDied();
       return;
@@ -89,7 +89,7 @@ export class MatchController {
     if (transport.isHost && transport.id !== null) this.tallyDeath(transport.id, killer);
     session.playerDied();
     const killerName = killer ? scores.get(killer)?.name : null;
-    hud.kill(localDeathNotice(killerName, how, hit), 0);
+    hud.kill(localDeathNotice(killerName, how, hit, killer ? colorFor(killer) : undefined), 0);
   }
   respawnLocal() {
     const { player, localName, session, hud, spawnFeedback } = this.ports;

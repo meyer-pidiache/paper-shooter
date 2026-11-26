@@ -331,6 +331,7 @@ export class HUD {
     else {
       const killer = document.createElement('strong');
       killer.className = 'killer';
+      if (entry.color && entry.color !== 'original') killer.dataset.ink = entry.color;
       killer.textContent = entry.killer;
       d.append(entry.before ?? '', killer, entry.after);
     }

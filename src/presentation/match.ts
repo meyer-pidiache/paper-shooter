@@ -2,6 +2,7 @@ import { FFA_TARGET, formatClock } from '../domain/match.js';
 import type { Score, Winner } from '../domain/match.js';
 import { escapeHtml as esc } from './html.js';
 import type { KillFeedEntry } from './kill-feed.js';
+import type { CharacterColor } from '../shared/character-color.js';
 import { mapVoteHTML } from './map-vote.js';
 
 export interface MatchView {
@@ -51,11 +52,13 @@ export function localDeathNotice(
   killerName: string | null | undefined,
   how: string | null,
   hit: { readonly crit?: boolean } | null,
+  color?: CharacterColor,
 ): KillFeedEntry {
   return killerName
     ? {
         before: 'erased by ',
         killer: killerName,
+        color,
         after: how ? ' · ' + how + (hit?.crit ? ' headshot' : '') : '',
       }
     : 'erased';

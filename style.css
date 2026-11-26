@@ -2,6 +2,9 @@
   --ink: #1a30c0;
   --red: #d02030;
   --paper: #f6f3e6;
+  --killfeed-blue: #263d91;
+  --killfeed-graphite: #333a49;
+  --killfeed-green: #146338;
   --on-accent: #fffaf0;
   --hud-blend: multiply;
   --panel-paper: rgba(250, 248, 238, 0.93);
@@ -17,6 +20,9 @@ html[data-theme='dark'] {
   --ink: #b5bfd5;
   --red: #de9297;
   --paper: #171b24;
+  --killfeed-blue: #a5b9e8;
+  --killfeed-graphite: #c5cad4;
+  --killfeed-green: #8cca9f;
   --on-accent: var(--paper);
   --hud-blend: normal;
   --panel-paper: rgba(31, 36, 48, 0.97);
@@ -356,7 +362,20 @@ canvas#c {
 .killfeed .killer {
   color: var(--red);
   font-weight: 700;
-  text-shadow: 0 0 2px var(--paper);
+  text-shadow:
+    -1px 0 var(--paper),
+    1px 0 var(--paper),
+    0 -1px var(--paper),
+    0 1px var(--paper);
+}
+.killfeed .killer[data-ink='blue'] {
+  color: var(--killfeed-blue);
+}
+.killfeed .killer[data-ink='graphite'] {
+  color: var(--killfeed-graphite);
+}
+.killfeed .killer[data-ink='green'] {
+  color: var(--killfeed-green);
 }
 .killfeed .pts {
   color: var(--red);

@@ -61,7 +61,8 @@ it('records damage attribution before applying an unshielded live-match hit, pre
   });
 });
 it('orders remote death presentation local kill credit and host tally, preserving follower feed-only scoring', () => {
-  const { app, net, audio, hud, scores, game } = setup();
+  const { app, net, audio, hud, scores, game, lobby, userSettings } = setup();
+  userSettings.setPlayerColor('blue');
   const victim = app.multiplayer.addRemote('victim', 'paper');
   const events = [];
   vi.spyOn(victim, 'ragdoll').mockImplementation((direction, over) =>
@@ -82,19 +83,20 @@ it('orders remote death presentation local kill credit and host tally, preservin
   expect(events).toEqual([
     ['ragdoll', [0, 1, 0], true],
     ['sound'],
-    ['credit', 100, { killer: 'You', after: ' erased paper · rifle headshot' }],
+    ['credit', 100, { killer: 'You', color: 'blue', after: ' erased paper · rifle headshot' }],
     ['kill', true],
     ['tally', 'victim', 'local'],
   ]);
   expect(game.kills).toBe(1);
   net.isHost = false;
   scores.set('other', { name: 'ink', kills: 0, deaths: 0 });
+  lobby.players.set('other', { name: 'ink', color: 'graphite' });
   events.length = 0;
   net._emit('pdead', { killer: 'other' }, 'victim');
   expect(events).toEqual([
     ['ragdoll', undefined, false],
     ['sound'],
-    ['feed', { killer: 'ink', after: ' erased paper' }, 0],
+    ['feed', { killer: 'ink', color: 'graphite', after: ' erased paper' }, 0],
   ]);
   expect(game.kills).toBe(1);
   events.length = 0;

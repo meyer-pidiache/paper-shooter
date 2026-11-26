@@ -22,6 +22,7 @@ function fixture() {
     game: { state: 'play', kills: 0, addScore: record('score') },
     transport: { id: 'local', isHost: true },
     scores: new Map(),
+    colorFor: (id) => (id === 'local' ? 'blue' : undefined),
     opponents: new Map(),
     feedback: {
       death: record('death'),
@@ -64,7 +65,7 @@ it('credits unknown victims to the local killer and reports host tally after cre
   const { owner, events, ports } = fixture();
   owner.death({ killer: 'local' }, 'missing');
   expect(events).toEqual([
-    ['score', 100, { killer: 'You', after: ' erased someone' }],
+    ['score', 100, { killer: 'You', color: 'blue', after: ' erased someone' }],
     ['kill'],
     ['tally', 'missing', 'local'],
   ]);

@@ -4,6 +4,7 @@ import type { PlayerHitReceipt } from '../gameplay/player/services.js';
 import type { GamePayloads } from '../network/game-message-types.js';
 import type { Winner } from './session-contracts.js';
 import type { KillFeedEntry } from '../presentation/kill-feed.js';
+import type { CharacterColor } from '../shared/character-color.js';
 import type { MapKey } from '../domain/maps.js';
 
 export interface MatchOpponent {
@@ -47,6 +48,7 @@ export interface MatchPorts {
   online(): boolean;
   finished(): boolean;
   localName(): string;
+  colorFor(id: string): CharacterColor | undefined;
   remainingTime(): number;
   lobbyCode(): string;
   boardVisible(): boolean;

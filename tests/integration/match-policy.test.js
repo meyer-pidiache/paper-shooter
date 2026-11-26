@@ -107,11 +107,12 @@ it('shows five scores and a live binding hint only when the compact board omits 
 });
 
 it('reports death before scoring and preserves headshot, suicide and respawn feedback', () => {
-  const { app, player, game, net, scores, hud } = host();
+  const { app, player, game, net, scores, hud, lobby } = host();
   const events = [];
   vi.spyOn(net, 'broadcast').mockImplementation((...args) => events.push(['broadcast', ...args]));
   vi.spyOn(net, 'send').mockImplementation((...args) => events.push(['send', ...args]));
   const kill = vi.spyOn(hud, 'kill');
+  lobby.players.set('other', { name: '<opponent>', color: 'graphite' });
   player.lastHitBy = 'other';
   player.center.set(1, 2, 3);
   player.lastHit = { from: [1, 2, 4], amount: 25, crit: true, src: 'rifle' };
@@ -133,6 +134,7 @@ it('reports death before scoring and preserves headshot, suicide and respawn fee
     {
       before: 'erased by ',
       killer: '<opponent>',
+      color: 'graphite',
       after: ' · rifle headshot',
     },
     0,

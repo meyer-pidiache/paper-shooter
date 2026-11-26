@@ -185,6 +185,31 @@ test('the compact online leaderboard fits above the kill feed and Tab shows all 
   await expect(page.locator('#board')).toBeHidden();
 });
 
+test('the kill feed highlights the killer with their ink in both themes', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#onlineBtn')).toBeVisible();
+  const samples = await page.evaluate(() => {
+    const app = window.__game;
+    app.net.id = 'local';
+    app.lobby.players.set('local', { name: 'Paper' });
+    app.lobby.players.set('killer', { name: 'Ink', color: 'green' });
+    app.lobby.players.set('victim', { name: 'Page', color: 'blue' });
+    app.input.pointerLocked = true;
+    app.startMatch(false, 0);
+    app.net._emit('pdead', { killer: 'killer' }, 'victim');
+    const name = document.querySelector('#killfeed .killer');
+    return ['light', 'dark'].map((theme) => {
+      app.userSettings.setAppearance(theme);
+      const style = getComputedStyle(name);
+      return { text: name.textContent, weight: style.fontWeight, color: style.color };
+    });
+  });
+  expect(samples).toEqual([
+    { text: 'Ink', weight: '700', color: 'rgb(20, 99, 56)' },
+    { text: 'Ink', weight: '700', color: 'rgb(140, 202, 159)' },
+  ]);
+});
+
 test('distinguishes empty and incomplete lobby searches and retains full responses', async ({
   page,
 }) => {

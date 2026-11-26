@@ -3,6 +3,7 @@ import type { GamePayloads } from '../network/game-message-types.js';
 import type { GamePhase, Score } from '../domain/match.js';
 import type { PlayerHitReceipt } from '../gameplay/player/services.js';
 import type { KillFeedEntry } from '../presentation/kill-feed.js';
+import type { CharacterColor } from '../shared/character-color.js';
 export interface CombatMessagePeer {
   readonly name: string;
   readonly center: Vector3;
@@ -27,6 +28,7 @@ export interface CombatMessagePorts {
   };
   transport: { readonly id: string | null; readonly isHost: boolean };
   scores: ReadonlyMap<string, Score>;
+  colorFor(id: string): CharacterColor | undefined;
   opponents: ReadonlyMap<string, CombatMessagePeer>;
   feedback: {
     death(point: Vector3): void;
@@ -53,7 +55,7 @@ export class CombatMessages {
     player.takeDamage(data.amount, data.from ? new Vector3().fromArray(data.from) : null);
   }
   death(data: GamePayloads['pdead'], sender: string) {
-    const { opponents, scores, transport, feedback, game, tally } = this.ports;
+    const { opponents, scores, transport, feedback, game, tally, colorFor } = this.ports;
     const opponent = opponents.get(sender);
     const victimName = opponent?.name || scores.get(sender)?.name || 'someone';
     const killerName = data.killer
@@ -64,15 +66,17 @@ export class CombatMessages {
       feedback.death(opponent.center);
     }
     const how = data.how ? ' · ' + data.how + (data.crit ? ' headshot' : '') : '';
+    const credit = {
+      color: data.killer ? colorFor(data.killer) : undefined,
+      after: ' erased ' + victimName + how,
+    };
     if (data.killer && data.killer === transport.id) {
       game.kills++;
-      game.addScore(100, { killer: killerName || 'You', after: ' erased ' + victimName + how });
+      game.addScore(100, { killer: killerName || 'You', ...credit });
       feedback.kill();
     } else
       feedback.feed(
-        killerName
-          ? { killer: killerName, after: ' erased ' + victimName + how }
-          : victimName + ' fell off the page',
+        killerName ? { killer: killerName, ...credit } : victimName + ' fell off the page',
       );
     if (transport.isHost) tally(sender, data.killer);
   }

@@ -26,6 +26,8 @@ export function createApplication(options: ApplicationOptions) {
     playerColorChanged: (color) => multiplayer.setPlayerColor(color),
   });
   const audio = runtime.audio;
+  const colorFor = (id: string) =>
+    id === runtime.net.id ? runtime.state.playerColor : runtime.lobby.players.get(id)?.color;
   const mapVoteView = new MapVoteView(runtime.hud.el.panel);
   const debug: ApplicationDebug = {
     ...runtime,
@@ -128,6 +130,7 @@ export function createApplication(options: ApplicationOptions) {
     online: runtime.online,
     finished: () => runtime.game.over !== null,
     localName: () => runtime.state.myName,
+    colorFor,
     remainingTime: () => runtime.state.matchLeft,
     lobbyCode: () => String(runtime.net.aliasCode || runtime.net.code || ''),
     boardVisible: () => !runtime.hud.el.board.hidden,
@@ -255,6 +258,7 @@ export function createApplication(options: ApplicationOptions) {
       spawnPickup: (...args) => pickups.spawnPickup(...args),
       removePickup: (...args) => pickups.removePickup(...args),
       tallyDeath: (...args) => match.tallyDeath(...args),
+      colorFor,
       applyScores: (...args) => match.applyScores(...args),
       sortedScores: (...args) => match.sortedScores(...args),
       session: {
