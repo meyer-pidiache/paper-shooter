@@ -68,7 +68,7 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       expect(guestReplica.ink).toBe(INK.BLUE);
 
       const emit = vi.spyOn(observer.net, '_emit');
-      for (const invalid of [null, undefined, 'x'.repeat(200)]) {
+      for (const invalid of [null, undefined, 'x'.repeat(200), { color: 'green' }]) {
         guest.net.broadcast('player-color', 'blue');
         await flushMessages();
         expect(guestReplica.ink).toBe(INK.BLUE);

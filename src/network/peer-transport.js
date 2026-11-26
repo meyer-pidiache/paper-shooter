@@ -258,8 +258,8 @@ export class Net {
   }
   _route(msg, from) {
     if (!isWireMessage(msg)) return;
-    if (msg.t === 'player-color' && (msg.d == null || typeof msg.d === 'string')) {
-      // Relay only a palette key, even when the original selection was missing or oversized.
+    if (msg.t === 'player-color') {
+      // Normalize invalid selections to the default palette key before validation and relay.
       msg = { ...msg, d: characterColor(msg.d) };
     }
     if (!this.validatePayload(msg.t, msg.d)) return;
