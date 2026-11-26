@@ -33,6 +33,8 @@ test('solo can pause and resume with the keyboard', async ({ page }) => {
 });
 
 test('Paper settings survive a reload and inherit existing Doodle saves', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 800, height: 650 });
   await page.addInitScript(() => {
     localStorage.removeItem('paper_map');
     localStorage.removeItem('paper_best');
@@ -51,21 +53,22 @@ test('Paper settings survive a reload and inherit existing Doodle saves', async 
   const picker = page.getByRole('group', { name: 'Character ink' });
   const original = picker.getByRole('radio', { name: 'Original red' });
   const graphite = picker.getByRole('radio', { name: 'Graphite' });
-  const preview = picker.locator('.ink-preview');
+  const magenta = picker.getByRole('radio', { name: 'Magenta' });
+  const swatch = picker.locator('.ink-option[title="Magenta"] span');
+  await expect(picker.getByRole('radio')).toHaveCount(6);
   await expect(original).toBeChecked();
-  const originalPreview = await preview.evaluate((el) => getComputedStyle(el).color);
   await original.focus();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
   await expect(graphite).toBeChecked();
-  await expect(preview).not.toHaveCSS('color', originalPreview);
+  await magenta.check();
   await page.reload();
   await page.getByRole('button', { name: 'Settings & Controls' }).click();
   await expect(page.locator('#setSens')).toHaveValue('150');
-  await expect(graphite).toBeChecked();
-  const lightPreview = await preview.evaluate((el) => getComputedStyle(el).color);
+  await expect(magenta).toBeChecked();
+  const lightSwatch = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor);
   await page.locator('#setAppearance').selectOption('dark');
-  await expect(preview).not.toHaveCSS('color', lightPreview);
+  await expect(swatch).not.toHaveCSS('background-color', lightSwatch);
 });
 
 test('settings stay usable on resize without moving the main menu', async ({ page }) => {
@@ -192,7 +195,7 @@ test('the kill feed highlights the killer with their ink in both themes', async 
     const app = window.__game;
     app.net.id = 'local';
     app.lobby.players.set('local', { name: 'Paper' });
-    app.lobby.players.set('killer', { name: 'Ink', color: 'green' });
+    app.lobby.players.set('killer', { name: 'Ink', color: 'amber' });
     app.lobby.players.set('victim', { name: 'Page', color: 'blue' });
     app.input.pointerLocked = true;
     app.startMatch(false, 0);
@@ -205,8 +208,8 @@ test('the kill feed highlights the killer with their ink in both themes', async 
     });
   });
   expect(samples).toEqual([
-    { text: 'Ink', weight: '700', color: 'rgb(20, 99, 56)' },
-    { text: 'Ink', weight: '700', color: 'rgb(140, 202, 159)' },
+    { text: 'Ink', weight: '700', color: 'rgb(150, 82, 10)' },
+    { text: 'Ink', weight: '700', color: 'rgb(230, 179, 102)' },
   ]);
 });
 

@@ -7,6 +7,8 @@ const light = [
   [0.92, 0.55, 0.08],
   [0.12, 0.6, 0.3],
   [0.9, 0.4, 0.66],
+  [0.63, 0.13, 0.52],
+  [0.59, 0.32, 0.04],
 ] as const;
 
 // Muted inks that remain distinct against night paper.
@@ -17,6 +19,8 @@ const dark = [
   [0.78, 0.63, 0.45],
   [0.45, 0.69, 0.55],
   [0.75, 0.53, 0.67],
+  [0.91, 0.55, 0.85],
+  [0.9, 0.7, 0.4],
 ] as const;
 
 /** The renderer owns its palette values; ink identifiers live in shared/ink. */

@@ -6,6 +6,8 @@ const colors = [
   ['blue', 'Blue'],
   ['graphite', 'Graphite'],
   ['green', 'Green'],
+  ['magenta', 'Magenta'],
+  ['amber', 'Amber'],
 ] as const satisfies ReadonlyArray<readonly [CharacterColor, string]>;
 
 function swatchStyle(color: CharacterColor): string {
@@ -24,19 +26,15 @@ export function characterInkPickerHTML(selected: CharacterColor) {
     <legend>Character ink</legend>
     <div class="ink-options">
       ${options.join('')}
-      <span class="ink-preview" style="${swatchStyle(selected)}" aria-hidden="true"></span>
     </div>
   </fieldset>`;
 }
 
 export function wireCharacterInkPicker(panel: ParentNode, select: (color: CharacterColor) => void) {
   const picker = panel.querySelector('#characterInk');
-  const preview = picker?.querySelector<HTMLElement>('.ink-preview');
   picker?.addEventListener('change', (event) => {
     const option = event.target;
     if (!(option instanceof HTMLInputElement) || !option.checked) return;
-    const color = characterColor(option.value);
-    select(color);
-    if (preview) preview.style.cssText = swatchStyle(color);
+    select(characterColor(option.value));
   });
 }

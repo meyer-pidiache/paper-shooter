@@ -20,8 +20,8 @@ uniform float uLowHp;
 uniform float uDarkMode;
 uniform vec3 uPaper;
 uniform vec3 uDarkPaper;
-uniform vec3 uInks[6];
-uniform vec3 uDarkInks[6];
+uniform vec3 uInks[8];
+uniform vec3 uDarkInks[8];
 uniform mat4 uInvProj;
 uniform mat4 uInvView;
 
@@ -39,6 +39,8 @@ vec3 inkColor(float id) {
   if (i == 2) return mix(uInks[2], uDarkInks[2], uDarkMode);
   if (i == 3) return mix(uInks[3], uDarkInks[3], uDarkMode);
   if (i == 4) return mix(uInks[4], uDarkInks[4], uDarkMode);
+  if (i == 6) return mix(uInks[6], uDarkInks[6], uDarkMode);
+  if (i == 7) return mix(uInks[7], uDarkInks[7], uDarkMode);
   return mix(uInks[5], uDarkInks[5], uDarkMode);
 }
 float stripes(vec2 p, vec2 dir, float spacing, float width) {

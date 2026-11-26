@@ -61,6 +61,11 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       await flushMessages();
 
       const guestReplica = observer.remote.get(guest.net.id);
+      guest.app.runtime.userSettings.setPlayerColor('magenta');
+      await flushMessages();
+      expect(host.remote.get(guest.net.id).ink).toBe(INK.MAGENTA);
+      expect(guestReplica.ink).toBe(INK.MAGENTA);
+
       guest.app.runtime.userSettings.setPlayerColor('blue');
       await flushMessages();
       expect(host.remote.get(guest.net.id).ink).toBe(INK.BLUE);
@@ -68,7 +73,7 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       expect(guestReplica.ink).toBe(INK.BLUE);
 
       const emit = vi.spyOn(observer.net, '_emit');
-      for (const invalid of [null, undefined, 'x'.repeat(200), { color: 'green' }]) {
+      for (const invalid of [null, undefined, 'x'.repeat(200), { color: 'green' }, '#ffffff']) {
         guest.net.broadcast('player-color', 'blue');
         await flushMessages();
         expect(guestReplica.ink).toBe(INK.BLUE);
@@ -94,13 +99,13 @@ describe('complete multiplayer sessions through an in-memory signaling boundary'
       );
 
       const reloaded = make('district', browserRejoinCredentials());
-      reloaded.app.runtime.userSettings.setPlayerColor('blue');
+      reloaded.app.runtime.userSettings.setPlayerColor('amber');
       await reloaded.app.multiplayer.quickPlay();
       await flushMessages();
       const id = reloaded.net.id;
       expect(reloaded.game.state).toBe('play');
-      expect(host.remote.get(id).ink).toBe(INK.BLUE);
-      expect(observer.remote.get(id).ink).toBe(INK.BLUE);
+      expect(host.remote.get(id).ink).toBe(INK.AMBER);
+      expect(observer.remote.get(id).ink).toBe(INK.AMBER);
       expect(host.net.peerIds).toEqual([observer.net.id, id]);
       expect(guest.net.active).toBe(false);
       for (const peer of [host, reloaded, observer]) {

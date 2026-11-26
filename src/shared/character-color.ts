@@ -5,6 +5,8 @@ export const CHARACTER_INKS = {
   blue: INK.BLUE,
   graphite: INK.BLACK,
   green: INK.GREEN,
+  magenta: INK.MAGENTA,
+  amber: INK.AMBER,
 } as const;
 
 export type CharacterColor = keyof typeof CHARACTER_INKS;

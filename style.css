@@ -5,6 +5,8 @@
   --killfeed-blue: #263d91;
   --killfeed-graphite: #333a49;
   --killfeed-green: #146338;
+  --killfeed-magenta: #a12185;
+  --killfeed-amber: #96520a;
   --on-accent: #fffaf0;
   --hud-blend: multiply;
   --panel-paper: rgba(250, 248, 238, 0.93);
@@ -23,6 +25,8 @@ html[data-theme='dark'] {
   --killfeed-blue: #a5b9e8;
   --killfeed-graphite: #c5cad4;
   --killfeed-green: #8cca9f;
+  --killfeed-magenta: #e88cd9;
+  --killfeed-amber: #e6b366;
   --on-accent: var(--paper);
   --hud-blend: normal;
   --panel-paper: rgba(31, 36, 48, 0.97);
@@ -376,6 +380,12 @@ canvas#c {
 }
 .killfeed .killer[data-ink='green'] {
   color: var(--killfeed-green);
+}
+.killfeed .killer[data-ink='magenta'] {
+  color: var(--killfeed-magenta);
+}
+.killfeed .killer[data-ink='amber'] {
+  color: var(--killfeed-amber);
 }
 .killfeed .pts {
   color: var(--red);
@@ -751,6 +761,7 @@ canvas#c {
 }
 .ink-options {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
 }
 .ink-option {
@@ -785,33 +796,8 @@ canvas#c {
   outline: 2px solid var(--settings-accent);
   outline-offset: -1px;
 }
-.ink-preview {
-  display: grid;
-  place-items: center;
-  gap: 2px;
-  margin-inline: 12px;
-  color: var(--ink-light);
-}
-.ink-preview::before,
-.ink-preview::after {
-  content: '';
-  background: currentColor;
-}
-.ink-preview::before {
-  inline-size: 11px;
-  block-size: 11px;
-  border-radius: 50%;
-}
-.ink-preview::after {
-  inline-size: 22px;
-  block-size: 12px;
-  border-radius: 9px 9px 3px 3px;
-}
 html[data-theme='dark'] .ink-option span {
   background: var(--ink-dark);
-}
-html[data-theme='dark'] .ink-preview {
-  color: var(--ink-dark);
 }
 .settings select {
   font: inherit;
