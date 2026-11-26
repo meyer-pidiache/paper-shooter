@@ -222,7 +222,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
   });
   net.on('pdmg', (data, sender) => combatMessages.damage(data, sender));
   net.on('pdead', (data, sender) => combatMessages.death(data, sender));
-  net.on('nade', (data) => combatMessages.grenade(data));
+  net.on('nade', (data, sender) => combatMessages.grenade(data, sender));
   net.on('brk', (d) => {
     const br = ports.local.level.breakables[d.id];
     if (br) breakProp(br, null, false);

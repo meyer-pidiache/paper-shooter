@@ -116,3 +116,11 @@ it('applies a foreign grenade only to the local player and skips dead or distant
   f.blast.explode(new Vector3(), false);
   expect(f.events).toEqual(['present']);
 });
+
+it('presents an allied foreign grenade without damaging or knocking back the local player', () => {
+  const f = blastFixture();
+  f.blast.explode(new Vector3(), false, false);
+  expect(f.events).toEqual(['present']);
+  expect(f.local.takeDamage).not.toHaveBeenCalled();
+  expect(f.local.knockback).not.toHaveBeenCalled();
+});

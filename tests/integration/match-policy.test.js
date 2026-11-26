@@ -257,3 +257,28 @@ it('ends a team match on combined kills and does not credit allied kills', () =>
   expect(game.over).toEqual({ id: 'team-red', name: 'RED TEAM' });
   expect(game.state).toBe('over');
 });
+
+it('blocks allied simulated grenade blast damage on the receiving client while allowing enemy grenades', () => {
+  const { net, lobby, player } = host();
+  lobby.mode = 'teams';
+  lobby.players.set('local', { name: 'player', team: 'red' });
+  lobby.players.set('ally', { name: 'ally', team: 'red' });
+  lobby.players.set('other', { name: 'opponent', team: 'blue' });
+  player.shieldT = 0;
+  player.hp = 100;
+  player.body.vel.set(0, 0, 0);
+  const pos = [player.center.x, player.center.y, player.center.z];
+
+  net._emit('nade', { pos, vel: [0, 0, 0] }, 'ally');
+  expect(player.grenadeSystem.projectiles).toHaveLength(1);
+  player.grenadeSystem.projectiles[0].fuse = 0;
+  player.grenadeSystem.update(0.02);
+  expect(player.hp).toBe(100);
+  expect(player.body.vel.length()).toBe(0);
+
+  net._emit('nade', { pos, vel: [0, 0, 0] }, 'other');
+  expect(player.grenadeSystem.projectiles).toHaveLength(1);
+  player.grenadeSystem.projectiles[0].fuse = 0;
+  player.grenadeSystem.update(0.02);
+  expect(player.hp).toBeLessThan(100);
+});

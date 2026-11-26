@@ -10,7 +10,9 @@ import type { PropEffects } from '../presentation/prop-feedback.js';
 export interface CombatOpponent extends PvpOpponent, PlayerQueryTarget, RopeTarget, SplashTarget {}
 export type CombatLocalPlayer = PvpDamagePorts<CombatOpponent>['local'] &
   GrenadeBlastPorts['local'] & {
-    grenadeSystem: { onExplosion: ((point: Vector3, mine: boolean) => void) | null };
+    grenadeSystem: {
+      onExplosion: ((point: Vector3, mine: boolean, sender?: string) => void) | null;
+    };
   };
 interface CombatTransport {
   readonly id: string | null;

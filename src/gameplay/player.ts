@@ -340,8 +340,8 @@ export class Player {
   clearNades() {
     this.grenadeSystem.clear();
   }
-  throwGrenade(remote: GrenadePacket | null = null, charge = 0) {
-    this.grenadeSystem.throw(remote, charge, this.grenadePose);
+  throwGrenade(remote: GrenadePacket | null = null, charge = 0, sender?: string) {
+    this.grenadeSystem.throw(remote, charge, this.grenadePose, sender);
   }
   updateNades(dt: number) {
     this.grenadeSystem.update(dt);

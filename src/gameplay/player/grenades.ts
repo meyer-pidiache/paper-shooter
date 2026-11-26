@@ -25,6 +25,7 @@ export interface GrenadeProjectile {
   ang: Vector3;
   fuse: number;
   mine: boolean;
+  sender?: string;
   rest: boolean;
   tick: number;
 }
@@ -43,7 +44,7 @@ export class Grenades {
   private cooldown = 0;
   readonly projectiles: GrenadeProjectile[] = [];
   onThrow: ((packet: GrenadePacket) => void) | null = null;
-  onExplosion: ((position: Vector3, mine: boolean) => void) | null = null;
+  onExplosion: ((position: Vector3, mine: boolean, sender?: string) => void) | null = null;
   private readonly previous = new Vector3();
   private readonly direction = new Vector3();
   private readonly previewPosition = new Vector3();
@@ -89,7 +90,7 @@ export class Grenades {
       .addScaledVector(pose.velocity, 0.5);
     velocity.y += 3.5 + 2.5 * charge;
   }
-  throw(remote: GrenadePacket | null, charge: number, pose: GrenadePose) {
+  throw(remote: GrenadePacket | null, charge: number, pose: GrenadePose, sender?: string) {
     const pos = new Vector3(),
       vel = new Vector3();
     if (remote) {
@@ -114,6 +115,7 @@ export class Grenades {
       ang: new Vector3(rand(-6, 6), rand(-6, 6), rand(-6, 6)),
       fuse: 1.7,
       mine: !remote,
+      ...(sender ? { sender } : {}),
       rest: false,
       tick: 0,
     });
@@ -136,7 +138,7 @@ export class Grenades {
       if (projectile.fuse <= 0) {
         const point = projectile.pos.clone();
         point.y += 0.25;
-        this.onExplosion?.(point, projectile.mine);
+        this.onExplosion?.(point, projectile.mine, projectile.sender);
         this.visuals.remove(projectile.mesh);
         this.projectiles.splice(i, 1);
       }

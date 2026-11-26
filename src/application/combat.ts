@@ -69,7 +69,8 @@ export function createCombat(ports: CombatPorts, actions: CombatActions) {
     enemies: ports.blastEnemies,
     props: (point, radius) => props.blast(point, radius),
   });
-  player.grenadeSystem.onExplosion = (point, mine) => blast.explode(point, mine);
+  player.grenadeSystem.onExplosion = (point, mine, sender) =>
+    blast.explode(point, mine, mine || !sender || (ports.canAttack?.(sender) ?? true));
   const onShot = (end: Vector3) => {
     if (net.active && inMatch())
       shotQueue.push(+end.x.toFixed(1), +end.y.toFixed(1), +end.z.toFixed(1));

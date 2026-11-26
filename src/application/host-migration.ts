@@ -77,10 +77,16 @@ export class HostMigration {
     }
     const newId = transport.id;
     if (!newId) throw new Error('host identity missing after successful connection');
-    const name = lobby.players.get(myId)?.name ?? local.myName;
-    lobby.players.delete(myId);
-    lobby.players.set(newId, { name, color: local.playerColor });
+    const prior = lobby.players.get(myId);
+    const name = prior?.name ?? local.myName;
     const score = scores.get(myId);
+    const team = prior?.team ?? score?.team;
+    lobby.players.delete(myId);
+    lobby.players.set(newId, {
+      name,
+      color: local.playerColor,
+      ...(lobby.mode === 'teams' && team ? { team } : {}),
+    });
     scores.delete(myId);
     if (score) scores.set(newId, score);
     lobby.hostId = newId;

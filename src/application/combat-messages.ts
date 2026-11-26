@@ -18,7 +18,7 @@ export interface CombatMessagePorts {
     readonly grapple: { readonly state: string };
     readonly center: Vector3;
     takeDamage(amount: number, from: Vector3 | null): void;
-    throwGrenade(data: GamePayloads['nade']): void;
+    throwGrenade(data: GamePayloads['nade'], charge?: number, sender?: string): void;
     detachGrapple(jump: boolean): void;
   };
   game: {
@@ -87,8 +87,9 @@ export class CombatMessages {
       );
     if (transport.isHost) tally(sender, data.killer);
   }
-  grenade(data: GamePayloads['nade']) {
-    this.ports.player.throwGrenade(data);
+  grenade(data: GamePayloads['nade'], sender?: string) {
+    if (sender !== undefined) this.ports.player.throwGrenade(data, 0, sender);
+    else this.ports.player.throwGrenade(data);
   }
   parry(data: GamePayloads['parry']) {
     this.ports.feedback.parry(!!data.ret);

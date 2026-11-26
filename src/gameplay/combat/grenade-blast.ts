@@ -19,14 +19,14 @@ export interface GrenadeBlastPorts {
 export class GrenadeBlast {
   private readonly direction = new Vector3();
   constructor(private readonly ports: GrenadeBlastPorts) {}
-  explode(point: Vector3, mine: boolean) {
+  explode(point: Vector3, mine: boolean, harmsLocal = true) {
     const radius = 6.4;
     const { local } = this.ports;
     this.ports.present(point, radius);
     if (mine) this.ports.enemies(point, radius, 120);
     if (mine) this.ports.props(point, radius);
     const distance = local.center.distanceTo(point);
-    if (local.alive && distance < radius * 0.95) {
+    if (harmsLocal && local.alive && distance < radius * 0.95) {
       local.takeDamage(10 + 34 * (1 - distance / (radius * 0.95)), point);
       local.knockback(this.direction.subVectors(local.center, point).normalize(), 9);
     }
