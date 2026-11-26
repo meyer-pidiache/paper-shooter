@@ -11,6 +11,7 @@ export interface NetworkSyncPorts {
     readonly active: boolean;
     readonly isHost: boolean;
     readonly hostId: string | null;
+    readonly authorityId?: string | null;
     send(kind: 'ps', data: GamePayloads['ps'], relay?: boolean): void;
     broadcast(kind: 'shots', data: GamePayloads['shots']): void;
   };
@@ -23,6 +24,7 @@ export interface NetworkSyncPorts {
   shotQueue: number[];
   inMatch(): boolean;
   migrating(): boolean;
+  awaitRosterDeparture?(): boolean;
   idleSeconds(): number;
   now(): number;
   idle(dt: number): void;
@@ -61,14 +63,17 @@ export class NetworkSync {
   }
   private removeSilentPeers() {
     const { transport, opponents, now, migrate, remove, drop, feed } = this.ports;
+    const awaitRoster = this.ports.awaitRosterDeparture?.() ?? false;
+    // In this path replicas keep the canonical ID, even if the connection uses an alias.
+    const hostId = (awaitRoster ? transport.authorityId : null) ?? transport.hostId;
     for (const [id, opponent] of opponents()) {
       if (!opponent.lastSeen || now() - opponent.lastSeen <= 9000) continue;
-      if (!transport.isHost && id === transport.hostId) {
+      if (!transport.isHost && id === hostId) {
         void migrate();
         break;
       }
       if (transport.isHost) drop(id);
-      else {
+      else if (!awaitRoster) {
         remove(id);
         feed(opponent.name + ' lost connection');
       }

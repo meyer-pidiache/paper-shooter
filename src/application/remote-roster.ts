@@ -43,6 +43,7 @@ export interface RosterPorts<Peer extends RosterPeer> {
 export class RemoteRoster<Peer extends RosterPeer> {
   private readonly rejoins = new MatchRejoins();
   private readonly banked = new Map<string, { team: Team; kills: number }>();
+  private readonly leaveHints = new Set<string>();
 
   constructor(private readonly ports: RosterPorts<Peer>) {}
 
@@ -55,6 +56,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
   clearRejoins() {
     this.rejoins.clear();
     this.banked.clear();
+    this.leaveHints.clear();
   }
 
   private activeMatch() {
@@ -98,6 +100,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
   }
   remove(id: string) {
     const { peers, lobby, scores } = this.ports;
+    this.leaveHints.delete(id);
     const peer = peers.get(id);
     if (peer) {
       peer.dispose();
@@ -233,7 +236,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
     }
   }
   receive(data: GamePayloads['lobby']) {
-    const { lobby, transport, peers, inMatch, scores, refreshScores, render } = this.ports;
+    const { lobby, transport, peers, inMatch, scores, refreshScores, render, feed } = this.ports;
     lobby.mode = data.mode ?? 'ffa';
     lobby.teamBank = data.teamBank ? { ...data.teamBank } : undefined;
     lobby.hostId = data.hostId;
@@ -253,7 +256,13 @@ export class RemoteRoster<Peer extends RosterPeer> {
         peer.setTeamLabel?.(lobby.mode === 'teams' ? team : undefined);
       }
     }
-    for (const id of [...peers.keys()]) if (!lobby.players.has(id)) this.remove(id);
+    const departed: string[] = [];
+    for (const [id, peer] of peers) {
+      if (lobby.players.has(id)) continue;
+      if (this.leaveHints.has(id)) departed.push(peer.name);
+      this.remove(id);
+    }
+    this.leaveHints.clear();
     if (inMatch()) {
       for (const player of data.players)
         if (!scores.has(player.id))
@@ -264,12 +273,18 @@ export class RemoteRoster<Peer extends RosterPeer> {
             ...(player.team ? { team: player.team } : {}),
           });
       refreshScores();
+      for (const name of departed) feed(name + ' left');
     }
     render();
   }
   leave(id: string) {
     const { lobby, inMatch, feed, render } = this.ports;
     const name = lobby.players.get(id)?.name;
+    if (lobby.mode === 'teams' && inMatch()) {
+      // A bare leave is only a feed hint; the lobby packet commits membership and teamBank.
+      if (lobby.players.has(id)) this.leaveHints.add(id);
+      return;
+    }
     this.remove(id);
     if (inMatch()) feed((name || 'someone') + ' left');
     render();

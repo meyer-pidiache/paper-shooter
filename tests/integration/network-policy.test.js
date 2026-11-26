@@ -116,6 +116,42 @@ it('follows the received clock flag without taking client result authority', () 
   expect(game.over).toBeNull();
   expect(send.mock.calls.some(([type]) => type === 'end')).toBe(false);
 });
+it.each(['teams', 'ffa'])(
+  'handles a silent guest on a %s follower without assuming host authority',
+  (mode) => {
+    const { app, lobby, net, remote, scores, hud, send } = setup(false);
+    const feed = vi.spyOn(hud, 'kill');
+    lobby.mode = mode;
+    lobby.teamBank = mode === 'teams' ? { red: 0, blue: 2 } : undefined;
+    net.hostId = net.authorityId = lobby.hostId = 'host';
+    const guest = { id: 'silent', name: 'silent', team: 'blue' };
+    const replica = app.multiplayer.addRemote(guest.id, guest.name);
+    replica.lastSeen = 1;
+    lobby.players.set(guest.id, { name: guest.name, team: guest.team });
+    lobby.order = [net.hostId, net.id, guest.id];
+    const score = { name: guest.name, team: guest.team, kills: 4, deaths: 0 };
+    scores.set(guest.id, score);
+    vi.advanceTimersByTime(10000);
+    app.multiplayer.netUpdate(0);
+    if (mode === 'teams') {
+      expect(remote.has(guest.id)).toBe(true);
+      expect(lobby.players.get(guest.id)).toEqual({ name: guest.name, team: guest.team });
+      expect(lobby.order).toEqual([net.hostId, net.id, guest.id]);
+      expect(scores.get(guest.id)).toEqual(score);
+      expect(lobby.teamBank).toEqual({ red: 0, blue: 2 });
+      expect(feed).not.toHaveBeenCalled();
+    } else {
+      expect(remote.has(guest.id)).toBe(false);
+      expect(lobby.players.has(guest.id)).toBe(false);
+      expect(lobby.order).toEqual([net.hostId, net.id]);
+      expect(scores.has(guest.id)).toBe(false);
+      expect(lobby.teamBank).toBeUndefined();
+      expect(feed).toHaveBeenCalledExactlyOnceWith('silent lost connection', 0);
+    }
+    expect(net.isHost).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+  },
+);
 it('uses ranked scores for a host clock-expiry result and removes silent peers', () => {
   const { app, game, state, net, scores, send } = setup();
   scores.set('other', { name: 'winner', kills: 3, deaths: 1 });

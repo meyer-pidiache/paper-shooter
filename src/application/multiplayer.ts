@@ -306,6 +306,7 @@ export function createMultiplayer(ports: MultiplayerPorts, actions: MultiplayerA
     shotQueue,
     inMatch,
     migrating: () => connection.migrating,
+    awaitRosterDeparture: () => lobby.mode === 'teams',
     idleSeconds: () => input.idleSeconds,
     now: () => performance.now(),
     idle: (dt) => idle.update(dt),

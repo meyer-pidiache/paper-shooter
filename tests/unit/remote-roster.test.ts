@@ -113,6 +113,67 @@ it('assigns balanced teams and preserves disconnected points on a rejoin', () =>
   expect(lobby.teamBank).toEqual({ red: 0, blue: 0 });
 });
 
+it.each(['teams', 'ffa'] as const)(
+  'applies a departing guest’s score and membership together in %s, without changing FFA leave handling',
+  (mode) => {
+    const { owner, ports, peers, lobby, scores } = fixture();
+    ports.phase = () => 'play';
+    ports.inMatch = () => true;
+    const host = { id: 'other-host', name: 'host', team: 'red' as const };
+    const guest = { id: 'guest', name: 'guest', team: 'blue' as const };
+    const start = {
+      hostId: host.id,
+      isPublic: false,
+      mode,
+      players: [host, guest],
+      ...(mode === 'teams' ? { teamBank: { red: 1, blue: 2 } } : {}),
+    };
+    owner.receive(start);
+    const replica = peers.get(guest.id)!;
+    const score = { name: 'guest', team: 'blue' as const, kills: 4, deaths: 1 };
+    scores.set(guest.id, score);
+    vi.clearAllMocks();
+
+    owner.leave(guest.id);
+    if (mode === 'teams') {
+      expect(owner.rows()).toEqual([host, guest]);
+      expect(lobby.order).toEqual([host.id, guest.id]);
+      expect(peers.get(guest.id)).toBe(replica);
+      expect(replica.dispose).not.toHaveBeenCalled();
+      expect(scores.get(guest.id)).toEqual(score);
+      expect(lobby.teamBank).toEqual({ red: 1, blue: 2 });
+      expect(ports.feed).not.toHaveBeenCalled();
+      expect(ports.render).not.toHaveBeenCalled();
+      expect(ports.refreshScores).not.toHaveBeenCalled();
+    } else {
+      expect(owner.rows()).toEqual([host]);
+      expect(lobby.order).toEqual([host.id]);
+      expect(peers.has(guest.id)).toBe(false);
+      expect(replica.dispose).toHaveBeenCalledOnce();
+      expect(scores.has(guest.id)).toBe(false);
+      expect(lobby.teamBank).toBeUndefined();
+      expect(ports.feed).toHaveBeenCalledExactlyOnceWith('guest left');
+      expect(ports.render).toHaveBeenCalledOnce();
+    }
+
+    const commit = {
+      ...start,
+      players: [host],
+      ...(mode === 'teams' ? { teamBank: { red: 1, blue: 6 } } : {}),
+    };
+    owner.receive(commit);
+    expect(owner.rows()).toEqual([host]);
+    expect(lobby.order).toEqual([host.id]);
+    expect(peers.has(guest.id)).toBe(false);
+    expect(replica.dispose).toHaveBeenCalledOnce();
+    expect(scores.has(guest.id)).toBe(false);
+    expect(lobby.teamBank).toEqual(commit.teamBank);
+    expect(ports.refreshScores).toHaveBeenCalledOnce();
+    expect(ports.feed).toHaveBeenCalledExactlyOnceWith('guest left');
+    expect(ports.transport.send).not.toHaveBeenCalled();
+  },
+);
+
 it('leaves teamBank unchanged when a live peer rejoins without a pending disconnect', () => {
   const { owner, lobby, scores, ports } = fixture();
   lobby.mode = 'teams';

@@ -55,6 +55,81 @@ it(
 );
 
 it(
+  'keeps the departing guest’s points if an alias-connected follower loses the host after leave but before the roster commit',
+  { timeout: 10000 },
+  async () => {
+    vi.useFakeTimers();
+    const { Peer } = peerNetwork();
+    const make = () => {
+      const fixture = applicationFixture('district', {
+        net: new Net({ PeerClass: Peer, options: async () => ({}), namespace: 'departure-test-' }),
+      });
+      fixtures.push(fixture);
+      return fixture;
+    };
+    const host = make(),
+      successor = make(),
+      guest = make();
+    await host.app.multiplayer.createLobby(false);
+    const code = host.net.code,
+      hostId = host.net.id,
+      alias = 'ALIAS';
+    host.lobby.mode = 'teams';
+    host.app.multiplayer.broadcastLobby();
+    host.net.claimAlias(alias);
+    await vi.advanceTimersByTimeAsync(1600);
+    await successor.app.multiplayer.joinLobby(alias);
+    await flushMessages();
+    await guest.app.multiplayer.joinLobby(code);
+    await flushMessages();
+    expect(successor.net.hostId).toBe('departure-test-' + alias);
+    expect(successor.net.authorityId).toBe(hostId);
+    host.app.session.hostStart();
+    await flushMessages();
+    const guestId = guest.net.id;
+    host.scores.get(hostId).kills = 3;
+    host.scores.get(guestId).kills = 4;
+    host.app.match.sendScores();
+    await flushMessages();
+    const channel = successor.net.conns.get(successor.net.hostId);
+    const received = [];
+    channel.on('data', (packet) => {
+      received.push(packet.t);
+      if (packet.t !== 'leave') return;
+      // Cut the wire after application leave handling, with lobby and score already queued.
+      channel.open = false;
+      channel.other.open = false;
+      host.net.peer.destroy();
+    });
+    guest.net.leave();
+    await flushMessages();
+    expect(received).toEqual(['leave']);
+    expect(host.lobby.players.has(guestId)).toBe(false);
+    expect(host.lobby.teamBank).toEqual({ red: 4, blue: 0 });
+    expect(successor.lobby.players.has(guestId)).toBe(true);
+    expect(successor.scores.get(guestId)).toMatchObject({ team: 'red', kills: 4 });
+    successor.remote.get(hostId).lastSeen = 1;
+    await vi.advanceTimersByTimeAsync(10001);
+    successor.app.multiplayer.netUpdate(0);
+    await flushMessages();
+    expect(successor.net.isHost).toBe(true);
+    expect(successor.net.code).toBe(alias + '-1');
+    expect(successor.game.state).toBe('play');
+    expect(successor.lobby.players.has(hostId)).toBe(false);
+    expect(successor.lobby.teamBank).toEqual({ red: 3, blue: 0 });
+    expect(successor.lobby.players.has(guestId)).toBe(true);
+    expect(successor.scores.get(guestId)).toMatchObject({ team: 'red', kills: 4 });
+
+    // As the new authority, the successor eventually retires the same disconnected guest.
+    successor.remote.get(guestId).lastSeen = 1;
+    successor.app.multiplayer.netUpdate(0);
+    expect(successor.lobby.players.has(guestId)).toBe(false);
+    expect(successor.scores.has(guestId)).toBe(false);
+    expect(successor.lobby.teamBank).toEqual({ red: 7, blue: 0 });
+  },
+);
+
+it(
   'preserves the promoted host team, follower teams, scores, and banked host kills in a 2v2 handoff',
   { timeout: 10000 },
   async () => {
