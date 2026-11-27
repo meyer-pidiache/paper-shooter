@@ -4,9 +4,37 @@ import { applicationFixture } from '../support/application.js';
 import { peerNetwork, flushMessages } from '../support/peer-network.js';
 import { Net } from '../../src/network/peer-transport.js';
 import { webcrypto } from 'node:crypto';
+import { once } from 'node:events';
+import { clearTimeout as clearRealTimeout, setTimeout as setRealTimeout } from 'node:timers';
+import { NavGrid } from '../../src/engine/navigation.js';
 import { RejoinCredentials } from '../../src/network/rejoin-credentials.js';
 import { createRejoinKey, signRejoin } from '../../src/network/rejoin-proof.js';
 const fixtures = [];
+function skipSoloNavigation() {
+  // These cases exercise online matches, not enemy pathfinding. Keep the real arena and collision world.
+  vi.spyOn(NavGrid.prototype, 'build').mockImplementation(function () {
+    return this;
+  });
+}
+
+async function withinStep(label, operation) {
+  let timer;
+  const controller = new AbortController();
+  // WebCrypto and event callbacks still run on real time when the migration clock is faked.
+  const deadline = new Promise((_, reject) => {
+    timer = setRealTimeout(() => reject(new Error(`${label} did not complete within 2s`)), 2000);
+  });
+  try {
+    return await Promise.race([deadline, operation(controller.signal)]);
+  } finally {
+    clearRealTimeout(timer);
+    controller.abort();
+  }
+}
+
+function nextEvent(label, emitter, event) {
+  return withinStep(label, (signal) => once(emitter, event, { signal }));
+}
 afterEach(() => {
   for (const fixture of fixtures) fixture.app.dispose();
   fixtures.length = 0;
@@ -136,6 +164,7 @@ it(
 it.each(['teams', 'ffa'])(
   'recovers a legacy %s seat and makes it portable when supported',
   async (mode) => {
+    skipSoloNavigation();
     vi.useFakeTimers();
     vi.stubGlobal('crypto', webcrypto);
     const { Peer } = peerNetwork();
@@ -211,6 +240,7 @@ it.each(['teams', 'ffa'])(
 );
 
 it('Quick Play prefers the match most recently played by explicit proof rejoin', async () => {
+  skipSoloNavigation();
   vi.stubGlobal('crypto', webcrypto);
   const { Peer } = peerNetwork();
   const saved = new RejoinCredentials(null);
@@ -236,7 +266,7 @@ it('Quick Play prefers the match most recently played by explicit proof rejoin',
   ]) {
     await host.app.multiplayer.createLobby(true);
     host.lobby.mode = 'teams';
-    await guest.app.multiplayer.joinLobby(host.net.code);
+    await withinStep('guest join', () => guest.app.multiplayer.joinLobby(host.net.code));
     host.app.session.hostStart();
     await flushMessages();
     expect(saved.getProof(host.net.code)?.hostId).toBe(host.net.id);
@@ -244,7 +274,9 @@ it('Quick Play prefers the match most recently played by explicit proof rejoin',
   expect(saved.latestPublicRecovery('proof-recency-', 16)?.hostId).toBe(second.net.id);
 
   const returned = make(saved);
-  expect(await returned.net.join(first.net.code)).toBe(first.net.code);
+  expect(await withinStep('explicit proof rejoin', () => returned.net.join(first.net.code))).toBe(
+    first.net.code,
+  );
   await flushMessages();
   expect(first.net.peerIds).toEqual([returned.net.id]);
   second.app.multiplayer.broadcastLobby();
@@ -252,12 +284,15 @@ it('Quick Play prefers the match most recently played by explicit proof rejoin',
   await flushMessages();
 
   const quick = make(saved);
-  expect(await quick.net.quickJoin()).toBe(first.net.code);
+  expect(await withinStep('Quick Play proof rejoin', () => quick.net.quickJoin())).toBe(
+    first.net.code,
+  );
   expect(quick.net.authorityId).toBe(first.net.id);
   expect(second.net.peerIds).toEqual([b.net.id]);
 });
 
 it('restores a disconnected Teams row across migration and transfers its banked kills atomically', async () => {
+  skipSoloNavigation();
   vi.useFakeTimers();
   vi.stubGlobal('crypto', webcrypto);
   const { Peer } = peerNetwork();
@@ -286,7 +321,8 @@ it('restores a disconnected Teams row across migration and transfers its banked 
   const hostId = host.net.id;
   host.lobby.mode = 'teams';
   host.app.multiplayer.broadcastLobby();
-  for (const peer of [successor, guest, follower]) await peer.app.multiplayer.joinLobby(code);
+  for (const peer of [successor, guest, follower])
+    await withinStep('initial guest join', () => peer.app.multiplayer.joinLobby(code));
   await flushMessages();
   const guestId = guest.net.id;
   const departed = { team: 'red', kills: 4, deaths: 2 };
@@ -312,7 +348,7 @@ it('restores a disconnected Teams row across migration and transfers its banked 
   );
   expect(credential).toBeDefined();
   const attacker = new Peer(null, {});
-  await new Promise((resolve) => attacker.on('open', resolve));
+  await nextEvent('test peer open', attacker, 'open');
   const challenge = async (answer) => {
     const connection = attacker.connect(successor.net.id, {
       metadata: {
@@ -322,13 +358,17 @@ it('restores a disconnected Teams row across migration and transfers its banked 
         rejoinVerifier: credential.verifier,
       },
     });
-    const response = new Promise((resolve) => {
-      connection.on('data', async ({ t, d }) => {
-        if (t === 'welcome' && d.rejoinChallenge) {
-          connection.send({ t: 'stay', d: { proof: await answer(d.rejoinChallenge) } });
-        } else resolve({ t, reason: d.reason });
-      });
-    });
+    const response = withinStep(
+      'rejoin response',
+      () =>
+        new Promise((resolve) => {
+          connection.on('data', async ({ t, d }) => {
+            if (t === 'welcome' && d.rejoinChallenge) {
+              connection.send({ t: 'stay', d: { proof: await answer(d.rejoinChallenge) } });
+            } else resolve({ t, reason: d.reason });
+          });
+        }),
+    );
     expect(await response).toEqual({ t: 'refused', reason: 'score recovery is unavailable' });
     connection.close();
     expect(successor.net.conns.has(attacker.id)).toBe(false);
@@ -339,15 +379,14 @@ it('restores a disconnected Teams row across migration and transfers its banked 
   const forgedPrevious = attacker.connect(successor.net.id, {
     metadata: { name: 'imposter', prev: guestId, rejoinVerifier: credential.verifier },
   });
-  await new Promise((resolve) =>
-    forgedPrevious.on('data', ({ t }) => t === 'welcome' && resolve()),
-  );
+  const [{ t }] = await nextEvent('ordinary join response', forgedPrevious, 'data');
+  expect(t).toBe('welcome');
   expect(successor.scores.get(attacker.id)).toMatchObject({ kills: 0, deaths: 0 });
   forgedPrevious.close();
   const reusedId = new Peer(guestId, {});
-  await new Promise((resolve) => reusedId.on('open', resolve));
+  await nextEvent('existing seat ID peer open', reusedId, 'open');
   const reusedConnection = reusedId.connect(successor.net.id, { metadata: {} });
-  const refusal = await new Promise((resolve) => reusedConnection.on('data', resolve));
+  const [refusal] = await nextEvent('existing seat ID response', reusedConnection, 'data');
   expect(refusal).toMatchObject({ t: 'refused', d: { reason: 'score recovery is unavailable' } });
   reusedConnection.close();
   reusedId.destroy();
@@ -372,7 +411,7 @@ it('restores a disconnected Teams row across migration and transfers its banked 
       );
   });
   const returning = make(saved);
-  await returning.app.multiplayer.joinLobby(code);
+  await withinStep('returning guest join', () => returning.app.multiplayer.joinLobby(code));
   await flushMessages();
   expect(successor.scores.get(returning.net.id)).toMatchObject(departed);
   expect(follower.scores.get(returning.net.id)).toMatchObject(departed);
@@ -397,7 +436,7 @@ it('restores a disconnected Teams row across migration and transfers its banked 
     visit(JSON.parse(value));
   }
   const replacement = make(saved);
-  await replacement.app.multiplayer.quickPlay();
+  await withinStep('replacement Quick Play', () => replacement.app.multiplayer.quickPlay());
   await flushMessages();
   expect(successor.scores.has(returning.net.id)).toBe(false);
   expect(successor.scores.get(replacement.net.id)).toMatchObject(departed);
