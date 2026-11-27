@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { MatchRejoins } from '../../src/application/match-rejoins.js';
 
 it('keeps a disconnected score until the grace period expires', () => {
@@ -62,6 +62,58 @@ it.each(['token', 'proof'] as const)(
     expect(debits).toEqual([['blue', 4]]);
   },
 );
+
+it.each([
+  'rekey',
+  'rekey away and back',
+  'unconfirmed restore',
+  'handoff to another client',
+  'replaced lineage',
+  'expiry',
+])('does not authorize an outstanding proof seat after %s', (change) => {
+  const verifier = '04' + 'ab'.repeat(64);
+  let now = 0;
+  const rejoins = new MatchRejoins(
+    () => now,
+    () => now,
+  );
+  rejoins.startTeams();
+  const match = rejoins.match!;
+  expect(rejoins.bind('departed', verifier)).toBe(true);
+  const score = { name: 'paper', team: 'blue' as const, kills: 4, deaths: 2 };
+  const debit = vi.fn();
+  const challenge = rejoins.proofSeat(match, verifier)!;
+  switch (change) {
+    case 'rekey':
+      rejoins.rekey('departed', 'returning');
+      break;
+    case 'rekey away and back':
+      rejoins.rekey('departed', 'other');
+      rejoins.rekey('other', 'departed');
+      break;
+    case 'unconfirmed restore':
+      expect(rejoins.restore('departed', 'returning', score, debit)).toEqual(score);
+      break;
+    case 'handoff to another client': {
+      const claim = challenge.authorize('other')!;
+      expect(rejoins.restore(claim.previous, 'other', score, debit)).toEqual(score);
+      claim.confirm();
+      expect(challenge.authorize('other')?.previous).toBe('other');
+      break;
+    }
+    case 'replaced lineage':
+      rejoins.receive({ match, bindings: rejoins.snapshot(), scores: [] });
+      break;
+    case 'expiry':
+      rejoins.disconnect('departed', score);
+      now = 90_000;
+      break;
+  }
+  const before = rejoins.snapshot();
+  expect(challenge.authorize('returning')).toBeUndefined();
+  expect(rejoins.snapshot()).toEqual(before);
+  expect(debit).not.toHaveBeenCalled();
+});
 
 it('carries an absolute deadline and exact bank attribution through replica promotion', () => {
   const verifier = '04' + 'ab'.repeat(64);

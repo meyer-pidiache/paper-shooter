@@ -72,10 +72,17 @@ export class RemoteRoster<Peer extends RosterPeer> {
   }
 
   resumeProof(match: string, verifier: string) {
-    if (this.activeMatch() && this.ports.lobby.mode === 'teams') {
-      const previous = this.rejoins.proofId(match, verifier);
-      if (previous !== this.ports.transport.id) return previous;
-    }
+    if (!this.activeMatch() || this.ports.lobby.mode !== 'teams') return;
+    const seat = this.rejoins.proofSeat(match, verifier);
+    if (!seat || seat.id === this.ports.transport.id) return;
+    return {
+      id: seat.id,
+      authorize: (client: string) => {
+        if (!this.activeMatch() || this.ports.lobby.mode !== 'teams') return;
+        const claim = seat.authorize(client);
+        if (claim && claim.previous !== this.ports.transport.id) return claim;
+      },
+    };
   }
 
   canSeat(id: string, previous?: string) {

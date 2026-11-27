@@ -421,6 +421,7 @@ export class Net {
     this._wire(conn);
     this._startPingPolling();
     this.onPeerJoin?.(conn.peer, conn.metadata || {}, previous || undefined);
+    return true;
   }
   _full() {
     return this.conns.size >= this.maxPlayers - 1;
@@ -466,9 +467,9 @@ export class Net {
     const { rejoinMatch: match, rejoinVerifier: verifier } = conn.metadata;
     const host = this.id;
     const client = conn.peer;
-    const previous =
+    const seat =
       isRejoinSecret(match) && isRejoinVerifier(verifier) && this.onPeerProof?.(match, verifier);
-    if (!previous) {
+    if (!seat) {
       this._refuse(conn, 'score recovery is unavailable');
       return;
     }
@@ -496,11 +497,13 @@ export class Net {
         (await verifyRejoin(verifier, msg.d?.proof, challenge, host, client));
       stop();
       if (!current()) return;
-      if (!verified || this.onPeerProof?.(match, verifier) !== previous) {
+      const claim = verified && seat.authorize(client);
+      if (!claim) {
         this._refuse(conn, 'score recovery is unavailable');
         return;
       }
-      this._seat(conn, { reply: true, resume: true, proofPrevious: previous });
+      if (this._seat(conn, { reply: true, resume: true, proofPrevious: claim.previous }))
+        claim.confirm();
     };
     const timer = setTimeout(() => {
       stop();

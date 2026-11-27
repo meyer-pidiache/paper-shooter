@@ -4,10 +4,17 @@ import { newRejoinSecret } from '../network/rejoin-credentials.js';
 import { isRejoinVerifier, MAX_REJOIN_BINDINGS } from '../network/rejoin-proof.js';
 
 const REJOIN_GRACE_MS = 90_000;
+type SeatChange = { revision: number; kind: 'rekey' | 'restore' | 'proof-handoff' };
 type RejoinRecord = {
   id: string;
+  change?: SeatChange;
   pending?: NonNullable<RejoinBinding['pending']> & { tokenExpiresAt?: number };
 };
+
+export interface ProofSeat {
+  readonly id: string;
+  authorize(client: string): { previous: string; confirm(): void } | undefined;
+}
 
 /** Legacy tokens stay host-local; Teams replicas receive only match-scoped public bindings. */
 export class MatchRejoins {
@@ -44,8 +51,48 @@ export class MatchRejoins {
   }
 
   proofId(match: string, verifier: string): string | undefined {
+    return this.proofRecord(match, verifier)?.id;
+  }
+
+  /** Captures host-local seat lineage, not just a peer ID that can change or be reused. */
+  proofSeat(match: string, verifier: string): ProofSeat | undefined {
+    const record = this.proofRecord(match, verifier);
+    if (!record) return;
+    const revision = record.change?.revision ?? 0;
+    return {
+      id: record.id,
+      authorize: (client) => {
+        if (this.proofRecord(match, verifier) !== record) return;
+        const current = record.change?.revision ?? 0;
+        // A standby for this client may follow only the exact transition made by its
+        // already verified sibling. Replicated state and unrelated moves never qualify.
+        if (
+          current !== revision &&
+          (current !== revision + 1 ||
+            record.change?.kind !== 'proof-handoff' ||
+            record.id !== client)
+        )
+          return;
+        return {
+          previous: record.id,
+          confirm: () => {
+            const change = record.change;
+            if (
+              this.proofRecord(match, verifier) === record &&
+              record.id === client &&
+              change?.revision === current + 1 &&
+              change.kind === 'restore'
+            )
+              change.kind = 'proof-handoff';
+          },
+        };
+      },
+    };
+  }
+
+  private proofRecord(match: string, verifier: string): RejoinRecord | undefined {
     this.prune();
-    if (match === this.match) return this.bindings.get(verifier)?.id;
+    if (match === this.match) return this.bindings.get(verifier);
   }
 
   snapshot(): RejoinBinding[] {
@@ -85,7 +132,7 @@ export class MatchRejoins {
 
   rekey(previous: string, id: string): void {
     const record = this.find(previous);
-    if (record && !record.pending) record.id = id;
+    if (record && !record.pending) this.move(record, id, 'rekey');
   }
 
   track(id: string): string {
@@ -117,7 +164,7 @@ export class MatchRejoins {
     return this.records.get(token)?.id;
   }
 
-  /** Called synchronously after the transport authorizes a seat with previousId/proofId. */
+  /** Called synchronously after the transport authorizes a seat with a token or proof. */
   restore(
     previous: string,
     id: string,
@@ -127,10 +174,16 @@ export class MatchRejoins {
     const record = this.find(previous);
     if (!record) return;
     const pending = record.pending?.score;
-    record.id = id;
+    this.move(record, id, 'restore');
     record.pending = undefined;
     if (pending?.team) debit?.(pending.team, pending.kills);
     return pending ?? liveScore;
+  }
+
+  private move(record: RejoinRecord, id: string, kind: 'rekey' | 'restore'): void {
+    if (record.id === id) return;
+    record.id = id;
+    record.change = { revision: (record.change?.revision ?? 0) + 1, kind };
   }
 
   private find(id: string): RejoinRecord | undefined {

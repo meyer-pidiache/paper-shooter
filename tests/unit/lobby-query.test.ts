@@ -32,7 +32,19 @@ describe('disposable lobby queries', () => {
     expect(peer.listenerCount('error')).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
   });
-  it.each(['success', 'close', 'error', 'reject', 'missing', 'refused', 'timeout'])(
+  it.each([
+    'success',
+    'close',
+    'error',
+    'reject',
+    'missing',
+    'refused',
+    'timeout',
+    'silent',
+    'silent until standby arrives',
+    'slow signer',
+    'silent standby',
+  ])(
     'keeps a valid proof standby pending when the selected endpoint ends with %s',
     async (outcome) => {
       const peer = new ControlledPeer();
@@ -64,7 +76,7 @@ describe('disposable lobby queries', () => {
       const alias = peer.connections.get('alias')!;
       const standby = peer.connections.get('host')!;
       const answer = { ...welcome(), from: 'host' };
-      for (const connection of [alias, standby])
+      const challenge = (connection: typeof alias) =>
         connection.emit('data', {
           ...answer,
           d: {
@@ -72,6 +84,8 @@ describe('disposable lobby queries', () => {
             rejoinChallenge: { nonce: 'b'.repeat(32), match, endpoint: connection.peer },
           },
         });
+      challenge(alias);
+      if (outcome !== 'silent until standby arrives') challenge(standby);
       expect(standby.open).toBe(true);
       expect(standby.send).not.toHaveBeenCalled();
       expect(sign).toHaveBeenCalledOnce();
@@ -93,6 +107,12 @@ describe('disposable lobby queries', () => {
         return;
       }
 
+      if (outcome === 'slow signer') {
+        await vi.advanceTimersByTimeAsync(500);
+        expect(alias.open).toBe(false);
+        expect(sign).toHaveBeenCalledOnce();
+        expect(standby.send).not.toHaveBeenCalled();
+      }
       if (outcome === 'close') alias.close();
       if (outcome === 'error') alias.emit('error', new Error('connection failed'));
       expect(sign).toHaveBeenCalledOnce();
@@ -108,6 +128,22 @@ describe('disposable lobby queries', () => {
         await vi.advanceTimersByTimeAsync(0);
       }
 
+      const silent = ['silent', 'silent until standby arrives', 'silent standby'].includes(outcome);
+      if (silent) {
+        await vi.advanceTimersByTimeAsync(499);
+        expect(alias.open).toBe(true);
+        expect(standby.send).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1);
+        if (outcome === 'silent until standby arrives') {
+          expect(alias.open).toBe(true);
+          challenge(standby);
+          await vi.advanceTimersByTimeAsync(0);
+        }
+        expect(alias.close).toHaveBeenCalledOnce();
+        alias.emit('data', answer);
+        expect(adopt).not.toHaveBeenCalled();
+      }
+
       const winner = outcome === 'success' ? alias : standby;
       const loser = winner === alias ? standby : alias;
       expect(sign).toHaveBeenCalledTimes(winner === alias ? 1 : 2);
@@ -115,12 +151,25 @@ describe('disposable lobby queries', () => {
         t: 'stay',
         d: { proof: winner === alias ? 'selected-signature' : 'standby-signature' },
       });
-      if (outcome === 'refused')
+      if (outcome === 'refused' || silent)
         expect(loser.send).toHaveBeenCalledExactlyOnceWith({
           t: 'stay',
           d: { proof: 'selected-signature' },
         });
       else expect(loser.send).not.toHaveBeenCalled();
+      if (outcome === 'silent standby') {
+        await vi.advanceTimersByTimeAsync(499);
+        expect(standby.open).toBe(true);
+        await vi.advanceTimersByTimeAsync(1);
+        await expect(result).rejects.toMatchObject({
+          reason: 'timeout',
+          message: 'no answer from that lobby',
+        });
+        expect(standby.close).toHaveBeenCalledOnce();
+        expect(adopt).not.toHaveBeenCalled();
+        expect(vi.getTimerCount()).toBe(0);
+        return;
+      }
       winner.emit('data', answer);
       await expect(result).resolves.toMatchObject([{ hostId: winner.peer, kind: 'welcome' }]);
       expect(adopt).toHaveBeenCalledExactlyOnceWith(

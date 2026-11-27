@@ -6,6 +6,7 @@ import type { ConnectionPort, DiscoveryPeerPort } from './peer-ports.js';
 
 const PUBLIC_PROBE_BATCH_SIZE = 16;
 const PUBLIC_PROBE_BATCH_DELAY_MS = 750;
+const PROOF_SELECTION_WINDOW_MS = 3000;
 
 interface OfferConnection {
   hostId: string;
@@ -18,6 +19,7 @@ interface Attempt {
   hostId: string;
   connection: ConnectionPort;
   done: boolean;
+  stalled?: boolean;
   released?: boolean;
   challenged?: boolean;
   proof?: { hostId: string; challenge: RejoinChallenge; sent?: boolean };
@@ -77,6 +79,7 @@ export class LobbyQuery {
   private timer?: ReturnType<typeof setTimeout>;
   private gatherTimer?: ReturnType<typeof setTimeout>;
   private batchTimer?: ReturnType<typeof setTimeout>;
+  private proofTimer?: ReturnType<typeof setTimeout>;
   private lastError: Error | null = null;
   private proofAttempt?: Attempt;
   private proofQueue: Attempt[] = [];
@@ -241,17 +244,42 @@ export class LobbyQuery {
       this.stopObserving(attempt);
       close(attempt.connection);
     }
-    if (this.proofAttempt === attempt) this.proofAttempt = undefined;
+    if (this.proofAttempt === attempt) {
+      clearTimeout(this.proofTimer);
+      this.proofAttempt = undefined;
+    }
     if (this.pending === 0) this.finish();
     else if (this.options.rejoinProof) this.selectProof();
   }
 
   private selectProof(): void {
-    if (this.settled || this.proofAttempt || this.signingProof) return;
+    if (this.settled) return;
+    const selected = this.proofAttempt;
+    if (selected) {
+      if (
+        !selected.done &&
+        selected.stalled &&
+        this.proofQueue.some((attempt) => !attempt.done && attempt.connection.open)
+      ) {
+        this.failed++;
+        this.complete(selected, true);
+      }
+      return;
+    }
+    if (this.signingProof) return;
     for (let attempt = this.proofQueue.shift(); attempt; attempt = this.proofQueue.shift()) {
       if (attempt.done || !attempt.connection.open) continue;
       this.proofAttempt = attempt;
       this.signingProof = true;
+      // Leave time for a standby without changing the absolute query deadline. Never retire
+      // the only available attempt merely because its selection window has elapsed.
+      this.proofTimer = setTimeout(
+        () => {
+          attempt.stalled = true;
+          this.selectProof();
+        },
+        Math.min(PROOF_SELECTION_WINDOW_MS, this.options.timeout / 2),
+      );
       void this.sendProof(attempt);
       return;
     }
@@ -372,6 +400,7 @@ export class LobbyQuery {
     clearTimeout(this.timer);
     clearTimeout(this.gatherTimer);
     clearTimeout(this.batchTimer);
+    clearTimeout(this.proofTimer);
     this.peer.off('error', this.onPeerError);
     this.peer.off('open', this.onSignalReopened);
     this.options.signal?.removeEventListener('abort', this.onAbort);
