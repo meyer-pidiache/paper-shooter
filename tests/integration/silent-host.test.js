@@ -210,6 +210,53 @@ it.each(['teams', 'ffa'])(
   },
 );
 
+it('Quick Play prefers the match most recently played by explicit proof rejoin', async () => {
+  vi.stubGlobal('crypto', webcrypto);
+  const { Peer } = peerNetwork();
+  const saved = new RejoinCredentials(null);
+  const make = (rejoinCredentials = new RejoinCredentials(null)) => {
+    const fixture = applicationFixture('district', {
+      net: new Net({
+        PeerClass: Peer,
+        options: async () => ({}),
+        namespace: 'proof-recency-',
+        rejoinCredentials,
+      }),
+    });
+    fixtures.push(fixture);
+    return fixture;
+  };
+  const first = make(),
+    second = make(),
+    a = make(saved),
+    b = make(saved);
+  for (const [host, guest] of [
+    [first, a],
+    [second, b],
+  ]) {
+    await host.app.multiplayer.createLobby(true);
+    host.lobby.mode = 'teams';
+    await guest.app.multiplayer.joinLobby(host.net.code);
+    host.app.session.hostStart();
+    await flushMessages();
+    expect(saved.getProof(host.net.code)?.hostId).toBe(host.net.id);
+  }
+  expect(saved.latestPublicRecovery('proof-recency-', 16)?.hostId).toBe(second.net.id);
+
+  const returned = make(saved);
+  expect(await returned.net.join(first.net.code)).toBe(first.net.code);
+  await flushMessages();
+  expect(first.net.peerIds).toEqual([returned.net.id]);
+  second.app.multiplayer.broadcastLobby();
+  second.app.multiplayer.broadcastLobby();
+  await flushMessages();
+
+  const quick = make(saved);
+  expect(await quick.net.quickJoin()).toBe(first.net.code);
+  expect(quick.net.authorityId).toBe(first.net.id);
+  expect(second.net.peerIds).toEqual([b.net.id]);
+});
+
 it('restores a disconnected Teams row across migration and transfers its banked kills atomically', async () => {
   vi.useFakeTimers();
   vi.stubGlobal('crypto', webcrypto);

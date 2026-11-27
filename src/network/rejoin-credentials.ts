@@ -50,6 +50,19 @@ function isSavedToken(value: unknown): value is SavedToken {
   );
 }
 
+function sameProofBinding(
+  entry: SavedCredential | undefined,
+  credential: PortableRejoinCredential,
+): entry is SavedProof {
+  return (
+    !!entry &&
+    'match' in entry &&
+    entry.match === credential.match &&
+    entry.hostId === credential.hostId &&
+    entry.verifier === credential.verifier
+  );
+}
+
 function publicEntry({ code, hostId }: SavedCredential, prefix: string, slotCount: number) {
   return (
     /^PUB(?:0|[1-9]\d*)$/.test(code) &&
@@ -101,15 +114,16 @@ export class RejoinCredentials {
     const base = baseCode(code);
     const entries = this.read();
     const previous = entries.find((entry) => entry.code === base);
-    if (
-      previous &&
-      'match' in previous &&
-      previous.match === credential.match &&
-      previous.hostId === credential.hostId &&
-      previous.verifier === credential.verifier
-    )
-      return;
+    if (sameProofBinding(previous, credential)) return;
     this.saveEntry({ ...credential, code: base }, entries);
+  }
+
+  markProofPlayed(code: string, credential: PortableRejoinCredential): void {
+    const base = baseCode(code);
+    const entries = this.read();
+    const previous = entries.find((entry) => entry.code === base);
+    if (previous !== entries[0] && sameProofBinding(previous, credential))
+      this.saveEntry(previous, entries);
   }
 
   save(code: string, credential: RejoinCredential): void {

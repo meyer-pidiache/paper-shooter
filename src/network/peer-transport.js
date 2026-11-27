@@ -647,7 +647,11 @@ export class Net {
     try {
       // A migrating tab must only prove its own seat, not a different tab's saved seat.
       const proof = meta.prev ? migration?.binding : this.rejoinCredentials.getProof(code);
-      if (proof && (await this._resumeProof(this.peer, code, proof, meta))) return this.code;
+      if (proof && (await this._resumeProof(this.peer, code, proof, meta))) {
+        if (!meta.prev && generation === this.generation && this.authorityId === proof.hostId)
+          this.rejoinCredentials.markProofPlayed(code, proof);
+        return this.code;
+      }
       const credential = !meta.prev && this.rejoinCredentials.get(code);
       if (
         credential &&

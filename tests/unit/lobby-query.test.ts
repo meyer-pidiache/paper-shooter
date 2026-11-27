@@ -32,6 +32,105 @@ describe('disposable lobby queries', () => {
     expect(peer.listenerCount('error')).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
   });
+  it.each(['success', 'close', 'error', 'reject', 'missing', 'refused', 'timeout'])(
+    'keeps a valid proof standby pending when the selected endpoint ends with %s',
+    async (outcome) => {
+      const peer = new ControlledPeer();
+      const adopt = vi.fn();
+      let resolveSelected!: (signature?: string) => void;
+      let rejectSelected!: (error: Error) => void;
+      const selected = new Promise<string | undefined>((resolve, reject) => {
+        resolveSelected = resolve;
+        rejectSelected = reject;
+      });
+      const sign = vi.fn(({ endpoint }: { endpoint: string }) =>
+        endpoint === 'alias' ? selected : Promise.resolve('standby-signature'),
+      );
+      const match = 'a'.repeat(32);
+      const query = new LobbyQuery(
+        peer,
+        ['alias', 'host'],
+        {},
+        {
+          mode: 'first',
+          timeout: 1000,
+          gather: 0,
+          adopt,
+          rejoinProof: { match, acceptsHost: (id) => id === 'host', sign },
+        },
+      );
+      const result = query.run();
+      void result.catch(() => {});
+      const alias = peer.connections.get('alias')!;
+      const standby = peer.connections.get('host')!;
+      const answer = { ...welcome(), from: 'host' };
+      for (const connection of [alias, standby])
+        connection.emit('data', {
+          ...answer,
+          d: {
+            ...answer.d,
+            rejoinChallenge: { nonce: 'b'.repeat(32), match, endpoint: connection.peer },
+          },
+        });
+      expect(standby.open).toBe(true);
+      expect(standby.send).not.toHaveBeenCalled();
+      expect(sign).toHaveBeenCalledOnce();
+
+      if (outcome === 'timeout') {
+        await vi.advanceTimersByTimeAsync(1000);
+        await expect(result).rejects.toMatchObject({
+          reason: 'timeout',
+          message: 'no answer from that lobby',
+        });
+        resolveSelected('late');
+        await Promise.resolve();
+        expect(sign).toHaveBeenCalledOnce();
+        expect(alias.send).not.toHaveBeenCalled();
+        expect(standby.send).not.toHaveBeenCalled();
+        expect(adopt).not.toHaveBeenCalled();
+        expect(alias.open || standby.open).toBe(false);
+        expect(vi.getTimerCount()).toBe(0);
+        return;
+      }
+
+      if (outcome === 'close') alias.close();
+      if (outcome === 'error') alias.emit('error', new Error('connection failed'));
+      expect(sign).toHaveBeenCalledOnce();
+      if (outcome === 'reject') rejectSelected(new Error('signing failed'));
+      else resolveSelected(outcome === 'missing' ? undefined : 'selected-signature');
+      await vi.advanceTimersByTimeAsync(0);
+      if (outcome === 'success' || outcome === 'refused') {
+        expect(standby.open).toBe(true);
+        expect(standby.send).not.toHaveBeenCalled();
+      }
+      if (outcome === 'refused') {
+        alias.emit('data', { t: 'refused', d: { reason: 'score recovery is unavailable' } });
+        await vi.advanceTimersByTimeAsync(0);
+      }
+
+      const winner = outcome === 'success' ? alias : standby;
+      const loser = winner === alias ? standby : alias;
+      expect(sign).toHaveBeenCalledTimes(winner === alias ? 1 : 2);
+      expect(winner.send).toHaveBeenCalledExactlyOnceWith({
+        t: 'stay',
+        d: { proof: winner === alias ? 'selected-signature' : 'standby-signature' },
+      });
+      if (outcome === 'refused')
+        expect(loser.send).toHaveBeenCalledExactlyOnceWith({
+          t: 'stay',
+          d: { proof: 'selected-signature' },
+        });
+      else expect(loser.send).not.toHaveBeenCalled();
+      winner.emit('data', answer);
+      await expect(result).resolves.toMatchObject([{ hostId: winner.peer, kind: 'welcome' }]);
+      expect(adopt).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ connection: winner }),
+      );
+      expect(winner.open).toBe(true);
+      expect(loser.open).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
   it('selects the fuller valid offer and closes other connections', async () => {
     const peer = new ControlledPeer(),
       adopt = vi.fn();

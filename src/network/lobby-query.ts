@@ -20,7 +20,7 @@ interface Attempt {
   done: boolean;
   released?: boolean;
   challenged?: boolean;
-  proofHost?: string;
+  proof?: { hostId: string; challenge: RejoinChallenge; sent?: boolean };
   channelOpened: boolean;
   iceConnected: boolean;
   ice?: RTCPeerConnection | null;
@@ -79,6 +79,8 @@ export class LobbyQuery {
   private batchTimer?: ReturnType<typeof setTimeout>;
   private lastError: Error | null = null;
   private proofAttempt?: Attempt;
+  private proofQueue: Attempt[] = [];
+  private signingProof = false;
   private resolve!: (offers: LobbyOffer[]) => void;
   private reject!: (error: Error) => void;
 
@@ -218,7 +220,7 @@ export class LobbyQuery {
         }
         if (!attempt.done && !this.settled) {
           this.failed++;
-          this.complete(attempt);
+          this.complete(attempt, !!this.options.rejoinProof && connection.open);
         }
       },
     };
@@ -239,7 +241,39 @@ export class LobbyQuery {
       this.stopObserving(attempt);
       close(attempt.connection);
     }
+    if (this.proofAttempt === attempt) this.proofAttempt = undefined;
     if (this.pending === 0) this.finish();
+    else if (this.options.rejoinProof) this.selectProof();
+  }
+
+  private selectProof(): void {
+    if (this.settled || this.proofAttempt || this.signingProof) return;
+    for (let attempt = this.proofQueue.shift(); attempt; attempt = this.proofQueue.shift()) {
+      if (attempt.done || !attempt.connection.open) continue;
+      this.proofAttempt = attempt;
+      this.signingProof = true;
+      void this.sendProof(attempt);
+      return;
+    }
+  }
+
+  private async sendProof(attempt: Attempt): Promise<void> {
+    const proof = attempt.proof!;
+    try {
+      const signature = await this.options.rejoinProof!.sign(proof.challenge, proof.hostId);
+      if (this.settled || attempt.done) return;
+      if (!signature || !attempt.connection.open) this.complete(attempt, true);
+      else {
+        proof.sent = true;
+        attempt.connection.send({ t: 'stay', d: { proof: signature } });
+      }
+    } catch {
+      if (!this.settled && !attempt.done) this.complete(attempt, true);
+    } finally {
+      // A closed selection cannot send, but its in-flight signer must finish before another starts.
+      this.signingProof = false;
+      this.selectProof();
+    }
   }
 
   private receive(attempt: Attempt, value: unknown): void {
@@ -251,15 +285,14 @@ export class LobbyQuery {
     else this.refused++;
     if (message.t === 'refused' && this.options.mode !== 'all') {
       this.lastError = new Error(message.d.reason);
-      this.complete(attempt);
+      this.complete(attempt, !!this.options.rejoinProof);
       return;
     }
     if (message.t === 'welcome' && this.options.rejoinProof) {
       const proof = this.options.rejoinProof;
       const { rejoinChallenge: challenge, hostId } = message.d;
-      if (!attempt.proofHost) {
+      if (!attempt.proof) {
         if (
-          this.proofAttempt ||
           this.peer.id === hostId ||
           message.from !== hostId ||
           !challenge ||
@@ -270,25 +303,18 @@ export class LobbyQuery {
           this.complete(attempt, true);
           return;
         }
-        // Signing on more than one alias/canonical channel could replace our own winning seat.
-        this.proofAttempt = attempt;
-        attempt.proofHost = hostId;
-        void proof
-          .sign(challenge, hostId)
-          .then((signature) => {
-            if (this.settled || attempt.done || !attempt.connection.open) return;
-            if (!signature) this.complete(attempt, true);
-            else attempt.connection.send({ t: 'stay', d: { proof: signature } });
-          })
-          .catch(() => {
-            if (!this.settled && !attempt.done) this.complete(attempt, true);
-          });
+        // Keep a standby without signing on two channels that could replace the same seat.
+        attempt.proof = { hostId, challenge };
+        this.proofQueue.push(attempt);
+        this.selectProof();
         return;
       }
       if (
+        attempt !== this.proofAttempt ||
+        !attempt.proof.sent ||
         challenge ||
         message.d.rejoinKey ||
-        attempt.proofHost !== hostId ||
+        attempt.proof.hostId !== hostId ||
         message.from !== hostId
       )
         return;
