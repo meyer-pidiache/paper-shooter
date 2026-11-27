@@ -295,15 +295,23 @@ it('rebalances at rematch start if the last opponent left during results', () =>
   expect(lobby.players.get('other').team).toBe('red');
   app.session.returnFromResults();
   expect(game.state).toBe('lobby');
+  lobby.teamBank = { red: 4, blue: 7 };
+  scores.get('local').kills = 8;
   const send = vi.spyOn(net, 'send');
-  app.session.hostStart();
-  expect(scores.get('local').team).toBe('red');
-  expect(scores.get('other').team).toBe('blue');
-  expect(send.mock.calls.find(([kind]) => kind === 'lobby')?.[1].players).toEqual([
-    { id: 'local', name: 'player', team: 'red' },
-    { id: 'other', name: 'guest', team: 'blue' },
-  ]);
-  expect(send.mock.calls.findIndex(([kind]) => kind === 'lobby')).toBeLessThan(
-    send.mock.calls.findIndex(([kind]) => kind === 'start'),
-  );
+  net._emit('startreq', {}, 'other');
+  expect(game.state).toBe('play');
+  expect(net.inMatch).toBe(true);
+  expect(scores.get('local')).toEqual({ name: 'player', team: 'red', kills: 0, deaths: 0 });
+  expect(scores.get('other')).toEqual({ name: 'guest', team: 'blue', kills: 0, deaths: 0 });
+  expect(lobby.teamBank).toEqual({ red: 0, blue: 0 });
+  const startIndex = send.mock.calls.findIndex(([kind]) => kind === 'start');
+  expect(startIndex).toBeGreaterThan(0);
+  const roster = send.mock.calls.slice(0, startIndex).findLast(([kind]) => kind === 'lobby');
+  expect(roster?.[1]).toMatchObject({
+    players: [
+      { id: 'local', name: 'player', team: 'red' },
+      { id: 'other', name: 'guest', team: 'blue' },
+    ],
+    teamBank: { red: 0, blue: 0 },
+  });
 });

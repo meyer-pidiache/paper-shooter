@@ -54,6 +54,10 @@ export function lobbyHTML(view: LobbyScreenView) {
   const rows = view.rows;
   const host = view.host;
   const n = rows.length;
+  const startHint =
+    view.mode === 'teams' && n < 2
+      ? 'Teams needs at least one player on each team'
+      : `anyone can start · ${n < 2 ? 'people can still join once it is running' : n + ' players in'}`;
   return `<h1>LOBBY</h1><h2>${view.mode === 'teams' ? 'teams' : 'free for all'} · first to ${FFA_TARGET} · ${n}/${view.maxPlayers} players</h2>
     <div class="online" id="online">
       <div class="row"><span>code</span><span class="code">${esc(String(view.code).replace(/-\d+$/, ''))}</span></div>
@@ -65,7 +69,7 @@ export function lobbyHTML(view: LobbyScreenView) {
       <div class="hint">${view.isPublic ? 'this lobby is public: anyone can quick play in, or type the code' : 'private lobby: friends type this code under PLAY ONLINE → JOIN'}</div>
       <div class="plist">${rows.map((p) => `<div class="${p.id === view.hostId ? 'host' : ''}${p.id === view.localId ? ' me' : ''}"><span>${esc(p.name)}${view.mode === 'teams' && p.team ? ' [' + esc(p.team.toUpperCase()) + ']' : ''}</span><span>${p.id === view.localId ? 'you' : ''}</span></div>`).join('')}</div>
       <div class="row"><button type="button" class="big" id="startBtn">START MATCH</button><button type="button" class="alt" id="leaveBtn">LEAVE</button></div>
-      <div class="status" id="status">${esc(view.status || '')}</div><div class="hint">anyone can start · ${n < 2 ? 'people can still join once it is running' : n + ' players in'}</div>
+      <div class="status" id="status">${esc(view.status || '')}</div><div class="hint">${startHint}</div>
     </div>`;
 }
 

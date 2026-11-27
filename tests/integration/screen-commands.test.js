@@ -69,3 +69,53 @@ it('keeps lobby map authority and asks the host to start for a follower', () => 
   document.querySelector('#startBtn').click();
   expect(start).toHaveBeenCalledOnce();
 });
+
+function soloLobby() {
+  const fixture = setup();
+  const { app, net, lobby, scores } = fixture;
+  net.id = 'local';
+  net.isHost = true;
+  lobby.hostId = net.id;
+  lobby.players.set(net.id, { name: 'player', team: 'red' });
+  lobby.teamBank = { red: 4, blue: 7 };
+  scores.set(net.id, { name: 'player', kills: 8, deaths: 1, team: 'red' });
+  app.session.enterLobby();
+  return fixture;
+}
+
+it.each([
+  ['host button', () => document.querySelector('#startBtn').click()],
+  ['stale guest request', (net) => net._emit('startreq', {}, 'departed-guest')],
+])('blocks a solo Teams start from the %s without resetting the match', (_source, start) => {
+  const { net, game, lobby, scores } = soloLobby();
+  const mode = document.querySelector('#matchMode');
+  mode.value = 'teams';
+  mode.dispatchEvent(new Event('change'));
+  const send = vi.spyOn(net, 'send');
+  const hint = [...document.querySelectorAll('#online .hint')].at(-1).textContent;
+  start(net);
+
+  expect.soft(game.state).toBe('lobby');
+  expect.soft(net.inMatch).toBe(false);
+  expect.soft(lobby.teamBank).toEqual({ red: 4, blue: 7 });
+  expect
+    .soft([...scores])
+    .toEqual([['local', { name: 'player', kills: 8, deaths: 1, team: 'red' }]]);
+  expect.soft(send.mock.calls.map(([kind]) => kind)).not.toContain('start');
+  expect.soft(send.mock.calls.map(([kind]) => kind)).not.toContain('score');
+  expect(hint).toBe('Teams needs at least one player on each team');
+});
+
+it('still starts a solo host in Free for all', () => {
+  const { net, game, lobby, scores } = soloLobby();
+  const send = vi.spyOn(net, 'send');
+  document.querySelector('#startBtn').click();
+
+  expect(game.state).toBe('play');
+  expect(net.inMatch).toBe(true);
+  expect(lobby.teamBank).toEqual({ red: 0, blue: 0 });
+  expect([...scores]).toEqual([['local', { name: 'player', kills: 0, deaths: 0 }]]);
+  expect(send.mock.calls.filter(([kind]) => kind === 'start')).toEqual([
+    ['start', expect.objectContaining({ spawns: { local: expect.any(Number) } })],
+  ]);
+});

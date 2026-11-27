@@ -177,6 +177,18 @@ export class SessionController {
   hostStart() {
     const { scores, lobby, setArena, spawnSpots, transport, screen, sendScores, game } = this.ports;
     if (!transport.isHost || game.state !== 'lobby') return;
+    if (lobby.mode === 'teams') {
+      if (lobby.players.size < 2) return;
+      const hasBothTeams = () => {
+        const teams = new Set([...lobby.players.values()].map((player) => player.team));
+        return teams.has('red') && teams.has('blue');
+      };
+      // A lobby returning from results can still need the roster's rebalance.
+      if (!hasBothTeams()) {
+        this.ports.broadcastLobby();
+        if (!hasBothTeams()) return;
+      }
+    }
     scores.clear();
     lobby.teamBank = { red: 0, blue: 0 };
     if (lobby.mode === 'teams') this.ports.broadcastLobby();
