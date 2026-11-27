@@ -68,7 +68,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
   }
 
   resumePeer(token: string) {
-    if (this.activeMatch()) return this.rejoins.previousId(token);
+    if (this.activeMatch()) return this.rejoins.tokenSeat(token);
   }
 
   resumeProof(match: string, verifier: string) {
@@ -263,8 +263,7 @@ export class RemoteRoster<Peer extends RosterPeer> {
           deaths: 0,
           ...(lobby.players.get(id)?.team ? { team: lobby.players.get(id)!.team } : {}),
         });
-      if (previous) this.rejoins.bind(id, transport.rejoinVerifierFor?.(id));
-      else this.offerRejoin(id);
+      if (!previous) this.offerRejoin(id);
       if (publishTogether) this.broadcast();
       transport.sendTo(id, 'start', {
         late: true,

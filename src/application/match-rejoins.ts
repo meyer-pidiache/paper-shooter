@@ -11,6 +11,11 @@ type RejoinRecord = {
   pending?: NonNullable<RejoinBinding['pending']> & { tokenExpiresAt?: number };
 };
 
+export interface TokenSeat {
+  readonly id: string;
+  bindVerifier(verifier: unknown): void;
+}
+
 export interface ProofSeat {
   readonly id: string;
   authorize(client: string): { previous: string; confirm(): void } | undefined;
@@ -32,16 +37,24 @@ export class MatchRejoins {
   }
 
   bind(id: string, verifier: unknown): boolean {
-    if (
-      !this.match ||
-      !isRejoinVerifier(verifier) ||
-      this.protectedId(id) ||
-      this.bindings.has(verifier) ||
-      this.bindings.size >= MAX_REJOIN_BINDINGS
-    )
+    this.prune();
+    return this.bindVerifier(id, verifier);
+  }
+
+  private bindVerifier(id: string, verifier: unknown, tokenRecord?: RejoinRecord): boolean {
+    if (!this.match || !isRejoinVerifier(verifier)) return false;
+    const existing = [...this.bindings].find(([, record]) => record.id === id);
+    if (existing && (!tokenRecord || existing[1] !== tokenRecord)) return false;
+    if (existing?.[0] === verifier) return true;
+    if (this.bindings.has(verifier) || (!existing && this.bindings.size >= MAX_REJOIN_BINDINGS))
       return false;
+    if (tokenRecord) {
+      if (existing) this.bindings.delete(existing[0]);
+      // Retire any outstanding proof lineage, even when the seat ID is unchanged.
+      this.advance(tokenRecord, 'rekey');
+    }
     // Both credentials address the same seat and its single pending score claim.
-    this.bindings.set(verifier, this.find(id) ?? { id });
+    this.bindings.set(verifier, tokenRecord ?? this.find(id) ?? { id });
     return true;
   }
 
@@ -159,9 +172,19 @@ export class MatchRejoins {
     }
   }
 
-  previousId(token: string): string | undefined {
+  tokenSeat(token: string): TokenSeat | undefined {
     this.prune();
-    return this.records.get(token)?.id;
+    const record = this.records.get(token);
+    if (!record) return;
+    const { id } = record;
+    return {
+      id,
+      bindVerifier: (verifier) => {
+        // The transport calls this synchronously after admitting the token's connection.
+        if (this.records.get(token) === record && record.id === id)
+          this.bindVerifier(id, verifier, record);
+      },
+    };
   }
 
   /** Called synchronously after the transport authorizes a seat with a token or proof. */
@@ -183,6 +206,10 @@ export class MatchRejoins {
   private move(record: RejoinRecord, id: string, kind: 'rekey' | 'restore'): void {
     if (record.id === id) return;
     record.id = id;
+    this.advance(record, kind);
+  }
+
+  private advance(record: RejoinRecord, kind: 'rekey' | 'restore'): void {
     record.change = { revision: (record.change?.revision ?? 0) + 1, kind };
   }
 

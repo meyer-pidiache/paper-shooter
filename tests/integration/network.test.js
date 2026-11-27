@@ -92,7 +92,10 @@ describe('PeerJS lobby transport', () => {
     host.sendTo(previous, 'rejoin-token', { key: host.rejoinKey, token });
     await flushMessages();
     host.maxPlayers = 2;
-    host.onPeerResume = vi.fn((value) => (value === token ? previous : undefined));
+    const bindVerifier = vi.fn();
+    host.onPeerResume = vi.fn((value) =>
+      value === token ? { id: previous, bindVerifier } : undefined,
+    );
 
     outsider.rejoinCredentials.save('PUB0', {
       hostId: host.id,
@@ -115,6 +118,7 @@ describe('PeerJS lobby transport', () => {
     const reloaded = make(credentials);
     await reloaded.quickJoin();
     expect(host.onPeerResume).toHaveBeenLastCalledWith(token);
+    expect(bindVerifier).toHaveBeenCalledOnce();
     expect(reloaded.hostId).toBe(host.id);
     expect(host.peerIds).toEqual([reloaded.id]);
   });

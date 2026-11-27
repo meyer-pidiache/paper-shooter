@@ -400,7 +400,8 @@ export class Net {
   }
   _seat(conn, { reply, resume = false, token, proofPrevious }) {
     if (!conn.open || this.conns.has(conn.peer)) return;
-    const previous = proofPrevious ?? (token && this.onPeerResume?.(token));
+    const tokenSeat = resume && !proofPrevious && token ? this.onPeerResume?.(token) : undefined;
+    const previous = proofPrevious ?? tokenSeat?.id;
     const old = previous && this.conns.get(previous);
     if (!this.accepting || (this._full() && !old)) {
       this._refuse(conn);
@@ -420,6 +421,7 @@ export class Net {
     this.conns.set(conn.peer, conn);
     this._wire(conn);
     this._startPingPolling();
+    tokenSeat?.bindVerifier(this.rejoinVerifierFor(conn.peer));
     this.onPeerJoin?.(conn.peer, conn.metadata || {}, previous || undefined);
     return true;
   }

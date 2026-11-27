@@ -199,14 +199,43 @@ it.each(['teams', 'ffa'])(
     host.scores.get(host.net.id).kills = 3;
     host.app.match.sendScores();
     await flushMessages();
-    expect(saved.get(code)).toBeDefined();
+    const token = saved.get(code);
+    expect(token).toBeDefined();
     expect(saved.getProof(code)).toBeUndefined();
     guest.net.leave();
     await flushMessages();
 
-    if (mode === 'teams') vi.stubGlobal('crypto', webcrypto);
     const returning = make(saved);
-    await returning.app.multiplayer.quickPlay();
+    let interruptedBinding;
+    let lastSnapshot;
+    if (mode === 'teams') {
+      vi.stubGlobal('crypto', webcrypto);
+      successor.net.conns.get(host.net.id).on('data', (packet) => {
+        if (packet.t === 'lobby') lastSnapshot = packet.d.rejoins;
+      });
+      let interruptedId;
+      host.net.peer.once('connection', (connection) => {
+        interruptedId = connection.peer;
+        connection.other.on('data', ({ t, d }) => {
+          // The host accepted the token, but this channel closes before the next lobby packet.
+          if (t === 'welcome' && !d.rejoinKey) connection.close();
+        });
+      });
+      await withinStep('interrupted token recovery', () => returning.net.quickJoin());
+      await flushMessages();
+      expect(returning.net.active).toBe(false);
+      expect(saved.get(code)).toEqual(token);
+      expect(saved.getProof(code)).toBeUndefined();
+      expect(host.lobby.players.has(interruptedId)).toBe(false);
+      expect(host.scores.has(interruptedId)).toBe(false);
+      expect(host.lobby.teamBank).toEqual({ red: 4, blue: 0 });
+      interruptedBinding = lastSnapshot.bindings.find(({ id }) => id === interruptedId);
+      expect(interruptedBinding).toMatchObject({
+        verifier: expect.stringMatching(/^04[a-f0-9]{128}$/),
+        pending: { score: departed },
+      });
+    }
+    await withinStep('token recovery retry', () => returning.app.multiplayer.quickPlay());
     await flushMessages();
     expect(host.scores.get(returning.net.id)).toMatchObject(departed);
     if (mode === 'ffa') {
@@ -218,6 +247,19 @@ it.each(['teams', 'ffa'])(
     }
     expect(host.lobby.players.get(returning.net.id)?.team).toBe('red');
     expect(host.lobby.teamBank).toEqual({ red: 0, blue: 0 });
+    expect([...host.lobby.players.keys()]).toEqual([
+      host.net.id,
+      successor.net.id,
+      returning.net.id,
+    ]);
+    const proof = saved.getProof(code);
+    expect(proof).toMatchObject({ hostId: host.net.id, match: lastSnapshot.match });
+    expect(proof.verifier).not.toBe(interruptedBinding.verifier);
+    expect(
+      lastSnapshot.bindings.filter(
+        ({ id, verifier }) => id === returning.net.id || verifier === interruptedBinding.verifier,
+      ),
+    ).toEqual([{ id: returning.net.id, verifier: proof.verifier }]);
     const returnedId = returning.net.id;
     returning.net.leave();
     await flushMessages();
@@ -235,7 +277,11 @@ it.each(['teams', 'ffa'])(
     expect(successor.lobby.players.get(migrated.net.id)?.team).toBe('red');
     expect(successor.scores.has(returnedId)).toBe(false);
     expect(successor.lobby.teamBank).toEqual({ red: 3, blue: 0 });
-    expect(saved.getProof(code)?.hostId).toBe(successor.net.id);
+    expect(saved.getProof(code)).toMatchObject({
+      hostId: successor.net.id,
+      match: proof.match,
+      verifier: proof.verifier,
+    });
   },
 );
 

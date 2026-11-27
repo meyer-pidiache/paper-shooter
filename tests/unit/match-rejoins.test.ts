@@ -12,17 +12,17 @@ it('keeps a disconnected score until the grace period expires', () => {
   score.kills = 0;
 
   now = 89_999;
-  expect(rejoins.previousId(first)).toBe('first');
+  expect(rejoins.tokenSeat(first)?.id).toBe('first');
   expect(rejoins.restore('first', 'replacement', undefined)).toEqual({
     name: 'paper',
     kills: 6,
     deaths: 2,
   });
   now = 90_000;
-  expect(rejoins.previousId(second)).toBeUndefined();
-  expect(rejoins.previousId(first)).toBe('replacement');
+  expect(rejoins.tokenSeat(second)).toBeUndefined();
+  expect(rejoins.tokenSeat(first)?.id).toBe('replacement');
   rejoins.clear();
-  expect(rejoins.previousId(first)).toBeUndefined();
+  expect(rejoins.tokenSeat(first)).toBeUndefined();
 });
 
 it.each(['token', 'proof'] as const)(
@@ -45,19 +45,24 @@ it.each(['token', 'proof'] as const)(
     const debits: [string, number][] = [];
     const debit = (team: string, kills: number) => debits.push([team, kills]);
     const resolve = {
-      token: () => rejoins.previousId(token),
+      token: () => {
+        const seat = rejoins.tokenSeat(token);
+        seat?.bindVerifier(first === 'token' ? undefined : verifier);
+        return seat?.id;
+      },
       proof: () => rejoins.proofId(match, verifier),
     };
 
-    expect(resolve[first]()).toBe('departed');
-    expect(rejoins.restore(resolve[first]()!, 'returning', undefined, debit)).toEqual(score);
+    const previous = resolve[first]();
+    expect(previous).toBe('departed');
+    expect(rejoins.restore(previous!, 'returning', undefined, debit)).toEqual(score);
     expect(rejoins.snapshot()).toEqual([{ id: 'returning', verifier }]);
-    expect(rejoins.previousId(token)).toBe('returning');
+    expect(rejoins.tokenSeat(token)?.id).toBe('returning');
     expect(rejoins.proofId(match, verifier)).toBe('returning');
     expect(rejoins.bind('returning', '04' + 'cd'.repeat(64))).toBe(false);
     const alternate = first === 'token' ? 'proof' : 'token';
     expect(rejoins.restore(resolve[alternate]()!, 'replacement', score, debit)).toEqual(score);
-    expect(rejoins.previousId(token)).toBe('replacement');
+    expect(rejoins.tokenSeat(token)?.id).toBe('replacement');
     expect(rejoins.proofId(match, verifier)).toBe('replacement');
     expect(debits).toEqual([['blue', 4]]);
   },
@@ -133,7 +138,7 @@ it('carries an absolute deadline and exact bank attribution through replica prom
     () => now,
   );
   successor.receive({ match, bindings: host.snapshot(), scores: [] });
-  expect(successor.previousId(verifier)).toBeUndefined();
+  expect(successor.tokenSeat(verifier)).toBeUndefined();
   expect(successor.proofId('other match', verifier)).toBeUndefined();
   expect(successor.proofId(match, verifier)).toBe('departed');
   expect(successor.snapshot()[0].pending).toEqual({ expiresAt: 190_000, score });

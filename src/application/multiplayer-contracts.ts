@@ -11,7 +11,7 @@ import type {
 import type { ReplicatedPeer, NetworkSyncPorts } from './network-sync.js';
 import type { MatchClockPorts } from './match-clock.js';
 import type { RosterPeer } from './remote-roster.js';
-import type { ProofSeat } from './match-rejoins.js';
+import type { ProofSeat, TokenSeat } from './match-rejoins.js';
 import type { LobbyTransport, LobbyState, LobbyConnectionPorts } from './lobby-contracts.js';
 import type { Pickup } from './pickup-contracts.js';
 import type { KillFeedEntry } from '../presentation/kill-feed.js';
@@ -37,7 +37,7 @@ export interface MultiplayerTransport extends LobbyTransport {
   hostName: string;
   onPeerJoin: ((id: string, metadata: unknown, previous?: string) => void) | null;
   onPeerLeave: ((id: string, reason?: string) => void) | null;
-  onPeerResume: ((token: string) => string | undefined) | null;
+  onPeerResume: ((token: string) => TokenSeat | undefined) | null;
   onPeerProof?: ((match: string, verifier: string) => ProofSeat | undefined) | null;
   canSeatPeer?: ((id: string, previous?: string) => boolean) | null;
   rejoinVerifierFor?(id: string): unknown;
