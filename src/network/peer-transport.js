@@ -559,7 +559,7 @@ export class Net {
       await this._queryLobby(
         peer,
         [credential.hostId],
-        { ...meta, resume: true, probe: true },
+        { ...(await this._joinMetadata(meta, generation)), resume: true, probe: true },
         {
           rejoinToken: (key, hostId) =>
             key === credential.key && hostId === credential.hostId ? credential.token : undefined,

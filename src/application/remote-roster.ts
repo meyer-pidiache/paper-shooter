@@ -256,7 +256,8 @@ export class RemoteRoster<Peer extends RosterPeer> {
           deaths: 0,
           ...(lobby.players.get(id)?.team ? { team: lobby.players.get(id)!.team } : {}),
         });
-      if (!previous) this.offerRejoin(id);
+      if (previous) this.rejoins.bind(id, transport.rejoinVerifierFor?.(id));
+      else this.offerRejoin(id);
       if (publishTogether) this.broadcast();
       transport.sendTo(id, 'start', {
         late: true,

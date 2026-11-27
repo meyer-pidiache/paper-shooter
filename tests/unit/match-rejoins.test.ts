@@ -25,6 +25,44 @@ it('keeps a disconnected score until the grace period expires', () => {
   expect(rejoins.previousId(first)).toBeUndefined();
 });
 
+it.each(['token', 'proof'] as const)(
+  'restores a seat with both credentials once when it first returns by %s',
+  (first) => {
+    const verifier = '04' + 'ab'.repeat(64);
+    const rejoins = new MatchRejoins(
+      () => 123,
+      () => 100_000,
+    );
+    rejoins.startTeams();
+    const match = rejoins.match!;
+    const token = rejoins.track('departed');
+    expect(rejoins.bind('departed', verifier)).toBe(true);
+    const score = { name: 'paper', team: 'blue' as const, kills: 4, deaths: 2 };
+    rejoins.disconnect('departed', score);
+    expect(rejoins.snapshot()).toEqual([
+      { id: 'departed', verifier, pending: { score, expiresAt: 190_000 } },
+    ]);
+    const debits: [string, number][] = [];
+    const debit = (team: string, kills: number) => debits.push([team, kills]);
+    const resolve = {
+      token: () => rejoins.previousId(token),
+      proof: () => rejoins.proofId(match, verifier),
+    };
+
+    expect(resolve[first]()).toBe('departed');
+    expect(rejoins.restore(resolve[first]()!, 'returning', undefined, debit)).toEqual(score);
+    expect(rejoins.snapshot()).toEqual([{ id: 'returning', verifier }]);
+    expect(rejoins.previousId(token)).toBe('returning');
+    expect(rejoins.proofId(match, verifier)).toBe('returning');
+    expect(rejoins.bind('returning', '04' + 'cd'.repeat(64))).toBe(false);
+    const alternate = first === 'token' ? 'proof' : 'token';
+    expect(rejoins.restore(resolve[alternate]()!, 'replacement', score, debit)).toEqual(score);
+    expect(rejoins.previousId(token)).toBe('replacement');
+    expect(rejoins.proofId(match, verifier)).toBe('replacement');
+    expect(debits).toEqual([['blue', 4]]);
+  },
+);
+
 it('carries an absolute deadline and exact bank attribution through replica promotion', () => {
   const verifier = '04' + 'ab'.repeat(64);
   let now = 100_000;

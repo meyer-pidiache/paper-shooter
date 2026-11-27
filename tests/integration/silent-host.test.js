@@ -133,6 +133,83 @@ it(
   },
 );
 
+it.each(['teams', 'ffa'])(
+  'recovers a legacy %s seat and makes it portable when supported',
+  async (mode) => {
+    vi.useFakeTimers();
+    vi.stubGlobal('crypto', webcrypto);
+    const { Peer } = peerNetwork();
+    const make = (rejoinCredentials = new RejoinCredentials(null)) => {
+      const fixture = applicationFixture('district', {
+        net: new Net({
+          PeerClass: Peer,
+          options: async () => ({}),
+          namespace: 'token-recovery-',
+          rejoinCredentials,
+        }),
+      });
+      fixtures.push(fixture);
+      return fixture;
+    };
+    const saved = new RejoinCredentials(null);
+    const host = make();
+    const successor = make();
+    const guest = make(saved);
+    await host.app.multiplayer.createLobby(true);
+    const code = host.net.code;
+    host.lobby.mode = mode;
+    host.app.multiplayer.broadcastLobby();
+    await successor.app.multiplayer.joinLobby(code);
+    vi.stubGlobal('crypto', { getRandomValues: webcrypto.getRandomValues.bind(webcrypto) });
+    await guest.app.multiplayer.joinLobby(code);
+    await flushMessages();
+    host.app.session.hostStart();
+    await flushMessages();
+    const departed = { kills: 4, deaths: 2, ...(mode === 'teams' ? { team: 'red' } : {}) };
+    Object.assign(host.scores.get(guest.net.id), departed);
+    host.scores.get(host.net.id).kills = 3;
+    host.app.match.sendScores();
+    await flushMessages();
+    expect(saved.get(code)).toBeDefined();
+    expect(saved.getProof(code)).toBeUndefined();
+    guest.net.leave();
+    await flushMessages();
+
+    if (mode === 'teams') vi.stubGlobal('crypto', webcrypto);
+    const returning = make(saved);
+    await returning.app.multiplayer.quickPlay();
+    await flushMessages();
+    expect(host.scores.get(returning.net.id)).toMatchObject(departed);
+    if (mode === 'ffa') {
+      expect(saved.get(code)).toBeDefined();
+      expect(saved.getProof(code)).toBeUndefined();
+      expect(host.scores.get(returning.net.id).team).toBeUndefined();
+      expect(host.lobby.teamBank).toEqual({ red: 0, blue: 0 });
+      return;
+    }
+    expect(host.lobby.players.get(returning.net.id)?.team).toBe('red');
+    expect(host.lobby.teamBank).toEqual({ red: 0, blue: 0 });
+    const returnedId = returning.net.id;
+    returning.net.leave();
+    await flushMessages();
+    expect(successor.lobby.teamBank).toEqual({ red: 4, blue: 0 });
+    host.net.leave();
+    await vi.advanceTimersByTimeAsync(3000);
+    await flushMessages();
+    expect(successor.net.code).toBe(code + '-1');
+    expect(successor.lobby.teamBank).toEqual({ red: 7, blue: 0 });
+
+    const migrated = make(saved);
+    await migrated.app.multiplayer.joinLobby(code);
+    await flushMessages();
+    expect(successor.scores.get(migrated.net.id)).toMatchObject(departed);
+    expect(successor.lobby.players.get(migrated.net.id)?.team).toBe('red');
+    expect(successor.scores.has(returnedId)).toBe(false);
+    expect(successor.lobby.teamBank).toEqual({ red: 3, blue: 0 });
+    expect(saved.getProof(code)?.hostId).toBe(successor.net.id);
+  },
+);
+
 it('restores a disconnected Teams row across migration and transfers its banked kills atomically', async () => {
   vi.useFakeTimers();
   vi.stubGlobal('crypto', webcrypto);

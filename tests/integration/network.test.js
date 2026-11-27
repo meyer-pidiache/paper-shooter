@@ -99,7 +99,15 @@ describe('PeerJS lobby transport', () => {
       key: host.rejoinKey,
       token: 'b'.repeat(32),
     });
-    const noOpenLobby = expect(outsider.quickJoin()).rejects.toThrow('no open public');
+    // The rejected recovery must enter discovery before its fake timeout is advanced.
+    let startDiscovery;
+    const discoveryStarted = new Promise((resolve) => (startDiscovery = resolve));
+    const noOpenLobby = expect(
+      outsider.quickJoin({}, (status) => {
+        if (status === 'looking for an open lobby…') startDiscovery();
+      }),
+    ).rejects.toThrow('no open public');
+    await discoveryStarted;
     await vi.advanceTimersByTimeAsync(2300);
     await noOpenLobby;
     expect(host.peerIds).toEqual([previous]);

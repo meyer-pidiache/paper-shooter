@@ -6,7 +6,7 @@ import { isRejoinVerifier, MAX_REJOIN_BINDINGS } from '../network/rejoin-proof.j
 const REJOIN_GRACE_MS = 90_000;
 type RejoinRecord = {
   id: string;
-  pending?: { score: Score; expiresAt: number };
+  pending?: NonNullable<RejoinBinding['pending']> & { tokenExpiresAt?: number };
 };
 
 /** Legacy tokens stay host-local; Teams replicas receive only match-scoped public bindings. */
@@ -25,15 +25,16 @@ export class MatchRejoins {
   }
 
   bind(id: string, verifier: unknown): boolean {
-    this.prune();
     if (
       !this.match ||
       !isRejoinVerifier(verifier) ||
+      this.protectedId(id) ||
       this.bindings.has(verifier) ||
       this.bindings.size >= MAX_REJOIN_BINDINGS
     )
       return false;
-    this.bindings.set(verifier, { id });
+    // Both credentials address the same seat and its single pending score claim.
+    this.bindings.set(verifier, this.find(id) ?? { id });
     return true;
   }
 
@@ -52,7 +53,7 @@ export class MatchRejoins {
     return Array.from(this.bindings, ([verifier, { id, pending }]) => ({
       id,
       verifier,
-      ...(pending ? { pending } : {}),
+      ...(pending ? { pending: { score: pending.score, expiresAt: pending.expiresAt } } : {}),
     }));
   }
 
@@ -90,18 +91,23 @@ export class MatchRejoins {
   track(id: string): string {
     this.prune();
     const token = newRejoinSecret();
-    this.records.set(token, { id });
+    this.records.set(token, this.find(id) ?? { id });
     return token;
   }
 
   disconnect(id: string, score: Score | undefined): void {
     this.prune();
-    for (const records of [this.bindings, this.records]) {
-      const expiresAt = (records === this.bindings ? this.wallNow() : this.now()) + REJOIN_GRACE_MS;
-      for (const [key, record] of records) {
-        if (record.id !== id || record.pending) continue;
-        if (score) record.pending = { score: { ...score }, expiresAt };
-        else records.delete(key);
+    const record = this.find(id);
+    if (!record || record.pending) return;
+    if (score) {
+      record.pending = {
+        score: { ...score },
+        expiresAt: this.wallNow() + REJOIN_GRACE_MS,
+        tokenExpiresAt: this.now() + REJOIN_GRACE_MS,
+      };
+    } else {
+      for (const records of [this.bindings, this.records]) {
+        for (const [key, candidate] of records) if (candidate === record) records.delete(key);
       }
     }
   }
@@ -141,9 +147,11 @@ export class MatchRejoins {
 
   private prune(): void {
     for (const records of [this.bindings, this.records]) {
-      const now = records === this.bindings ? this.wallNow() : this.now();
+      const portable = records === this.bindings;
+      const now = portable ? this.wallNow() : this.now();
       for (const [key, { pending }] of records)
-        if (pending && pending.expiresAt <= now) records.delete(key);
+        if (pending && (portable ? pending.expiresAt : (pending.tokenExpiresAt ?? 0)) <= now)
+          records.delete(key);
     }
   }
 }
