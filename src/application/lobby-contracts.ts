@@ -73,7 +73,15 @@ export interface HostMigrationPorts extends Pick<
 > {
   transport: Pick<
     LobbyTransport,
-    'id' | 'code' | 'accepting' | 'onAlias' | 'host' | 'join' | 'migrationRejoin' | 'claimAlias' | 'leave'
+    | 'id'
+    | 'code'
+    | 'accepting'
+    | 'onAlias'
+    | 'host'
+    | 'join'
+    | 'migrationRejoin'
+    | 'claimAlias'
+    | 'leave'
   >;
   local: Pick<LobbyConnectionPorts['local'], 'myName' | 'playerColor'>;
   session: Pick<

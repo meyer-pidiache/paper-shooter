@@ -170,14 +170,17 @@ export class RemoteRoster<Peer extends RosterPeer> {
         })),
         ...(lobby.mode ? { mode: lobby.mode } : {}),
         ...(lobby.mode === 'teams' && lobby.teamBank ? { teamBank: lobby.teamBank } : {}),
-        ...(lobby.mode === 'teams' && this.rejoins.match ? {
-          rejoins: {
-            match: this.rejoins.match,
-            bindings: this.rejoins.snapshot(),
-            scores: [...scores].filter(([id]) => lobby.players.has(id))
-              .map(([id, score]) => ({ id, ...score })),
-          },
-        } : {}),
+        ...(lobby.mode === 'teams' && this.rejoins.match
+          ? {
+              rejoins: {
+                match: this.rejoins.match,
+                bindings: this.rejoins.snapshot(),
+                scores: [...scores]
+                  .filter(([id]) => lobby.players.has(id))
+                  .map(([id, score]) => ({ id, ...score })),
+              },
+            }
+          : {}),
         hostId: id,
         isPublic: lobby.isPublic,
         map: lobby.map || map(),

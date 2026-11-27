@@ -280,14 +280,21 @@ export class Net {
     if (msg.t === 'lobby' && fromAuthority && msg.d.hostId === this.authorityId) {
       const snapshot = msg.d.rejoins;
       const key = this.proofKey;
-      const binding = key && snapshot?.bindings.some((entry) =>
-        !entry.pending && entry.id === this.id && entry.verifier === key.verifier,
-      );
+      const binding =
+        key &&
+        snapshot?.bindings.some(
+          (entry) => !entry.pending && entry.id === this.id && entry.verifier === key.verifier,
+        );
       if (!binding) this.boundProof = undefined;
-      else if (this.boundProof?.match !== snapshot.match ||
-          this.boundProof.hostId !== this.authorityId) {
+      else if (
+        this.boundProof?.match !== snapshot.match ||
+        this.boundProof.hostId !== this.authorityId
+      ) {
         this.boundProof = { ...key, match: snapshot.match, hostId: this.authorityId };
-        this.rejoinCredentials.saveProof(this.authorityId.slice(this.prefix.length), this.boundProof);
+        this.rejoinCredentials.saveProof(
+          this.authorityId.slice(this.prefix.length),
+          this.boundProof,
+        );
       }
     }
     if (msg.t === 'stay') return;
@@ -459,15 +466,19 @@ export class Net {
     const { rejoinMatch: match, rejoinVerifier: verifier } = conn.metadata;
     const host = this.id;
     const client = conn.peer;
-    const previous = isRejoinSecret(match) && isRejoinVerifier(verifier) &&
-      this.onPeerProof?.(match, verifier);
+    const previous =
+      isRejoinSecret(match) && isRejoinVerifier(verifier) && this.onPeerProof?.(match, verifier);
     if (!previous) {
       this._refuse(conn, 'score recovery is unavailable');
       return;
     }
     const challenge = { nonce: newRejoinSecret(), match, endpoint };
-    const current = () => generation === this.generation && this.isHost && this.id === host &&
-      conn.open && !this.conns.has(client);
+    const current = () =>
+      generation === this.generation &&
+      this.isHost &&
+      this.id === host &&
+      conn.open &&
+      !this.conns.has(client);
     let used = false;
     const stop = () => {
       clearTimeout(timer);
@@ -479,8 +490,10 @@ export class Net {
       if (used || !isWireMessage(msg) || msg.t !== 'stay') return;
       used = true;
       conn.off('data', onData);
-      const verified = this._validMessage(msg) && !msg.d?.token &&
-        await verifyRejoin(verifier, msg.d?.proof, challenge, host, client);
+      const verified =
+        this._validMessage(msg) &&
+        !msg.d?.token &&
+        (await verifyRejoin(verifier, msg.d?.proof, challenge, host, client));
       stop();
       if (!current()) return;
       if (!verified || this.onPeerProof?.(match, verifier) !== previous) {
@@ -547,8 +560,10 @@ export class Net {
         peer,
         [credential.hostId],
         { ...meta, resume: true, probe: true },
-        { rejoinToken: (key, hostId) =>
-          key === credential.key && hostId === credential.hostId ? credential.token : undefined },
+        {
+          rejoinToken: (key, hostId) =>
+            key === credential.key && hostId === credential.hostId ? credential.token : undefined,
+        },
       );
       return true;
     } catch (error) {
@@ -560,11 +575,14 @@ export class Net {
     const base = code.replace(/-\d+$/, '');
     const prior = Number(priorHostId.match(/-(\d+)$/)?.[1] ?? 0);
     const generations = Number.isSafeInteger(prior + 3) ? [prior + 1, prior + 2, prior + 3] : [];
-    return [...new Set([
-      ...[code, base, ...[1, 2, 3, ...generations].map((n) => `${base}-${n}`)]
-        .map((candidate) => this.prefix + candidate),
-      priorHostId,
-    ])];
+    return [
+      ...new Set([
+        ...[code, base, ...[1, 2, 3, ...generations].map((n) => `${base}-${n}`)].map(
+          (candidate) => this.prefix + candidate,
+        ),
+        priorHostId,
+      ]),
+    ];
   }
   async _resumeProof(peer, code, credential, meta) {
     const generation = this.generation;
@@ -573,14 +591,24 @@ export class Net {
     if (credential.hostId.replace(/-\d+$/, '') !== baseId) return false;
     this.proofKey = { verifier: credential.verifier, privateKey: credential.privateKey };
     try {
-      await this._queryLobby(peer, meta.prev ? [exact] : this._sameCodeIds(code, credential.hostId), {
-        ...meta, resume: true, probe: true, rejoinVerifier: credential.verifier,
-        rejoinMatch: credential.match,
-      }, { rejoinProof: {
-        match: credential.match,
-        acceptsHost: (id) => meta.prev ? id === exact : id.replace(/-\d+$/, '') === baseId,
-        sign: (challenge, host) => signRejoin(credential, challenge, host, peer.id),
-      } });
+      await this._queryLobby(
+        peer,
+        meta.prev ? [exact] : this._sameCodeIds(code, credential.hostId),
+        {
+          ...meta,
+          resume: true,
+          probe: true,
+          rejoinVerifier: credential.verifier,
+          rejoinMatch: credential.match,
+        },
+        {
+          rejoinProof: {
+            match: credential.match,
+            acceptsHost: (id) => (meta.prev ? id === exact : id.replace(/-\d+$/, '') === baseId),
+            sign: (challenge, host) => signRejoin(credential, challenge, host, peer.id),
+          },
+        },
+      );
       return true;
     } catch (error) {
       if (generation !== this.generation) throw error;
@@ -647,21 +675,28 @@ export class Net {
     this.leave();
     const generation = this.generation;
     try {
-      const credential = this.rejoinCredentials.latestPublicRecovery(this.prefix, PUBLIC_SLOT_COUNT);
+      const credential = this.rejoinCredentials.latestPublicRecovery(
+        this.prefix,
+        PUBLIC_SLOT_COUNT,
+      );
       if (credential) {
         const peer = await this._newPeer(null);
         try {
           onStatus?.('rejoining your last match…');
           if (generation !== this.generation) throw new Error('lobby operation cancelled');
-          const resumed = 'match' in credential
-            ? await this._resumeProof(peer, credential.code, credential, meta)
-            : await this._resume(peer, credential, meta);
+          const resumed =
+            'match' in credential
+              ? await this._resumeProof(peer, credential.code, credential, meta)
+              : await this._resume(peer, credential, meta);
           if (resumed) return this.code;
         } finally {
           if (this.peer !== peer) peer.destroy();
         }
       }
-      await this.discovery.join(meta, (peer, offer) => this._adoptOffer(peer, offer), onStatus,
+      await this.discovery.join(
+        meta,
+        (peer, offer) => this._adoptOffer(peer, offer),
+        onStatus,
         async () => {
           const { rejoinVerifier } = await this._joinMetadata({}, generation);
           return rejoinVerifier ? { rejoinVerifier } : undefined;

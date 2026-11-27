@@ -22,14 +22,19 @@ export function isRejoinKeyPair(value: unknown): value is RejoinKeyPair {
     return false;
   const { kty, crv, x, y, d } = value.privateKey;
   const coordinate = /^[A-Za-z0-9_-]{43}$/;
-  return kty === 'EC' && crv === 'P-256' && [x, y, d].every(
-    (part) => typeof part === 'string' && coordinate.test(part),
+  return (
+    kty === 'EC' &&
+    crv === 'P-256' &&
+    [x, y, d].every((part) => typeof part === 'string' && coordinate.test(part))
   );
 }
 
 export async function createRejoinKey(): Promise<RejoinKeyPair | undefined> {
   try {
-    const { publicKey, privateKey } = await crypto.subtle.generateKey(curve, true, ['sign', 'verify']);
+    const { publicKey, privateKey } = await crypto.subtle.generateKey(curve, true, [
+      'sign',
+      'verify',
+    ]);
     return {
       verifier: hex(await crypto.subtle.exportKey('raw', publicKey)),
       privateKey: await crypto.subtle.exportKey('jwk', privateKey),
@@ -47,33 +52,54 @@ export interface RejoinChallenge {
 }
 
 function transcript(challenge: RejoinChallenge, host: string, client: string, verifier: string) {
-  return new TextEncoder().encode(JSON.stringify([
-    'paper-shooter/rejoin/v1', challenge.match, challenge.nonce, challenge.endpoint, host, client,
-    verifier,
-  ]));
+  return new TextEncoder().encode(
+    JSON.stringify([
+      'paper-shooter/rejoin/v1',
+      challenge.match,
+      challenge.nonce,
+      challenge.endpoint,
+      host,
+      client,
+      verifier,
+    ]),
+  );
 }
 
 export async function signRejoin(
-  key: RejoinKeyPair, challenge: RejoinChallenge, host: string, client: string,
+  key: RejoinKeyPair,
+  challenge: RejoinChallenge,
+  host: string,
+  client: string,
 ): Promise<string | undefined> {
   try {
     const privateKey = await crypto.subtle.importKey('jwk', key.privateKey, curve, false, ['sign']);
-    return hex(await crypto.subtle.sign(
-      algorithm, privateKey, transcript(challenge, host, client, key.verifier),
-    ));
+    return hex(
+      await crypto.subtle.sign(
+        algorithm,
+        privateKey,
+        transcript(challenge, host, client, key.verifier),
+      ),
+    );
   } catch {
     return undefined;
   }
 }
 
 export async function verifyRejoin(
-  verifier: string, signature: unknown, challenge: RejoinChallenge, host: string, client: string,
+  verifier: string,
+  signature: unknown,
+  challenge: RejoinChallenge,
+  host: string,
+  client: string,
 ): Promise<boolean> {
   if (!isRejoinVerifier(verifier) || !isRejoinSignature(signature)) return false;
   try {
     const key = await crypto.subtle.importKey('raw', bytes(verifier), curve, false, ['verify']);
     return await crypto.subtle.verify(
-      algorithm, key, bytes(signature), transcript(challenge, host, client, verifier),
+      algorithm,
+      key,
+      bytes(signature),
+      transcript(challenge, host, client, verifier),
     );
   } catch {
     return false;

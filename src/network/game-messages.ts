@@ -69,12 +69,18 @@ const pendingScore = record({ name: text(128), kills: integer, deaths: integer, 
 const binding = record({
   id,
   verifier: isRejoinVerifier,
-  pending: optional(record({
-    score: pendingScore,
-    expiresAt: (value) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0,
-  })),
+  pending: optional(
+    record({
+      score: pendingScore,
+      expiresAt: (value) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0,
+    }),
+  ),
 });
-const rejoins = record({ match: isRejoinSecret, bindings: array(binding, MAX_REJOIN_BINDINGS), scores: score });
+const rejoins = record({
+  match: isRejoinSecret,
+  bindings: array(binding, MAX_REJOIN_BINDINGS),
+  scores: score,
+});
 
 const rosterShape = record({
   players: array(player, MAX_PLAYERS),
@@ -95,9 +101,11 @@ function roster(value: unknown): boolean {
   if (players.size !== data.players.length || !players.has(data.hostId)) return false;
   const snapshot = data.rejoins;
   if (!snapshot) return true;
-  if (data.mode !== 'teams' || snapshot.scores.some(
-    (row) => !players.has(row.id) || row.team !== players.get(row.id)?.team,
-  )) return false;
+  if (
+    data.mode !== 'teams' ||
+    snapshot.scores.some((row) => !players.has(row.id) || row.team !== players.get(row.id)?.team)
+  )
+    return false;
   const ids = new Set<string>();
   const verifiers = new Set<string>();
   const attributed = { red: 0, blue: 0 };
@@ -107,8 +115,9 @@ function roster(value: unknown): boolean {
     verifiers.add(verifier);
     if (pending?.score.team) attributed[pending.score.team] += pending.score.kills;
   }
-  return attributed.red <= (data.teamBank?.red ?? 0) &&
-    attributed.blue <= (data.teamBank?.blue ?? 0);
+  return (
+    attributed.red <= (data.teamBank?.red ?? 0) && attributed.blue <= (data.teamBank?.blue ?? 0)
+  );
 }
 function spawnTable(value: unknown): boolean {
   return (
@@ -178,11 +187,13 @@ const validators: Record<keyof import('./game-message-types.js').GamePayloads, V
       Object.entries(offerFields).map(([key, check]) => [key, optional(check)]),
     ),
   }),
-  stay: optional(record({
-    token: optional(isRejoinSecret),
-    proof: optional(isRejoinSignature),
-    rejoinVerifier: optional(isRejoinVerifier),
-  })),
+  stay: optional(
+    record({
+      token: optional(isRejoinSecret),
+      proof: optional(isRejoinSignature),
+      rejoinVerifier: optional(isRejoinVerifier),
+    }),
+  ),
   'rejoin-token': record({ key: isRejoinSecret, token: isRejoinSecret }),
   'player-color': optional(text(16)),
   lobby: roster,

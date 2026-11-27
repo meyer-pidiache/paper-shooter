@@ -76,15 +76,21 @@ export class RejoinCredentials {
   }
 
   get(code: string): RejoinCredential | undefined {
-    return this.read().filter(isSavedToken).find((entry) => entry.code === baseCode(code));
+    return this.read()
+      .filter(isSavedToken)
+      .find((entry) => entry.code === baseCode(code));
   }
 
   getProof(code: string): PortableRejoinCredential | undefined {
-    return this.read().filter(isSavedProof).find((entry) => entry.code === baseCode(code));
+    return this.read()
+      .filter(isSavedProof)
+      .find((entry) => entry.code === baseCode(code));
   }
 
   latestPublic(prefix: string, slotCount: number): RejoinCredential | undefined {
-    return this.read().filter(isSavedToken).find((entry) => publicEntry(entry, prefix, slotCount));
+    return this.read()
+      .filter(isSavedToken)
+      .find((entry) => publicEntry(entry, prefix, slotCount));
   }
 
   latestPublicRecovery(prefix: string, slotCount: number): SavedCredential | undefined {
@@ -96,9 +102,13 @@ export class RejoinCredentials {
     const entries = this.read();
     const previous = entries.find((entry) => entry.code === base);
     if (
-      previous && 'match' in previous && previous.match === credential.match &&
-      previous.hostId === credential.hostId && previous.verifier === credential.verifier
-    ) return;
+      previous &&
+      'match' in previous &&
+      previous.match === credential.match &&
+      previous.hostId === credential.hostId &&
+      previous.verifier === credential.verifier
+    )
+      return;
     this.saveEntry({ ...credential, code: base }, entries);
   }
 
@@ -107,8 +117,10 @@ export class RejoinCredentials {
   }
 
   private saveEntry(entry: SavedCredential, entries: SavedCredential[]): void {
-    this.saved = [entry, ...entries.filter(({ code }) => code !== entry.code)]
-      .slice(0, MAX_SAVED_LOBBIES);
+    this.saved = [entry, ...entries.filter(({ code }) => code !== entry.code)].slice(
+      0,
+      MAX_SAVED_LOBBIES,
+    );
     try {
       this.storage?.setItem(STORAGE_KEY, JSON.stringify(this.saved));
     } catch {

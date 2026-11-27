@@ -258,30 +258,46 @@ export class LobbyQuery {
       const proof = this.options.rejoinProof;
       const { rejoinChallenge: challenge, hostId } = message.d;
       if (!attempt.proofHost) {
-        if (this.proofAttempt || this.peer.id === hostId || message.from !== hostId ||
-            !challenge || challenge.endpoint !== attempt.hostId || challenge.match !== proof.match ||
-            !proof.acceptsHost(hostId)) {
+        if (
+          this.proofAttempt ||
+          this.peer.id === hostId ||
+          message.from !== hostId ||
+          !challenge ||
+          challenge.endpoint !== attempt.hostId ||
+          challenge.match !== proof.match ||
+          !proof.acceptsHost(hostId)
+        ) {
           this.complete(attempt, true);
           return;
         }
         // Signing on more than one alias/canonical channel could replace our own winning seat.
         this.proofAttempt = attempt;
         attempt.proofHost = hostId;
-        void proof.sign(challenge, hostId).then((signature) => {
-          if (this.settled || attempt.done || !attempt.connection.open) return;
-          if (!signature) this.complete(attempt, true);
-          else attempt.connection.send({ t: 'stay', d: { proof: signature } });
-        }).catch(() => {
-          if (!this.settled && !attempt.done) this.complete(attempt, true);
-        });
+        void proof
+          .sign(challenge, hostId)
+          .then((signature) => {
+            if (this.settled || attempt.done || !attempt.connection.open) return;
+            if (!signature) this.complete(attempt, true);
+            else attempt.connection.send({ t: 'stay', d: { proof: signature } });
+          })
+          .catch(() => {
+            if (!this.settled && !attempt.done) this.complete(attempt, true);
+          });
         return;
       }
-      if (challenge || message.d.rejoinKey || attempt.proofHost !== hostId || message.from !== hostId)
+      if (
+        challenge ||
+        message.d.rejoinKey ||
+        attempt.proofHost !== hostId ||
+        message.from !== hostId
+      )
         return;
     }
     if (message.t === 'welcome' && this.options.rejoinToken) {
       if (!attempt.challenged) {
-        const token = message.d.rejoinKey && message.from === message.d.hostId &&
+        const token =
+          message.d.rejoinKey &&
+          message.from === message.d.hostId &&
           this.options.rejoinToken(message.d.rejoinKey, message.d.hostId);
         if (!token) {
           this.complete(attempt);

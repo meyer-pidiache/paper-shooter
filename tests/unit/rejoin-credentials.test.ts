@@ -12,7 +12,13 @@ it('keeps the public recovery shortcut in last-played order across credential ty
     hostId: 'lobby-PUB0-4',
     match: 'a'.repeat(32),
     verifier: `04${'ab'.repeat(64)}`,
-    privateKey: { kty: 'EC', crv: 'P-256', x: 'a'.repeat(43), y: 'b'.repeat(43), d: 'c'.repeat(43) },
+    privateKey: {
+      kty: 'EC',
+      crv: 'P-256',
+      x: 'a'.repeat(43),
+      y: 'b'.repeat(43),
+      d: 'c'.repeat(43),
+    },
   };
   saved.saveProof('PUB0-4', proof);
   const legacy = { hostId: 'lobby-PUB1', key: 'b'.repeat(32), token: 'c'.repeat(32) };
@@ -24,5 +30,8 @@ it('keeps the public recovery shortcut in last-played order across credential ty
   expect(reloaded.get('PUB0')).toBeUndefined();
   expect(reloaded.latestPublicRecovery('lobby-', 16)).toMatchObject(legacy);
   reloaded.saveProof('PUB0-5', { ...proof, hostId: 'lobby-PUB0-5' });
-  expect(reloaded.latestPublicRecovery('lobby-', 16)).toMatchObject({ ...proof, hostId: 'lobby-PUB0-5' });
+  expect(reloaded.latestPublicRecovery('lobby-', 16)).toMatchObject({
+    ...proof,
+    hostId: 'lobby-PUB0-5',
+  });
 });

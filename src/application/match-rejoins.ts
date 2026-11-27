@@ -26,8 +26,13 @@ export class MatchRejoins {
 
   bind(id: string, verifier: unknown): boolean {
     this.prune();
-    if (!this.match || !isRejoinVerifier(verifier) || this.bindings.has(verifier) ||
-        this.bindings.size >= MAX_REJOIN_BINDINGS) return false;
+    if (
+      !this.match ||
+      !isRejoinVerifier(verifier) ||
+      this.bindings.has(verifier) ||
+      this.bindings.size >= MAX_REJOIN_BINDINGS
+    )
+      return false;
     this.bindings.set(verifier, { id });
     return true;
   }
@@ -45,7 +50,9 @@ export class MatchRejoins {
   snapshot(): RejoinBinding[] {
     this.prune();
     return Array.from(this.bindings, ([verifier, { id, pending }]) => ({
-      id, verifier, ...(pending ? { pending } : {}),
+      id,
+      verifier,
+      ...(pending ? { pending } : {}),
     }));
   }
 
@@ -57,11 +64,19 @@ export class MatchRejoins {
     for (const { verifier, id, pending } of snapshot.bindings) {
       this.bindings.set(verifier, {
         id,
-        ...(pending ? { pending: {
-          expiresAt: pending.expiresAt,
-          score: { name: pending.score.name, team: pending.score.team,
-            kills: pending.score.kills, deaths: pending.score.deaths },
-        } } : {}),
+        ...(pending
+          ? {
+              pending: {
+                expiresAt: pending.expiresAt,
+                score: {
+                  name: pending.score.name,
+                  team: pending.score.team,
+                  kills: pending.score.kills,
+                  deaths: pending.score.deaths,
+                },
+              },
+            }
+          : {}),
       });
     }
     this.prune();
@@ -98,7 +113,9 @@ export class MatchRejoins {
 
   /** Called synchronously after the transport authorizes a seat with previousId/proofId. */
   restore(
-    previous: string, id: string, liveScore: Score | undefined,
+    previous: string,
+    id: string,
+    liveScore: Score | undefined,
     debit?: (team: Team, kills: number) => void,
   ): Score | undefined {
     const record = this.find(previous);

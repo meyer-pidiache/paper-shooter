@@ -42,7 +42,12 @@ export class HostMigration {
       return;
     }
     const migration = {
-      myId, roster, base, code, wasInMatch: inMatch(), rejoin: transport.migrationRejoin?.(),
+      myId,
+      roster,
+      base,
+      code,
+      wasInMatch: inMatch(),
+      rejoin: transport.migrationRejoin?.(),
     };
     // Capture identity/roster/clock authority before retiring the old endpoint clears its ids.
     transport.leave();

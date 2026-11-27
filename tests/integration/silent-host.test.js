@@ -153,7 +153,10 @@ it('restores a disconnected Teams row across migration and transfers its banked 
     return fixture;
   };
   const saved = new Map();
-  const host = make(), successor = make(), guest = make(saved), follower = make();
+  const host = make(),
+    successor = make(),
+    guest = make(saved),
+    follower = make();
   await host.app.multiplayer.createLobby(true);
   const code = host.net.code;
   const hostId = host.net.id;
@@ -180,14 +183,21 @@ it('restores a disconnected Teams row across migration and transfers its banked 
   await flushMessages();
   expect(successor.net.code).toBe(code + '-1');
   await vi.waitFor(() => expect(follower.net.authorityId).toBe(successor.net.id));
-  const credential = new RejoinCredentials({ getItem: (key) => saved.get(key) ?? null }).getProof(code);
+  const credential = new RejoinCredentials({ getItem: (key) => saved.get(key) ?? null }).getProof(
+    code,
+  );
   expect(credential).toBeDefined();
   const attacker = new Peer(null, {});
   await new Promise((resolve) => attacker.on('open', resolve));
   const challenge = async (answer) => {
-    const connection = attacker.connect(successor.net.id, { metadata: {
-      resume: true, prev: guestId, rejoinMatch: credential.match, rejoinVerifier: credential.verifier,
-    } });
+    const connection = attacker.connect(successor.net.id, {
+      metadata: {
+        resume: true,
+        prev: guestId,
+        rejoinMatch: credential.match,
+        rejoinVerifier: credential.verifier,
+      },
+    });
     const response = new Promise((resolve) => {
       connection.on('data', async ({ t, d }) => {
         if (t === 'welcome' && d.rejoinChallenge) {
@@ -205,7 +215,9 @@ it('restores a disconnected Teams row across migration and transfers its banked 
   const forgedPrevious = attacker.connect(successor.net.id, {
     metadata: { name: 'imposter', prev: guestId, rejoinVerifier: credential.verifier },
   });
-  await new Promise((resolve) => forgedPrevious.on('data', ({ t }) => t === 'welcome' && resolve()));
+  await new Promise((resolve) =>
+    forgedPrevious.on('data', ({ t }) => t === 'welcome' && resolve()),
+  );
   expect(successor.scores.get(attacker.id)).toMatchObject({ kills: 0, deaths: 0 });
   forgedPrevious.close();
   const reusedId = new Peer(guestId, {});
@@ -217,9 +229,10 @@ it('restores a disconnected Teams row across migration and transfers its banked 
   reusedId.destroy();
   expect(successor.lobby.teamBank).toEqual({ red: 7, blue: 0 });
   expect(successor.scores.has(guestId)).toBe(false);
-  const watchProof = (connection) => connection.on('data', ({ t, d }) => {
-    if (t === 'stay' && d?.proof) signed = d.proof;
-  });
+  const watchProof = (connection) =>
+    connection.on('data', ({ t, d }) => {
+      if (t === 'stay' && d?.proof) signed = d.proof;
+    });
   let signed;
   successor.net.peer.on('connection', watchProof);
   successor.net.alias?.on('connection', watchProof);
@@ -227,8 +240,12 @@ it('restores a disconnected Teams row across migration and transfers its banked 
   follower.net.conns.get(follower.net.hostId).on('data', (packet) => {
     packets.push(packet);
     if (packet.t === 'lobby' || packet.t === 'score')
-      observed.push(follower.lobby.teamBank.red + [...follower.scores.values()]
-        .filter((row) => row.team === 'red').reduce((sum, row) => sum + row.kills, 0));
+      observed.push(
+        follower.lobby.teamBank.red +
+          [...follower.scores.values()]
+            .filter((row) => row.team === 'red')
+            .reduce((sum, row) => sum + row.kills, 0),
+      );
   });
   const returning = make(saved);
   await returning.app.multiplayer.joinLobby(code);

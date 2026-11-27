@@ -28,14 +28,20 @@ it('keeps a disconnected score until the grace period expires', () => {
 it('carries an absolute deadline and exact bank attribution through replica promotion', () => {
   const verifier = '04' + 'ab'.repeat(64);
   let now = 100_000;
-  const host = new MatchRejoins(() => now, () => now);
+  const host = new MatchRejoins(
+    () => now,
+    () => now,
+  );
   host.startTeams();
   const match = host.match!;
   expect(host.bind('departed', verifier)).toBe(true);
   const score = { name: 'paper', team: 'blue' as const, kills: 4, deaths: 2 };
   host.disconnect('departed', score);
   now += 80_000;
-  const successor = new MatchRejoins(() => now, () => now);
+  const successor = new MatchRejoins(
+    () => now,
+    () => now,
+  );
   successor.receive({ match, bindings: host.snapshot(), scores: [] });
   expect(successor.previousId(verifier)).toBeUndefined();
   expect(successor.proofId('other match', verifier)).toBeUndefined();

@@ -119,11 +119,12 @@ export class LobbyDiscovery {
             adopt(peer, offer);
             transfer();
             if (!prepareStay) offer.connection.send({ t: 'stay' });
-            else seating = prepareStay().then((d) => {
-              if (!offer.connection.open)
-                throw new LobbyQueryError('cancelled', 'lobby operation cancelled');
-              offer.connection.send(d ? { t: 'stay', d } : { t: 'stay' });
-            });
+            else
+              seating = prepareStay().then((d) => {
+                if (!offer.connection.open)
+                  throw new LobbyQueryError('cancelled', 'lobby operation cancelled');
+                offer.connection.send(d ? { t: 'stay', d } : { t: 'stay' });
+              });
           },
         };
       });
